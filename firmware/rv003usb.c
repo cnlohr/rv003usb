@@ -8,6 +8,7 @@
 
 #define USB_DM 3
 #define USB_DP 4
+#define USBMASK 0x18181818
 #define USB_PORT GPIOD
 // Port D.3 = D+
 // Port D.4 = D-
@@ -16,35 +17,78 @@
 uint32_t wait_time = 0;
 
 // DMA for shifting the GPIO into.
-uint8_t dma_buffer[128];
+// Actually 2 sets of 4 uint8_t's
+uint32_t dma_buffer[2];
+uint32_t halfway_word;
+
+static void DoneTransaction()
+{
+	TIM1->CTLR1 = 0;
+	TIM1->CNT = 0;
+	uint32_t temp = DMA1_Channel2->CFGR;
+	DMA1_Channel2->CFGR = temp & ~DMA_CFGR1_EN;
+	DMA1_Channel2->CNTR = sizeof(dma_buffer);
+	DMA1_Channel2->CFGR = temp;
+	NVIC_EnableIRQ( EXTI7_0_IRQn );
+}
+
+static void HandleWord( uint32_t word )
+{
+	static uint32_t state;
+	uint32_t localstate = state;
+
+	GPIOC->BSHR = 1<<16;
+	GPIOC->BSHR = 1;
+	word &= USBMASK;
+	int i;
+	for( i = 0; i < 4; i++ )
+	{
+		if( ( word & 0xff ) == 0 )
+		{
+			DoneTransaction();
+			// SE0?
+		}
+		word >>= 8;
+	}
+	halfway_word = word;
+
+	state = localstate;
+}
+
+
+void DMA1_Channel2_IRQHandler( void ) __attribute__((interrupt));
+void DMA1_Channel2_IRQHandler( void ) 
+{
+	GPIOC->BSHR = 1;
+	int i;
+	static int frameno;
+	volatile int intfr = DMA1->INTFR;
+	do
+	{
+		DMA1->INTFCR = DMA1_IT_GL2;
+
+		// Gets called at the end-of-a frame.
+		if( intfr & DMA1_IT_TC2 )
+		{
+			HandleWord( dma_buffer[1] );
+		}
+		
+		// Gets called halfway through the frame
+		if( intfr & DMA1_IT_HT2 )
+		{
+			HandleWord( dma_buffer[0] );
+		}
+		intfr = DMA1->INTFR;
+	} while( intfr );
+	GPIOC->BSHR = 1<<16;
+}
+
 
 void EXTI7_0_IRQHandler( void ) __attribute__((interrupt));
 void EXTI7_0_IRQHandler( void ) 
 {
-/*	if( !(GPIOD->INDR & ((1<<USB_DM)|(1<<USB_DP))) )
-	{
-		// EOP. (TODO!)	
-		EXTI->INTFR = 1<<4;
-		return;
-	}
-*/
 	TIM1->CTLR1 = TIM_CEN;
-	GPIOC->BSHR = 1;
-/*
-	while( dma_buffer[0] == 0xff )
-	{
-		;
-	}
-*/
-	Delay_Us(10);
-	TIM1->CTLR1 = 0;
-	GPIOC->BSHR = 1<<16;
-	
-	DMA1_Channel2->CNTR = sizeof(dma_buffer) / sizeof(dma_buffer[0]);
-	DMA1_Channel2->MADDR = (uint32_t)dma_buffer;
-	DMA1_Channel2->CFGR |= DMA_CFGR1_EN;
-	dma_buffer[0] = 0xff;
-//	Delay_Us(10);
+	NVIC_DisableIRQ( EXTI7_0_IRQn );
 	EXTI->INTFR = 1<<4;
 }
 
@@ -78,10 +122,12 @@ int main()
 	// This drive GPIO5 high, which will tell the host that we are going on-bus.
 	GPIOD->BSHR = 1<<5;
 
+	// Disable fast interrupts.
+	asm volatile( "addi t1,x0, 0\ncsrrw x0, 0x804, t1\n" : : :  "t1" );
 
 	// DMA2 can be configured to attach to T1CH1
 	// The system can only DMA out at ~2.2MSPS.  2MHz is stable.
-	DMA1_Channel2->CNTR = sizeof(dma_buffer) / sizeof(dma_buffer[0]);
+	DMA1_Channel2->CNTR = sizeof(dma_buffer);
 	DMA1_Channel2->MADDR = (uint32_t)dma_buffer;
 	DMA1_Channel2->PADDR = (uint32_t)&GPIOD->INDR;
 	DMA1_Channel2->CFGR = 
@@ -90,12 +136,12 @@ int main()
 		0 |                                  // 8-bit memory
 		0 |                                  // 8-bit peripheral
 		DMA_CFGR1_MINC |                     // Increase memory.
-		0 |                                  // Circular mode = 0 not circular
-		0 |                     // Half-trigger (no )
-		0 |                     // Whole-trigger (no)
+		DMA_CFGR1_CIRC |                                  // Circular mode = 1 not circular
+		DMA_CFGR1_HTIE |                     // Half-trigger (yes)
+		DMA_CFGR1_TCIE |                     // Whole-trigger (yes)
 		DMA_CFGR1_EN;                        // Enable
 
-//	NVIC_EnableIRQ( DMA1_Channel2_IRQn );
+	NVIC_EnableIRQ( DMA1_Channel2_IRQn );
 	DMA1_Channel2->CFGR |= DMA_CFGR1_EN;
 
 	// NOTE: You can also hook up DMA1 Channel 3 to T1C2,
@@ -115,10 +161,8 @@ int main()
 	TIM1->CHCTLR1 = TIM_OC1M_2 | TIM_OC1M_1; // CH1 Mode is output, PWM1 (CC1S = 00, OC1M = 110)
 	TIM1->CH1CVR = 1;                        // Set the Capture Compare Register value to 50% initially
 	TIM1->BDTR = TIM_MOE;                    // Enable TIM1 outputs
-	TIM1->CTLR1 = 0;                   // Enable TIM1
+	TIM1->CTLR1 = 0;                         // Enable TIM1
 	TIM1->DMAINTENR = TIM_UDE | TIM_CC1DE;   // Trigger DMA on TC match 1 (DMA Ch2) and TC match 2 (DMA Ch3)
-
-	memset( dma_buffer, 0xff, sizeof( dma_buffer ) );
 
 	// enable interrupt
 	NVIC_EnableIRQ( EXTI7_0_IRQn );
@@ -126,15 +170,15 @@ int main()
 	while(1)
 	{
 		//GPIOC->BSHR = 1;   // Set pin high
-		Delay_Ms( 1000 );
+		//Delay_Ms( 1000 );
 		//GPIOC->BSHR = (1<<16); // Set the pin low
-		Delay_Ms( 1000 );
+		//Delay_Ms( 1000 );
 		int i;
 
-		//NVIC_DisableIRQ( EXTI7_0_IRQn );
-
-		printf( "test %08x\n", dma_buffer[0] );
-
-		//NVIC_EnableIRQ( EXTI7_0_IRQn );
+		uint32_t amarka = halfway_word & 0x18181818;
+		uint32_t amarkb = dma_buffer[1] & 0x18181818;
+		printf( "test %08x %08x\n", amarka, amarkb );
+		//dma_buffer[0] = 0;
+		//dma_buffer[1] = 0;
 	}
 }
