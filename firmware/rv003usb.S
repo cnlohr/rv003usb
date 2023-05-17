@@ -34,7 +34,7 @@ EXTI7_0_IRQHandler:
 	la a5, GPIOD_BASE
 	lw a0, INDR_OFFSET(a5)
 	c.andi a0, USB_DMASK
-	c.beqz a0, handle_se0_marker
+	c.beqz a0, handle_se0_keepalive
 
 
 	// If we've gotten here, it's a data packet.
@@ -88,56 +88,60 @@ done_preamble:
 	// Need to delay about 24 cycles
 	li a2, 0
 	li s1, 8 // # of bits
-	li s0, 7 // inverse runs of 1
 
 	c.nop; c.nop; c.nop; c.nop
-	c.nop;
+	c.nop; c.nop;
 handle_bit_stuff:  // I think this is where this goes.
-	c.nop; c.nop; c.nop;
+	c.nop; c.nop;
 	c.nop; c.nop; c.nop; c.nop
 	c.nop; c.nop; c.nop; c.nop
 	c.nop; c.nop; c.nop; c.nop
 	c.nop; c.nop; c.nop; c.nop
-	// This is the first bit that matters.
-bit_process:
 
+
+	// This is the first bit that matters.
+	li s0, 7 // 1 runs.
+
+.align 4
+
+bit_process:
 	// XXX For some reason, this loop is 2 cycles longer than I would expect.
 
 	lw a0, INDR_OFFSET(a5);
 	c.andi a0, USB_DMASK;
 	c.beqz a0, se0_complete
 	c.xor a0, a1;
-	// a0 is either 00 for 1 or 11 for 0
-	slli a4, a0, 1 //a4 is 6 if it's a 0 bit.
 	c.xor a1, a0; // Recover a1, for next cycle.
-	or s0, a4, a0  //s0 becomes 7 if it's a 0 bit.
+	// a0 is either 00 for 1 or 11 for 0, anything else is error.
+	c.mv a4, a0
+	c.slli a4, 1  // a4 is 6 if it's a 0 bit.
+	c.or a4, a0   // a4 is 7 if it's a 0 bit.
+	c.or s0, a4   // s0 becomes 7 if it's a 0 bit.
 	c.addi s0, -1 // Count # of runs of 1 (subtract 1)
 	c.beqz s0, handle_bit_stuff
-	xori a0, a0, 3 //00 for 0 or 11 for 1.
+	xori a0, a0, 3 //00 for 0 or 11 for 1. // THIS TAKES 2 CYCLES
 	c.andi a0, 1  //0 for 0 and 1 for 1.
 	// a0 = 0 for a 0 bit or 1 for a 1 bit.
 	// 12 cycles (I think)?
 
 	// Handle storing the bits.
 	c.slli a2, 1
-	c.or a2, a0
 	c.addi s1, -1 // # of bits left.
-	andi a4, s1, 31 // mask off so we only look at bottom 7 bits.
+	c.or a2, a0
+	c.andi s1, 7
 
-	// This doesn't have to line up perfectly.
-	// We can abuse the fact it only runs every so many bits.
-	c.beqz s1, not_end_of_byte // 4 cycles  
+// Warning - alignment here matters.
+	c.bnez a1, not_end_of_byte // 4 cycles for this section. (Checked) (Sometimes 5)?
 	sw a2, 0(t2) // Save the byte off. TODO: Is unaligned byte access to RAM slow?
-	addi t2, t2, 4
-not_end_of_byte: // I think 20 cycles???
+	addi t2, t2, 1
+not_end_of_byte:
 
 
 	// Debug blip
 	li a4, 1<<2
 	sw a4, BSHR_OFFSET(a5)
-	li a3, 1<<(16+2)
-	sw a3, BSHR_OFFSET(a5)
-
+	li a4, 1<<(16+2)
+	sw a4, BSHR_OFFSET(a5)
 
 	j bit_process // + 4 cycles
 
@@ -169,7 +173,7 @@ interrupt_complete:
 	addi	sp,sp,44
 	mret
 
-handle_se0_marker:
+handle_se0_keepalive:
 	// In here, we want to do smart stuff with the
 	// 1ms tick.
 	j interrupt_complete

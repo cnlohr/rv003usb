@@ -111,7 +111,7 @@ This part of the test turns a GPIO on, runs some code, and turns it off.
 | c.bnez, branch not taken | 61ns |
 | c.j | 124ns |
 | xori AND unaligned XORI both take | 61ns |
-| slli a4, a0, 1 | 
+| sb with aligned AND unaligned writing | 84ns |
 
 Exception, maybe? unaligned `la` is still only 2 instructions?
 
@@ -121,9 +121,28 @@ This takes 3 cycles?
 	or s0, a4, a0
 ```
 
+To investigate:
+```
+5 Cycles:
+	c.slli a2, 1
+	c.or a2, a0
+	c.addi s1, -1 // # of bits left.
+	andi a4, s1, 31 // mask off so we only look at bottom 7 bits.
+```
+
+Specifically it's that last `andi` that seems to be 2 cycles.
+
+Also, at least in some situations, xori also takes >1 cycle.
+
+But why? It appears to have nothing to do with alignment. It even happens with slli?!
+
+NOTE: It seems to have something to do with the alignment of nearby jumps?
+
 TEST: Tried changing the alignment of my function, it still took as long.
 
-I guess branching takes 3 cycles.
+I guess branching takes 3 cycles, if target is aligned, 5 cycles, else.
+
+MAJOR NOTE:  The TARGET of a branch must be ALIGNED elss it goes much slower.
 
 ## Interrupt reception test
 
