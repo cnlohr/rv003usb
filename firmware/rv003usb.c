@@ -9,31 +9,6 @@
 
 uint32_t test_memory[2];
 
-#if 0
-void EXTI7_0_IRQHandler( void ) __attribute__((interrupt));
-void EXTI7_0_IRQHandler( void ) 
-{
-//	GPIOC->BSHR = 1;   // Set pin high
-//	GPIOC->BSHR = 0;
-//	GPIOC->BSHR = 1<<16;   // Set pin high
-
-	asm volatile( "\
-.align 4\n\
-		li t0, 1\n\
-		li a0, 0\n\
-		li t1, 1<<16\n\
-		sw t0, 0(%[GPIOCBSHR])\n\
-		addi t2, t2, 1024\n\
-		c.sw a0, 0(%[GPIOCBSHR])\n\
-		sw t1, 0(%[GPIOCBSHR])\n\
-		"
-        : : [GPIOCBSHR]"r"(&GPIOC->BSHR) : "a0","a1","a2","t0","t1" );
-
-	// Acknowledge interrupt.
-	EXTI->INTFR = 1<<4;
-}
-#endif
-
 int main()
 {
 	SystemInit48HSI();
@@ -64,9 +39,12 @@ int main()
 	// This drive GPIO5 high, which will tell the host that we are going on-bus.
 	GPIOD->BSHR = 1<<USB_DPU;
 
+<<<<<<< HEAD
 	// Disable fast interrupts. "HPE"
 	asm volatile( "addi t1,x0, 3\ncsrrw x0, 0x804, t1\n" : : :  "t1" );
 
+=======
+>>>>>>> 7db91ac5f5e4e82a0a7a8e20f71773b518919496
 	// enable interrupt
 	NVIC_EnableIRQ( EXTI7_0_IRQn );
 
