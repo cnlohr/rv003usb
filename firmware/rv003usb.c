@@ -39,12 +39,9 @@ int main()
 	// This drive GPIO5 high, which will tell the host that we are going on-bus.
 	GPIOD->BSHR = 1<<USB_DPU;
 
-<<<<<<< HEAD
 	// Disable fast interrupts. "HPE"
-	asm volatile( "addi t1,x0, 3\ncsrrw x0, 0x804, t1\n" : : :  "t1" );
+	asm volatile( "addi t1,x0, 0\ncsrrw x0, 0x804, t1\n" : : :  "t1" );
 
-=======
->>>>>>> 7db91ac5f5e4e82a0a7a8e20f71773b518919496
 	// enable interrupt
 	NVIC_EnableIRQ( EXTI7_0_IRQn );
 
