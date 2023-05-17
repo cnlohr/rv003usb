@@ -98,16 +98,18 @@ handle_bit_stuff:  // I think this is where this goes.
 	c.nop; c.nop; c.nop; c.nop
 	c.nop; c.nop; c.nop; c.nop
 	c.nop; c.nop; c.nop; c.nop
-
 	// This is the first bit that matters.
 bit_process:
+
+	// XXX For some reason, this loop is 2 cycles longer than I would expect.
+
 	lw a0, INDR_OFFSET(a5);
 	c.andi a0, USB_DMASK;
 	c.beqz a0, se0_complete
 	c.xor a0, a1;
-	c.xor a1, a0; // Recover a1, for next cycle.
 	// a0 is either 00 for 1 or 11 for 0
 	slli a4, a0, 1 //a4 is 6 if it's a 0 bit.
+	c.xor a1, a0; // Recover a1, for next cycle.
 	or s0, a4, a0  //s0 becomes 7 if it's a 0 bit.
 	c.addi s0, -1 // Count # of runs of 1 (subtract 1)
 	c.beqz s0, handle_bit_stuff
@@ -116,12 +118,14 @@ bit_process:
 	// a0 = 0 for a 0 bit or 1 for a 1 bit.
 	// 12 cycles (I think)?
 
-
 	// Handle storing the bits.
 	c.slli a2, 1
 	c.or a2, a0
 	c.addi s1, -1 // # of bits left.
 	andi a4, s1, 31 // mask off so we only look at bottom 7 bits.
+
+	// This doesn't have to line up perfectly.
+	// We can abuse the fact it only runs every so many bits.
 	c.beqz s1, not_end_of_byte // 4 cycles  
 	sw a2, 0(t2) // Save the byte off. TODO: Is unaligned byte access to RAM slow?
 	addi t2, t2, 4
@@ -131,8 +135,8 @@ not_end_of_byte: // I think 20 cycles???
 	// Debug blip
 	li a4, 1<<2
 	sw a4, BSHR_OFFSET(a5)
-	li a4, 1<<(16+2)
-	sw a4, BSHR_OFFSET(a5)
+	li a3, 1<<(16+2)
+	sw a3, BSHR_OFFSET(a5)
 
 
 	j bit_process // + 4 cycles

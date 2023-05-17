@@ -111,8 +111,17 @@ This part of the test turns a GPIO on, runs some code, and turns it off.
 | c.bnez, branch not taken | 61ns |
 | c.j | 124ns |
 | xori AND unaligned XORI both take | 61ns |
+| slli a4, a0, 1 | 
 
 Exception, maybe? unaligned `la` is still only 2 instructions?
+
+This takes 3 cycles?
+```
+	slli a2, a0, 1
+	or s0, a4, a0
+```
+
+TEST: Tried changing the alignment of my function, it still took as long.
 
 I guess branching takes 3 cycles.
 
