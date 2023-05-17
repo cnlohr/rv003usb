@@ -8,6 +8,7 @@
 #include "rv003usb.h"
 
 uint32_t test_memory[2];
+uint32_t usb_buffer[32];
 
 int main()
 {
@@ -26,10 +27,10 @@ int main()
 	// GPIO D3 for input pin change.
 	GPIOD->CFGLR =
 		(GPIO_CNF_IN_PUPD)<<(4*1) |  // Keep SWIO enabled.
-		(GPIO_Speed_10MHz | GPIO_CNF_OUT_PP)<<(4*DEBUG_PIN) |
+		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*DEBUG_PIN) |
 		(GPIO_SPEED_IN | GPIO_CNF_IN_PUPD)<<(4*USB_DM) |  //PD3 = GPIOD IN
 		(GPIO_SPEED_IN | GPIO_CNF_IN_PUPD)<<(4*USB_DP) |  //PD4 = GPIOD IN
-		(GPIO_Speed_10MHz | GPIO_CNF_OUT_PP)<<(4*USB_DPU);
+		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_DPU);
 
 	// Configure the IO as an interrupt.
 	AFIO->EXTICR = 3<<(USB_DP*2); //PORTD.3 (3 out front says PORTD, 3 in back says 3)

@@ -110,6 +110,11 @@ This part of the test turns a GPIO on, runs some code, and turns it off.
 | c.bnez, branch taken | 124ns |
 | c.bnez, branch not taken | 61ns |
 | c.j | 124ns |
+| xori AND unaligned XORI both take | 61ns |
+
+Exception, maybe? unaligned `la` is still only 2 instructions?
+
+I guess branching takes 3 cycles.
 
 ## Interrupt reception test
 
@@ -121,7 +126,9 @@ W/ HPE: 589ns
 Got a pretty good list together.
 1:40:00 Starting to write sync code?
 
+Stream 2B:
 
+59:22 We are detecting preambles.
 
 
 
