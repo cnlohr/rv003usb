@@ -17,53 +17,53 @@
 Let’s write a software USB (bit banged) stack.
 
 Background
-    • espusb
-        ◦ I wrote it for the ESP8266.
-        ◦ Pure Software
-    • V-USB
-        ◦ Software USB for the AVR
-    • Graniuum
-        ◦ ARM-specific
+  *espusb
+    *I wrote it for the ESP8266.
+    *Pure Software
+  *V-USB
+    *Software USB for the AVR
+  *Graniuum
+    *ARM-specific
 
 USB Low-Speed
-    • 1.5Mbit/s
-    • Differential
-    • 3.3V
-    • Weird bit stuffing rules
-    • Multiple CRCs
-    • Requires extra resistor/+GPIO
+  *1.5Mbit/s
+  *Differential
+  *3.3V
+  *Weird bit stuffing rules
+  *Multiple CRCs
+  *Requires extra resistor/+GPIO
 
 Approaches
-    • Pure GPIO DMA
-        ◦ Hard-limited to 2.2MSPS
-        ◦ Clock drift will destroy you
-        ◦ Interrupt jitter will destroy you
-        ◦ Requires dedicated timer
-    • Timer Capture
-        ◦ Complicated
-        ◦ Difficult to configure
-        ◦ Need to solve inverse problem
+  *Pure GPIO DMA
+    *Hard-limited to 2.2MSPS
+    *Clock drift will destroy you
+    *Interrupt jitter will destroy you
+    *Requires dedicated timer
+  *Timer Capture
+    *Complicated
+    *Difficult to configure
+    *Need to solve inverse problem
              Time deltas.
-        ◦ Requires dedicated timer
-    • TC + DMA
-        ◦ See above.
-        ◦ May allow app to continue running
-        ◦ Requires dedicated timer
-    • OPA
-        ◦ Helps us but requires extra pin.
-    • Pure CPU
-        ◦ If DMA is ongoing will shift our timing
-        ◦ Clock drift will kill us.
-    • Mixed SYSTICK/CPU
-        ◦ Is it fast enough? Probably not.
-        ◦ What about timeouts?
+    *Requires dedicated timer
+  *TC + DMA
+    *See above.
+    *May allow app to continue running
+    *Requires dedicated timer
+  *OPA
+    *Helps us but requires extra pin.
+  *Pure CPU
+    *If DMA is ongoing will shift our timing
+    *Clock drift will kill us.
+  *Mixed SYSTICK/CPU
+    *Is it fast enough? Probably not.
+    *What about timeouts?
 
 Hardware we will be using:
-    • GPIO
-    • SYSCNT
-    • HISTRIM
-    • 1920-byte boot ROM
-    • 48MHz operation to begin with.
+  *GPIO
+  *SYSCNT
+  *HISTRIM
+  *1920-byte boot ROM
+  *48MHz operation to begin with.
 
 15:00 Starting 
 2:30:00 We have bins.
@@ -71,22 +71,22 @@ Hardware we will be using:
 ## Livestream #2 (Target 5-hours)
 
 Let's give up on fancy DMA stuff, let's try something more basic.
-    • GPIO Interrupt
-    • Rely on instruction timing.
-    • Re-Time from STK if needed.
+  *GPIO Interrupt
+  *Rely on instruction timing.
+  *Re-Time from STK if needed.
 
 Post-Notes:
-    • Too many things going on last time.
-    • Re-Time from STK if needed
+  *Too many things going on last time.
+  *Re-Time from STK if needed
 
 Today we will be:
-    • Making notes about how long each instruction takes.
-    • Reason about the upcoming approach.
+  *Making notes about how long each instruction takes.
+  *Reason about the upcoming approach.
 
 
 This table will be:
-    • Running from FLASH, with ONE EXTRA wait state (default)
-    • Running at 48MHz.
+  *Running from FLASH, with ONE EXTRA wait state (default)
+  *Running at 48MHz.
 
 
 This part of the test turns a GPIO on, runs some code, and turns it off.
@@ -158,7 +158,11 @@ Stream 2B:
 
 59:22 We are detecting preambles.
 
+## Notes, prepping for Stream 3
 
-
-
+ * Implement changes outlined in #2
+ * Change around loop to be non-nested loops (Jump-back for write-byte, check
+ * Turn on MCO
+ * Test data in user space.
+ * CRC Code
 
