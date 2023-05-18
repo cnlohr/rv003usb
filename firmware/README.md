@@ -17,53 +17,53 @@
 Let’s write a software USB (bit banged) stack.
 
 Background
-  *espusb
-    *I wrote it for the ESP8266.
-    *Pure Software
-  *V-USB
-    *Software USB for the AVR
-  *Graniuum
-    *ARM-specific
+  * espusb
+    * I wrote it for the ESP8266.
+    * Pure Software
+  * V-USB
+    * Software USB for the AVR
+  * Graniuum
+    * ARM-specific
 
 USB Low-Speed
-  *1.5Mbit/s
-  *Differential
-  *3.3V
-  *Weird bit stuffing rules
-  *Multiple CRCs
-  *Requires extra resistor/+GPIO
+  * 1.5Mbit/s
+  * Differential
+  * 3.3V
+  * Weird bit stuffing rules
+  * Multiple CRCs
+  * Requires extra resistor/+GPIO
 
 Approaches
-  *Pure GPIO DMA
-    *Hard-limited to 2.2MSPS
-    *Clock drift will destroy you
-    *Interrupt jitter will destroy you
-    *Requires dedicated timer
-  *Timer Capture
-    *Complicated
-    *Difficult to configure
-    *Need to solve inverse problem
+  * Pure GPIO DMA
+    * Hard-limited to 2.2MSPS
+    * Clock drift will destroy you
+    * Interrupt jitter will destroy you
+    * Requires dedicated timer
+  * Timer Capture
+    * Complicated
+    * Difficult to configure
+    * Need to solve inverse problem
              Time deltas.
-    *Requires dedicated timer
-  *TC + DMA
-    *See above.
-    *May allow app to continue running
-    *Requires dedicated timer
-  *OPA
-    *Helps us but requires extra pin.
-  *Pure CPU
-    *If DMA is ongoing will shift our timing
-    *Clock drift will kill us.
-  *Mixed SYSTICK/CPU
-    *Is it fast enough? Probably not.
-    *What about timeouts?
+    * Requires dedicated timer
+  * TC + DMA
+    * See above.
+    * May allow app to continue running
+    * Requires dedicated timer
+  * OPA
+    * Helps us but requires extra pin.
+  * Pure CPU
+    * If DMA is ongoing will shift our timing
+    * Clock drift will kill us.
+  * Mixed SYSTICK/CPU
+    * Is it fast enough? Probably not.
+    * What about timeouts?
 
 Hardware we will be using:
-  *GPIO
-  *SYSCNT
-  *HISTRIM
-  *1920-byte boot ROM
-  *48MHz operation to begin with.
+  * GPIO
+  * SYSCNT
+  * HISTRIM
+  * 1920-byte boot ROM
+  * 48MHz operation to begin with.
 
 15:00 Starting 
 2:30:00 We have bins.
