@@ -89,8 +89,11 @@ done_preamble:
 	li a2, 0
 	li s1, 8 // # of bits
 
+
+	li x3, 1<<2
+	li x4, 1<<(16+2)
+
 	c.nop; c.nop; c.nop; c.nop
-	c.nop; c.nop;
 
 	c.nop; c.nop;
 	c.nop; c.nop; c.nop; c.nop
@@ -107,7 +110,7 @@ done_preamble:
 		* A1 = last-frame's GPIO values.
 		* A2 = The running word 
 		* A3 = FREE
-		* A4 = TEMP/FREE
+		* A4 = FREE
 		* A5 = GPIO Offset
 
 		* S0 = Bit Stuff Place
@@ -137,11 +140,15 @@ bit_process:
 	c.or a2, a0  // Store the data into our accumulating register. 
 
 	c.addi s1, -1
-	c.andi s1, 7
-//	c.bnez s1, not_end_of_byte // 4 cycles for this section. (Checked) (Sometimes 5)?
-//	sw a2, 0(t2) // Save the byte off. TODO: Is unaligned byte access to RAM slow?
-//	addi t2, t2, 1
-//not_end_of_byte:
+	andi s1, 7   // s1 could be really really big
+	c.bnez s1, not_end_of_byte // 4 cycles for this section. (Checked) (Sometimes 5)?
+	sb a2, 0(t2) // Save the byte off. TODO: Is unaligned byte access to RAM slow?
+	addi t2, t2, 1
+not_end_of_byte:
+
+	// CRC Stuff
+	
+
 
 	// TODO: what about bit stuffing, what if this happens too early?
 	c.addi a0, -1 // 0->0xffffffff 1->0
@@ -153,10 +160,8 @@ bit_process:
 	// How much free time do we have? 4?  Can we CRC here?
 
 	// Debug blip
-	li a4, 1<<2
-	sw a4, BSHR_OFFSET(a5)
-	li a4, 1<<(16+2)
-	sw a4, BSHR_OFFSET(a5)
+	sw x3, BSHR_OFFSET(a5)
+	sw x4, BSHR_OFFSET(a5)
 
 	j bit_process // + 4 cycles
 
@@ -164,16 +169,38 @@ handle_bit_stuff:
 	// We want to wait a little bit, then read another byte, and make
 	// sure everything is well, before heading back into the main loop
 	// Debug blip
-	li a4, 1<<2
-	sw a4, BSHR_OFFSET(a5)
-	li a4, 1<<(16+2)
-	sw a4, BSHR_OFFSET(a5)
+	sw x3, BSHR_OFFSET(a5)
+	sw x4, BSHR_OFFSET(a5)
 	// Debug blip
-	li a4, 1<<2
-	sw a4, BSHR_OFFSET(a5)
-	li a4, 1<<(16+2)
-	sw a4, BSHR_OFFSET(a5)
+	sw x3, BSHR_OFFSET(a5)
+	sw x4, BSHR_OFFSET(a5)
 
+	c.lw a0, INDR_OFFSET(a5);
+	c.andi a0, USB_DMASK;
+	c.beqz a0, se0_complete
+	c.xor a0, a1;
+	c.xor a1, a0; // Recover a1, for next cycle.
+
+	slti a0, a0, 1<<USB_DM // A0 = 0 if 0 bit, A0 = 1 if 1 bit.
+
+	// If a0 is a 1 then that's bad.
+	c.bnez a0, done_usb_message
+	c.addi a0, -1 // 0->0xffffffff 1->0
+	c.or s0, a0
+	c.andi s0, 7  // if 0 set it to 7, if 
+	c.addi s0, -1 // Count # of runs of 1 (subtract 1)
+
+	sw x3, BSHR_OFFSET(a5)
+	sw x4, BSHR_OFFSET(a5)
+	// Debug blip
+	sw x3, BSHR_OFFSET(a5)
+	sw x4, BSHR_OFFSET(a5)
+
+	sw x3, BSHR_OFFSET(a5)
+	sw x4, BSHR_OFFSET(a5)
+	// Debug blip
+	sw x3, BSHR_OFFSET(a5)
+	sw x4, BSHR_OFFSET(a5)
 	// XXX TODO.
 	j bit_process
 
