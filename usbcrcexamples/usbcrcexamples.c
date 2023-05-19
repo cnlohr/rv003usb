@@ -113,7 +113,7 @@ int main()
 	}
 
 
-	// Now, test CRC-16
+	// Cursed, test CRC-16
 	{
 		// Another CRC16 test.
 		uint32_t crc16 = CRC16START;
@@ -136,6 +136,38 @@ int main()
 			// This is like the code we have in the USB stack.
 
 			uint32_t polyxor = (((uint32_t)((bv ^ crc16))) & 1)-1;
+			polyxor &= CRC16POLY;
+	        crc16 >>= 1;
+			crc16 ^= polyxor;
+		}
+		printf( "Awful: %04x ?= %04x\n", crc16, CRC16GOOD );
+	}
+
+
+
+	// Another cursed, test CRC-16
+	{
+		// Another CRC16 test.
+		uint32_t crc16 = CRC16START;
+		uint8_t bitstream[] = { 
+			0, 0, 0, 0, 0, 0, 0, 1,
+			0, 1, 1, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 0, 0, 0,
+			1, 0, 0, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 0, 1, 0,
+			0, 0, 0, 0, 0, 0, 0, 0,
+			1, 0, 1, 1, 1, 0, 1, 1,
+			0, 0, 1, 0, 1, 0, 0, 1,
+		};
+		for( i = 0; i < sizeof( bitstream ); i++ )
+		{
+			uint32_t bv = bitstream[i];
+
+			// This is like the code we have in the USB stack.
+
+			uint32_t polyxor = (((uint32_t)((bv ^ crc16))) & 1);
 			polyxor &= CRC16POLY;
 	        crc16 >>= 1;
 			crc16 ^= polyxor;

@@ -25,7 +25,7 @@ Compressed:
 
 .global EXTI7_0_IRQHandler
 EXTI7_0_IRQHandler:
-	addi	sp,sp,-44
+	addi	sp,sp,-52
 	sw	a0, 0(sp)
 	sw	a5, 20(sp)
 	sw	a1, 4(sp)
@@ -97,7 +97,7 @@ done_preamble:
 	li x4, 1<<(16+2)
 
 	c.nop; c.nop; c.nop; c.nop;
-	c.nop; c.nop; c.nop; c.nop;
+	c.nop; c.nop; c.nop;
 	c.nop; c.nop; c.nop;
 
 	li a4, 0xA001
@@ -126,7 +126,7 @@ done_preamble:
 
 #define HANDLE_EOB_YES \
 	sb a2, 0(t2); /* Save the byte off. TODO: Is unaligned byte access to RAM slow? */ \
-	addi t2, t2, 1 \
+	addi t2, t2, 1;
 
 is_end_of_byte:
 .option norvc
@@ -145,17 +145,37 @@ bit_process:
 //	// a0 is either 00 for 1 or 11 for 0, anything else is error.
 //	c.addi a0, 1 // 00 -> 1, 11 -> 100
 //	c.andi a0, 1 // 1 -> 1, 100 -> 0    --- Optimization: We could use SLTI.
+// REPLACE TO:
+//	slti a0, a0, 1<<USB_DM // A0 = 0 if 0 bit, A0 = 1 if 1 bit.
 
-	c.slli a2, 1 // Accumulating register shift left.
+	// a0 is 00110000 << if 0 bit
+	// a0 is 00000000 << if 1 bit.
+	//
+	// we need it in the following forms:
+	//   0: 00000111
+	//   1: 00000000  (For bit stuffing)
+	//
+	//   1:010000000
+	//   0:000000000  (For writing the data out) or flip (top/bottom) or inverted.
+	//
+	//   1: 11111111
+	//   0: 00000000  (for the CRC) or flip
+	//
 
-	// WARNING: 32-bit opcode code here.
-	slti a0, a0, 1<<USB_DM // A0 = 0 if 0 bit, A0 = 1 if 1 bit.
+	// 110000000
+	// a0 needs to be 10000000 if 1 bit. 
+	//c.andi a0, (1<<USB_DM)
+	//c.slli a0, (7-USB_DM)
 
 	// Store the bit(s)
-	c.or a2, a0  // Store the data into our accumulating register. 
-
+	//c.or a2, a0
 	// A3 is running crc
 	// a4 is polynomial
+
+#define SHIFT_DATA_INTO_A2 \
+	/* */ \
+	c.or a2, a0 /* Store the data into our accumulating register. */ \
+
 #define HANDLE_CRC \
 	c.xor a0, a3; \
 	c.andi a0, 1; \
@@ -164,16 +184,16 @@ bit_process:
 	c.srli a3, 1; \
 	c.xor a3, a0
 
-#define CRC_CHECK_BIT_STUFF_CODE \
-	c.addi a0, -1; /* 0->0xffffffff 1->0 */ \
-	c.or s0, a0;   /* */ \
-	c.andi s0, 7;  /* if 0 set it to 7, if */ \
-	c.addi s0, -1; /* Count # of runs of 1 (subtract 1) */ \
-	c.beqz s0, handle_bit_stuff; \
-	/* At this point, if bit is 0, a0 0xfffffff, otherise zero */ \
-	HANDLE_CRC
+	//c.addi a0, -1; /* 0->0xffffffff 1->0 */
+	//c.or s0, a0;   /* if it's a 0 input (all 1 bits here), reset. */
+	//c.andi s0, 7;  /* if 0 set it to 7, if */
+	c.addi s0, -1; /* Count # of runs of 1 (subtract 1) */s
+	c.srli a0, (USB_DM-1) // If 0, will be 110
+	or s0
+	c.beqz s0, handle_bit_stuff;
+	/* At this point, if bit is 0, a0 0xfffffff, otherise zero */
 
-	CRC_CHECK_BIT_STUFF_CODE
+	HANDLE_CRC
 
 #define HANDLE_NEXT_BYTE(is_end_of_byte)  \
 	c.addi s1, -1; \
@@ -243,7 +263,7 @@ se0_complete:
 	sub a1, t2, a0
 	mv  a2, a3
 	// rv003usb_handle_packet( data, length, crc );
-	call rv003usb_handle_packet
+	//call rv003usb_handle_packet
 
 done_usb_message:
 

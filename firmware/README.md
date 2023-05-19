@@ -185,3 +185,4 @@ Questions
  * Handle proper CRC
  * Can we magic the CRC so that we can do the same computation and end be able to tell a correct message from a wrong one later?
 
+It turned out to be all a mess of bit operations.
