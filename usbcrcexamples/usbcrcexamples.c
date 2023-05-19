@@ -49,15 +49,10 @@ int main()
 		for( i = 0; i < sizeof( bitstream ); i++ )
 		{
 			uint32_t bv = bitstream[i];
-		    if ( (bv ^ crc5) & 1 )
-		    {
-		        crc5 >>= 1;
+			uint32_t do_xor = (bv ^ crc5) & 1;
+	        crc5 >>= 1;
+		    if( do_xor )
 		        crc5 ^= CRC5POLY;
-		    }
-		    else
-			{
-		        crc5 >>= 1;
-			}
 		}
 		printf( "%02x ?= %02x\n", crc5, CRC5GOOD );
 	}
@@ -81,6 +76,74 @@ int main()
 		}
 		printf( "%02x ?= %02x\n", crc5, CRC5GOOD );
 	}
+
+	{
+		// Another CRC5 test.
+		uint32_t crc5 = CRC5START;
+		uint8_t bitstream[] = { 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1,    1, 1, 1, 0, 1 };
+		for( i = 0; i < sizeof( bitstream ); i++ )
+		{
+			uint32_t bv = bitstream[i];
+
+			uint32_t polyxor = -(((bv ^ crc5) & 1));
+			polyxor &= CRC5POLY;
+	        crc5 >>= 1;
+			crc5 ^= polyxor;
+		}
+		printf( "%02x ?= %02x\n", crc5, CRC5GOOD );
+	}
+
+
+	{
+		// An AWFUL CRC5 test.
+		uint32_t crc5 = CRC5START;
+		uint8_t bitstream[] = { 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1,    1, 1, 1, 0, 1 };
+		for( i = 0; i < sizeof( bitstream ); i++ )
+		{
+			uint32_t bv = bitstream[i];
+			bv -= 1;
+			// This is like the code we have in the USB stack.
+
+			uint32_t polyxor = (((bv ^ crc5) & 1));
+			polyxor &= CRC5POLY;
+	        crc5 >>= 1;
+			crc5 ^= polyxor;
+		}
+		printf( "Awful 5: %02x ?= %02x\n", crc5, CRC5GOOD );
+	}
+
+
+	// Now, test CRC-16
+	{
+		// Another CRC16 test.
+		uint32_t crc16 = CRC16START;
+		uint8_t bitstream[] = { 
+			0, 0, 0, 0, 0, 0, 0, 1,
+			0, 1, 1, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 0, 0, 0,
+			1, 0, 0, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 0, 1, 0,
+			0, 0, 0, 0, 0, 0, 0, 0,
+			1, 0, 1, 1, 1, 0, 1, 1,
+			0, 0, 1, 0, 1, 0, 0, 1,
+		};
+		for( i = 0; i < sizeof( bitstream ); i++ )
+		{
+			uint32_t bv = bitstream[i];
+			bv -= 1;
+			// This is like the code we have in the USB stack.
+
+			uint32_t polyxor = ((uint32_t)((bv ^ crc16))) & 1;
+			polyxor |= ~CRC16POLY;
+	        crc16 >>= 1;
+			crc16 ^= ~polyxor;
+		}
+		printf( "Awful: %04x ?= %04x\n", crc16, CRC16GOOD );
+	}
+
+
 
 	// Now, test CRC-16
 	{

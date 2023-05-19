@@ -153,19 +153,20 @@ bit_process:
 	// T0 is polynomial
 
 #define CRC_CODE \
-	xor a4, a0, a3; \
-	c.andi a4, 1; \
-	neg a4, a4; \
-	and a4, a4, t0; \
-	c.srli a3, 1; \
-	xor a3, a3, t0
 
 #define CHECK_BIT_STUFF_CODE \
 	c.addi a0, -1; /* 0->0xffffffff 1->0 */ \
 	c.or s0, a0;   /* */ \
 	c.andi s0, 7;  /* if 0 set it to 7, if */ \
 	c.addi s0, -1; /* Count # of runs of 1 (subtract 1) */ \
-	c.beqz s0, handle_bit_stuff;
+	c.beqz s0, handle_bit_stuff; \
+	/* At this point, if bit is 0, a0 0xfffffff, otherise zero */ \
+	xor a0, a3; \
+	c.andi a4, 1; \
+	neg a4, a4; \
+	and a4, a4, t0; \
+	c.srli a3, 1; \
+	xor a3, t0
 
 	CRC_CODE
 	CHECK_BIT_STUFF_CODE
