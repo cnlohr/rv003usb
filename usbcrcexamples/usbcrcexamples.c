@@ -166,8 +166,8 @@ int main()
 			uint32_t bv = bitstream[i];
 
 			// This is like the code we have in the USB stack.
-
-			uint32_t polyxor = (((uint32_t)((bv ^ crc16))) & 1);
+			bv = bv?0:7;
+			uint32_t polyxor = (((uint32_t)((bv ^ crc16))) & 1)-1;
 			polyxor &= CRC16POLY;
 	        crc16 >>= 1;
 			crc16 ^= polyxor;
