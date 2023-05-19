@@ -93,8 +93,8 @@ done_preamble:
 	li s1, (USB_BUFFER_SIZE*8) // # of bits
 
 	// for debug
-	li x3, 1<<2
-	li x4, 1<<(16+2)
+	li x3, 0
+	la x4, (TIM1_BASE + 0x24)
 
 	c.nop; c.nop; c.nop; c.nop;
 	c.nop; c.nop; c.nop;
@@ -106,14 +106,14 @@ done_preamble:
 	li s0, 7 // 1 runs.
 
 	/* register meanings:
-		* T0 = 
+		* T0 = Polynomial
 		* T1 = TEMPORARY
 
 		* A0 = temp / current bit value.
 		* A1 = last-frame's GPIO values.
 		* A2 = The running word 
 		* A3 = Running CRC
-		* A4 = Polynomial
+		* A4 = temp
 		* A5 = GPIO Offset
 
 		* S0 = Bit Stuff Place
@@ -121,8 +121,7 @@ done_preamble:
 */
 
 // Show debug blip at beginning.
-	sw x3, BSHR_OFFSET(a5)
-	sw x4, BSHR_OFFSET(a5)
+	sw x0, 0(x4)
 
 #define HANDLE_EOB_YES \
 	sb a2, 0(t2); /* Save the byte off. TODO: Is unaligned byte access to RAM slow? */ \
@@ -155,38 +154,27 @@ bit_process:
 	//   0: 00000000  (for the CRC) or flip
 	//
 
-	// 110000000
-	// a0 needs to be 10000000 if 1 bit. 
-	//c.andi a0, (1<<USB_DM)
-	//c.slli a0, (7-USB_DM)
-
-	// Store the bit(s)
-	//c.or a2, a0
-	// A3 is running crc
-	// a4 is polynomial
-
-	c.srli a0, USB_DM-1 // 110 if 0 / 0 if 1
+	c.srli a0, USB_DM-1 // a0 = 110 if 0 / 0 if 1
 	c.mv a4, a0
-	c.srli a4, 2 // 1 if 0 / 0 if 1
+	c.srli a4, 2 // a4 = 1 if 0 / a4 = 0 if 1
 	c.or a0, a4  //a0 = 111 if 0 / 0 if 1.
 	c.or s0, a0;   /* if it's a 0 input (all 1 bits here), reset. */
 	c.addi s0, -1; /* Count # of runs of 1 (subtract 1) */
-	c.beqz s0, handle_bit_stuff;
+
 	/* At this point, if bit is 0, a0 0xfffffff, otherise zero */
 
+	c.slli a4, 7;	// a4 = 10000000 if 0, and 0 if 1 
+	c.srli a2, 1;   // shift a2 down by 1
+	c.or a2, a4;  	// or in our data.
 
-#define HANDLE_CRC_AND_SHIFT_INTO_A2 \
-	c.slli a4, 7;   \
-	c.srli a2, 1;   \
-	c.or a2, a4;  /* Writing out the word */  \
-	c.xor a0, a3;   \
-	c.andi a0, 1;   \
-	c.addi a0, -1;  \
-	and a0, a0, t0; \
-	c.srli a3, 1;   \
+	c.xor a0, a3;
+	c.andi a0, 1;
+	c.addi a0, -1;
+	and a0, a0, t0;
+	c.srli a3, 1;
 	c.xor a3, a0
 
-	HANDLE_CRC_AND_SHIFT_INTO_A2
+	c.beqz s0, handle_bit_stuff;
 
 #define HANDLE_NEXT_BYTE(is_end_of_byte)  \
 	c.addi s1, -1; \
@@ -195,18 +183,14 @@ bit_process:
 	HANDLE_NEXT_BYTE(is_end_of_byte)
 
 	// Debug blip
-	sw x3, BSHR_OFFSET(a5)
-	sw x4, BSHR_OFFSET(a5)
-
+	sw x0, 0(x4)
 	c.bnez s1, bit_process // + 4 cycles
-
 	c.j done_usb_message
 
 handle_bit_stuff:
 	// We want to wait a little bit, then read another byte, and make
 	// sure everything is well, before heading back into the main loop
 	// Debug blip
-	HANDLE_CRC_AND_SHIFT_INTO_A2
 	HANDLE_NEXT_BYTE(is_end_of_byte_and_bit_stuffed)
 	c.j is_not_end_of_byte
 is_end_of_byte_and_bit_stuffed:

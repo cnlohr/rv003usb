@@ -26,17 +26,46 @@ int main()
 
 	// Enable GPIOs, DMA and TIMERs
 	RCC->AHBPCENR = RCC_AHBPeriph_SRAM | RCC_AHBPeriph_DMA1;
-	RCC->APB2PCENR = RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOC | RCC_APB2Periph_TIM1 | RCC_APB2Periph_GPIOA  | RCC_APB2Periph_AFIO;
+	RCC->APB2PCENR = RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOC | RCC_APB2Periph_TIM1 | RCC_APB2Periph_GPIOA  | RCC_APB2Periph_AFIO | RCC_APB2Periph_TIM1;
 
 	// GPIO C0 Push-Pull
-	GPIOC->CFGLR &= ~(0xf<<(4*0));
-	GPIOC->CFGLR |= (GPIO_Speed_10MHz | GPIO_CNF_OUT_PP)<<(4*0);
+	GPIOC->CFGLR = (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*0) |
+	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF)<<(4*3) | // PC3 = T1C3
+	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF)<<(4*4) | // PC4 = T1C4
+	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*2);
 
 
 	// PC4 is MCO (for watching timing)
 	GPIOC->CFGLR &= ~(GPIO_CFGLR_MODE4 | GPIO_CFGLR_CNF4);
 	GPIOC->CFGLR |= GPIO_CFGLR_CNF4_1 | GPIO_CFGLR_MODE4_0 | GPIO_CFGLR_MODE4_1;
 	RCC->CFGR0 = (RCC->CFGR0 & ~RCC_CFGR0_MCO) | RCC_CFGR0_MCO_SYSCLK;
+
+	{
+		// PWM is used for debug timing. 
+		TIM1->PSC = 0x0000;
+		
+		// Auto Reload - sets period
+		TIM1->ATRLR = 0xffff;
+		
+		// Reload immediately
+		TIM1->SWEVGR |= TIM_UG;
+			
+		// Enable CH4 output, positive pol
+		TIM1->CCER |= TIM_CC3E | TIM_CC3NP;
+		
+	
+		// CH2 Mode is output, PWM1 (CC1S = 00, OC1M = 110)
+		TIM1->CHCTLR2 |= TIM_OC3M_2 | TIM_OC3M_1;
+
+		// Set the Capture Compare Register value to 50% initially
+		TIM1->CH3CVR = 2;
+		
+		// Enable TIM1 outputs
+		TIM1->BDTR |= TIM_MOE;
+		
+		// Enable TIM1
+		TIM1->CTLR1 |= TIM_CEN;
+	}
 
 	// GPIO D3 for input pin change.
 	GPIOD->CFGLR =
