@@ -104,7 +104,7 @@ int main()
 			bv -= 1;
 			// This is like the code we have in the USB stack.
 
-			uint32_t polyxor = (((bv ^ crc5) & 1));
+			uint32_t polyxor = (((bv ^ crc5) & 1))-1;
 			polyxor &= CRC5POLY;
 	        crc5 >>= 1;
 			crc5 ^= polyxor;
@@ -135,15 +135,15 @@ int main()
 			bv -= 1;
 			// This is like the code we have in the USB stack.
 
-			uint32_t polyxor = ((uint32_t)((bv ^ crc16))) & 1;
-			polyxor |= ~CRC16POLY;
+			uint32_t polyxor = (((uint32_t)((bv ^ crc16))) & 1)-1;
+			polyxor &= CRC16POLY;
 	        crc16 >>= 1;
-			crc16 ^= ~polyxor;
+			crc16 ^= polyxor;
 		}
 		printf( "Awful: %04x ?= %04x\n", crc16, CRC16GOOD );
 	}
 
-
+return 0;
 
 	// Now, test CRC-16
 	{

@@ -106,19 +106,27 @@ done_preamble:
 	li s0, 7 // 1 runs.
 
 	/* register meanings:
-		* T0 = Polynomial
+		* T0 = 
 		* T1 = TEMPORARY
 
 		* A0 = temp / current bit value.
 		* A1 = last-frame's GPIO values.
 		* A2 = The running word 
 		* A3 = Running CRC
-		* A4 = ###
+		* A4 = Polynomial
 		* A5 = GPIO Offset
 
 		* S0 = Bit Stuff Place
 		* S1 = # of bits in word write out place.
 */
+
+#define HANDLE_EOB_YES \
+	sb a2, 0(t2); /* Save the byte off. TODO: Is unaligned byte access to RAM slow? */ \
+	addi t2, t2, 1
+
+is_end_of_byte:
+	HANDLE_EOB_YES
+	// end-of-byte.
 
 bit_process:
 	c.lw a0, INDR_OFFSET(a5);
@@ -140,43 +148,33 @@ bit_process:
 	// Store the bit(s)
 	c.or a2, a0  // Store the data into our accumulating register. 
 
-	c.addi s1, -1
-	andi t1, s1, 7   // s1 could be really really big
-	bnez t1, not_end_of_byte // 4 cycles for this section. (Checked) (Sometimes 5)?
-
-	// end-of-byte.
-
-	sb a2, 0(t2) // Save the byte off. TODO: Is unaligned byte access to RAM slow?
-	addi t2, t2, 1
-
 	// A3 is running crc
-	// T0 is polynomial
+	// a4 is polynomial
+#define HANDLE_CRC \
+	c.xor a0, a3; \
+	c.andi a0, 1; \
+	c.addi a0, -1; \
+	c.and a0, a4; \
+	c.srli a3, 1; \
+	c.xor a3, a0
 
-#define CRC_CODE \
-
-#define CHECK_BIT_STUFF_CODE \
+#define CRC_CHECK_BIT_STUFF_CODE \
 	c.addi a0, -1; /* 0->0xffffffff 1->0 */ \
 	c.or s0, a0;   /* */ \
 	c.andi s0, 7;  /* if 0 set it to 7, if */ \
 	c.addi s0, -1; /* Count # of runs of 1 (subtract 1) */ \
 	c.beqz s0, handle_bit_stuff; \
 	/* At this point, if bit is 0, a0 0xfffffff, otherise zero */ \
-	xor a0, a3; \
-	c.andi a4, 1; \
-	neg a4, a4; \
-	and a4, a4, t0; \
-	c.srli a3, 1; \
-	xor a3, t0
+	HANDLE_CRC
 
-	CRC_CODE
-	CHECK_BIT_STUFF_CODE
+	CRC_CHECK_BIT_STUFF_CODE
 
-	c.bnez s1, bit_process // + 4 cycles
-	c.j done_usb_message
+#define HANDLE_NEXT_BYTE(is_end_of_byte)  \
+	c.addi s1, -1; \
+	andi a0, s1, 7; /* s1 could be really really big */ \
+	c.beqz a0, is_end_of_byte /* 4 cycles for this section. (Checked) (Sometimes 5)? */ 
 
-not_end_of_byte:
-	CRC_CODE
-	CHECK_BIT_STUFF_CODE
+	HANDLE_NEXT_BYTE(is_end_of_byte)
 
 	// Debug blip
 	sw x3, BSHR_OFFSET(a5)
@@ -189,6 +187,13 @@ handle_bit_stuff:
 	// We want to wait a little bit, then read another byte, and make
 	// sure everything is well, before heading back into the main loop
 	// Debug blip
+	HANDLE_CRC
+	HANDLE_NEXT_BYTE(is_end_of_byte_and_bit_stuffed)
+	c.j is_not_end_of_byte
+is_end_of_byte_and_bit_stuffed:
+
+is_not_end_of_byte:
+
 	sw x3, BSHR_OFFSET(a5)
 	sw x4, BSHR_OFFSET(a5)
 	// Debug blip
@@ -205,8 +210,7 @@ handle_bit_stuff:
 
 	// If a0 is a 1 then that's bad.
 	c.bnez a0, done_usb_message
-	c.addi a0, -1 // 0->0xffffffff 1->0
-	c.or s0, a0
+
 	c.andi s0, 7  // if 0 set it to 7, if 
 	c.addi s0, -1 // Count # of runs of 1 (subtract 1)
 
