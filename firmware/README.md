@@ -186,3 +186,10 @@ Questions
  * Can we magic the CRC so that we can do the same computation and end be able to tell a correct message from a wrong one later?
 
 It turned out to be all a mess of bit operations.
+
+POST-STREAM:
+ * Made a PWM for debug output.
+ * Can just output 0 to TIMER1->CNT
+ * Causes blips, nicely in the middle of clock pulses.
+ * Decided to use a branch, based on if it was a 1 or a 0.
+ * Branch was much faster. It all fit.
