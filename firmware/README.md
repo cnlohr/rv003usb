@@ -160,9 +160,22 @@ Stream 2B:
 
 ## Notes, prepping for Stream 3
 
+Goals:
+ * Discuss CRC
+ * Discuss timings
+ * Discuss approach
+ * Turn on MCO
+ * Improve timing on ingest loop.
+ * If successful, decode CRC
+ * Get the packets into C code.
+
+
+To remember:
  * Implement changes outlined in #2
  * Change around loop to be non-nested loops (Jump-back for write-byte, check
- * Turn on MCO
  * Test data in user space.
  * CRC Code
+
+
+
 

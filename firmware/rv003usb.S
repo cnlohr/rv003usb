@@ -91,7 +91,7 @@ done_preamble:
 
 	c.nop; c.nop; c.nop; c.nop
 	c.nop; c.nop;
-handle_bit_stuff:  // I think this is where this goes.
+
 	c.nop; c.nop;
 	c.nop; c.nop; c.nop; c.nop
 	c.nop; c.nop; c.nop; c.nop
@@ -102,40 +102,55 @@ handle_bit_stuff:  // I think this is where this goes.
 	// This is the first bit that matters.
 	li s0, 7 // 1 runs.
 
+	/* register meanings:
+		* A0 = temp / current bit value.
+		* A1 = last-frame's GPIO values.
+		* A2 = The running word 
+		* A3 = FREE
+		* A4 = TEMP/FREE
+		* A5 = GPIO Offset
+
+		* S0 = Bit Stuff Place
+		* S1 = # of bits in word write out place.
+*/
+
 .align 4
 
 bit_process:
-	// XXX For some reason, this loop is 2 cycles longer than I would expect.
-
-	lw a0, INDR_OFFSET(a5);
+	c.lw a0, INDR_OFFSET(a5);
 	c.andi a0, USB_DMASK;
 	c.beqz a0, se0_complete
 	c.xor a0, a1;
 	c.xor a1, a0; // Recover a1, for next cycle.
-	// a0 is either 00 for 1 or 11 for 0, anything else is error.
-	c.mv a4, a0
-	c.slli a4, 1  // a4 is 6 if it's a 0 bit.
-	c.or a4, a0   // a4 is 7 if it's a 0 bit.
-	c.or s0, a4   // s0 becomes 7 if it's a 0 bit.
+
+//	c.srli a0, USB_DM
+//	// a0 is either 00 for 1 or 11 for 0, anything else is error.
+//	c.addi a0, 1 // 00 -> 1, 11 -> 100
+//	c.andi a0, 1 // 1 -> 1, 100 -> 0    --- Optimization: We could use SLTI.
+
+	c.slli a2, 1 // Accumulating register shift left.
+
+	// WARNING: 32-bit opcode code here.
+	slti a0, a0, 1<<USB_DM // A0 = 0 if 0 bit, A0 = 1 if 1 bit.
+
+	// Store the bit(s)
+	c.or a2, a0  // Store the data into our accumulating register. 
+
+	c.addi s1, -1
+	c.andi s1, 7
+//	c.bnez s1, not_end_of_byte // 4 cycles for this section. (Checked) (Sometimes 5)?
+//	sw a2, 0(t2) // Save the byte off. TODO: Is unaligned byte access to RAM slow?
+//	addi t2, t2, 1
+//not_end_of_byte:
+
+	// TODO: what about bit stuffing, what if this happens too early?
+	c.addi a0, -1 // 0->0xffffffff 1->0
+	c.or s0, a0
+	c.andi s0, 7  // if 0 set it to 7, if 
 	c.addi s0, -1 // Count # of runs of 1 (subtract 1)
 	c.beqz s0, handle_bit_stuff
-	xori a0, a0, 3 //00 for 0 or 11 for 1. // THIS TAKES 2 CYCLES
-	c.andi a0, 1  //0 for 0 and 1 for 1.
-	// a0 = 0 for a 0 bit or 1 for a 1 bit.
-	// 12 cycles (I think)?
 
-	// Handle storing the bits.
-	c.slli a2, 1
-	c.addi s1, -1 // # of bits left.
-	c.or a2, a0
-	c.andi s1, 7
-
-// Warning - alignment here matters.
-	c.bnez a1, not_end_of_byte // 4 cycles for this section. (Checked) (Sometimes 5)?
-	sw a2, 0(t2) // Save the byte off. TODO: Is unaligned byte access to RAM slow?
-	addi t2, t2, 1
-not_end_of_byte:
-
+	// How much free time do we have? 4?  Can we CRC here?
 
 	// Debug blip
 	li a4, 1<<2
@@ -144,6 +159,23 @@ not_end_of_byte:
 	sw a4, BSHR_OFFSET(a5)
 
 	j bit_process // + 4 cycles
+
+handle_bit_stuff:
+	// We want to wait a little bit, then read another byte, and make
+	// sure everything is well, before heading back into the main loop
+	// Debug blip
+	li a4, 1<<2
+	sw a4, BSHR_OFFSET(a5)
+	li a4, 1<<(16+2)
+	sw a4, BSHR_OFFSET(a5)
+	// Debug blip
+	li a4, 1<<2
+	sw a4, BSHR_OFFSET(a5)
+	li a4, 1<<(16+2)
+	sw a4, BSHR_OFFSET(a5)
+
+	// XXX TODO.
+	j bit_process
 
 se0_complete:
 
