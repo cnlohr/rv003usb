@@ -11,6 +11,8 @@
 #define USB_DPU 5
 #define USB_PORT GPIOD
 
+#define USB_BUFFER_SIZE 16
+
 #define USB_DMASK ((1<<(USB_DM)) | 1<<(USB_DP))
 
 #endif

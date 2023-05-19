@@ -8,7 +8,7 @@
 #include "rv003usb.h"
 
 uint32_t test_memory[2];
-uint32_t usb_buffer[32];
+uint32_t usb_buffer[USB_BUFFER_SIZE];
 
 int main()
 {

@@ -29,8 +29,6 @@ EXTI7_0_IRQHandler:
 	sw	a5, 20(sp)
 	sw	a1, 4(sp)
 
-
-
 	la a5, GPIOD_BASE
 	lw a0, INDR_OFFSET(a5)
 	c.andi a0, USB_DMASK
@@ -70,7 +68,9 @@ syncdone:
 	la  t0, SYSTICK_CNT
 	la  t2, usb_buffer
 
-	nx6p3delay( 1 ); // 15 cycles
+	c.nop; c.nop; c.nop; c.nop; c.nop;
+	c.nop; c.nop; c.nop; c.nop; c.nop;
+	c.nop; c.nop; c.nop; c.nop; c.nop;
 
 	c.xor a1, a0 // Recover 
 preamble_loop:
@@ -87,7 +87,7 @@ done_preamble:
 
 	// Need to delay about 24 cycles
 	li a2, 0
-	li s1, 8 // # of bits
+	li s1, (USB_BUFFER_SIZE*8) // # of bits
 
 
 	li x3, 1<<2
@@ -106,18 +106,19 @@ done_preamble:
 	li s0, 7 // 1 runs.
 
 	/* register meanings:
+		* T0 = Polynomial
+		* T1 = TEMPORARY
+
 		* A0 = temp / current bit value.
 		* A1 = last-frame's GPIO values.
 		* A2 = The running word 
-		* A3 = FREE
-		* A4 = FREE
+		* A3 = Running CRC
+		* A4 = ###
 		* A5 = GPIO Offset
 
 		* S0 = Bit Stuff Place
 		* S1 = # of bits in word write out place.
 */
-
-.align 4
 
 bit_process:
 	c.lw a0, INDR_OFFSET(a5);
@@ -140,30 +141,48 @@ bit_process:
 	c.or a2, a0  // Store the data into our accumulating register. 
 
 	c.addi s1, -1
-	andi s1, 7   // s1 could be really really big
-	c.bnez s1, not_end_of_byte // 4 cycles for this section. (Checked) (Sometimes 5)?
+	andi t1, s1, 7   // s1 could be really really big
+	bnez t1, not_end_of_byte // 4 cycles for this section. (Checked) (Sometimes 5)?
+
+	// end-of-byte.
+
 	sb a2, 0(t2) // Save the byte off. TODO: Is unaligned byte access to RAM slow?
 	addi t2, t2, 1
+
+	// A3 is running crc
+	// T0 is polynomial
+
+#define CRC_CODE \
+	xor a4, a0, a3; \
+	c.andi a4, 1; \
+	neg a4, a4; \
+	and a4, a4, t0; \
+	c.srli a3, 1; \
+	xor a3, a3, t0
+
+#define CHECK_BIT_STUFF_CODE \
+	c.addi a0, -1; /* 0->0xffffffff 1->0 */ \
+	c.or s0, a0;   /* */ \
+	c.andi s0, 7;  /* if 0 set it to 7, if */ \
+	c.addi s0, -1; /* Count # of runs of 1 (subtract 1) */ \
+	c.beqz s0, handle_bit_stuff;
+
+	CRC_CODE
+	CHECK_BIT_STUFF_CODE
+
+	c.bnez s1, bit_process // + 4 cycles
+	c.j done_usb_message
+
 not_end_of_byte:
-
-	// CRC Stuff
-	
-
-
-	// TODO: what about bit stuffing, what if this happens too early?
-	c.addi a0, -1 // 0->0xffffffff 1->0
-	c.or s0, a0
-	c.andi s0, 7  // if 0 set it to 7, if 
-	c.addi s0, -1 // Count # of runs of 1 (subtract 1)
-	c.beqz s0, handle_bit_stuff
-
-	// How much free time do we have? 4?  Can we CRC here?
+	CRC_CODE
+	CHECK_BIT_STUFF_CODE
 
 	// Debug blip
 	sw x3, BSHR_OFFSET(a5)
 	sw x4, BSHR_OFFSET(a5)
 
-	j bit_process // + 4 cycles
+	c.bnez s1, bit_process // + 4 cycles
+	c.j done_usb_message
 
 handle_bit_stuff:
 	// We want to wait a little bit, then read another byte, and make
@@ -202,7 +221,9 @@ handle_bit_stuff:
 	sw x3, BSHR_OFFSET(a5)
 	sw x4, BSHR_OFFSET(a5)
 	// XXX TODO.
-	j bit_process
+	c.bnez s1, bit_process // + 4 cycles
+
+data_ok:
 
 se0_complete:
 
