@@ -176,6 +176,12 @@ To remember:
  * Test data in user space.
  * CRC Code
 
+Stream #3
+3:30:00 ish everything lined up.
 
-
+Questions
+ * ~Figure out why we are one bit off (We lost first bit)~
+ * How do we handle doing something different after the first byte?
+ * Handle proper CRC
+ * Can we magic the CRC so that we can do the same computation and end be able to tell a correct message from a wrong one later?
 

@@ -10,6 +10,12 @@
 uint32_t test_memory[2];
 uint32_t usb_buffer[USB_BUFFER_SIZE];
 
+void rv003usb_handle_packet( uint8_t * buffer, int length, uint32_t crc )
+{
+	printf( "%02x %02x %02x %02x %02x -- %d -- %08lx\n", buffer[0], buffer[1],
+		buffer[2], buffer[3], buffer[4], length, crc );
+}
+
 int main()
 {
 	SystemInit48HSI();
@@ -55,8 +61,9 @@ int main()
 	while(1)
 	{
 		GPIOC->BSHR = 1;   // Set pin high
-		Delay_Ms( 1000 );
+		//Delay_Ms( 1000 );
 		GPIOC->BSHR = (1<<16); // Set the pin low
+		printf( "hello\n" );
 		//Delay_Ms( 1000 );
 		//dma_buffer[0] = 0;
 		//dma_buffer[1] = 0;

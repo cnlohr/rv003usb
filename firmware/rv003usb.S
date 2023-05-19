@@ -15,6 +15,7 @@
 
 .global test_memory
 .global usb_buffer
+.global rv003usb_handle_packet
 
 /* Register map
 	zero, ra, sp, gp, tp, t0, t1, t2
@@ -62,6 +63,8 @@ syncdone:
 	sw	t0, 32(sp)
 	sw	t1, 36(sp)
 	sw  t2, 40(sp) // 16 cycles
+	sw	x3, 44(sp)
+	sw	x4, 48(sp)
 
 	// r0 points to SYSTICK 
 	// a5 points to our port's input.
@@ -79,7 +82,7 @@ preamble_loop:
 	c.xor a0, a1;
 	c.xor a1, a0; // Recover a1.
 	c.beqz a0, done_preamble
-// 6 cycles
+	// 6 cycles
 	nx6p3delay( 3 ); // 21 cycles
 	c.nop
 	j preamble_loop // 4 cycles
@@ -89,18 +92,15 @@ done_preamble:
 	li a2, 0
 	li s1, (USB_BUFFER_SIZE*8) // # of bits
 
-
+	// for debug
 	li x3, 1<<2
 	li x4, 1<<(16+2)
 
-	c.nop; c.nop; c.nop; c.nop
+	c.nop; c.nop; c.nop; c.nop;
+	c.nop; c.nop; c.nop; c.nop;
+	c.nop; c.nop; c.nop;
 
-	c.nop; c.nop;
-	c.nop; c.nop; c.nop; c.nop
-	c.nop; c.nop; c.nop; c.nop
-	c.nop; c.nop; c.nop; c.nop
-	c.nop; c.nop; c.nop; c.nop
-
+	li a4, 0xA001
 
 	// This is the first bit that matters.
 	li s0, 7 // 1 runs.
@@ -120,14 +120,20 @@ done_preamble:
 		* S1 = # of bits in word write out place.
 */
 
+// Show debug blip at beginning.
+	sw x3, BSHR_OFFSET(a5)
+	sw x4, BSHR_OFFSET(a5)
+
 #define HANDLE_EOB_YES \
 	sb a2, 0(t2); /* Save the byte off. TODO: Is unaligned byte access to RAM slow? */ \
-	addi t2, t2, 1
+	addi t2, t2, 1 \
 
 is_end_of_byte:
+.option norvc
 	HANDLE_EOB_YES
-	// end-of-byte.
+.option rvc
 
+	// end-of-byte.
 bit_process:
 	c.lw a0, INDR_OFFSET(a5);
 	c.andi a0, USB_DMASK;
@@ -181,6 +187,7 @@ bit_process:
 	sw x4, BSHR_OFFSET(a5)
 
 	c.bnez s1, bit_process // + 4 cycles
+
 	c.j done_usb_message
 
 handle_bit_stuff:
@@ -191,6 +198,7 @@ handle_bit_stuff:
 	HANDLE_NEXT_BYTE(is_end_of_byte_and_bit_stuffed)
 	c.j is_not_end_of_byte
 is_end_of_byte_and_bit_stuffed:
+	HANDLE_EOB_YES
 
 is_not_end_of_byte:
 
@@ -225,13 +233,17 @@ is_not_end_of_byte:
 	// Debug blip
 	sw x3, BSHR_OFFSET(a5)
 	sw x4, BSHR_OFFSET(a5)
-	// XXX TODO.
+	// XXX TODO Figure out bit stuffing code.
 	c.bnez s1, bit_process // + 4 cycles
 
-data_ok:
-
 se0_complete:
-
+	lw	x3, 44(sp)
+	lw	x4, 48(sp)
+	la  a0, usb_buffer
+	sub a1, t2, a0
+	mv  a2, a3
+	// rv003usb_handle_packet( data, length, crc );
+	call rv003usb_handle_packet
 
 done_usb_message:
 
@@ -243,6 +255,8 @@ done_usb_message:
 	lw	t0, 32(sp)
 	lw	t1, 36(sp)
 	lw	t2, 40(sp)
+	lw	x3, 44(sp)
+	lw	x4, 48(sp)
 
 interrupt_complete:
 	// Acknowledge interrupt.
@@ -255,7 +269,7 @@ interrupt_complete:
 	lw	a0, 0(sp)
 	lw	a5, 20(sp)
 	lw	a1, 4(sp)
-	addi	sp,sp,44
+	addi	sp,sp,52
 	mret
 
 handle_se0_keepalive:
