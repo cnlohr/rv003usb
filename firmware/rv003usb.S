@@ -98,9 +98,9 @@ done_preamble:
 
 	c.nop; c.nop; c.nop; c.nop;
 	c.nop; c.nop; c.nop;
-	c.nop; c.nop; c.nop;
+	c.nop; c.nop;
 
-	li a4, 0xA001
+	li t0, 0xA001
 
 	// This is the first bit that matters.
 	li s0, 7 // 1 runs.
@@ -139,14 +139,7 @@ bit_process:
 	c.andi a0, USB_DMASK;
 	c.beqz a0, se0_complete
 	c.xor a0, a1;
-	c.xor a1, a0; // Recover a1, for next cycle.
-
-//	c.srli a0, USB_DM
-//	// a0 is either 00 for 1 or 11 for 0, anything else is error.
-//	c.addi a0, 1 // 00 -> 1, 11 -> 100
-//	c.andi a0, 1 // 1 -> 1, 100 -> 0    --- Optimization: We could use SLTI.
-// REPLACE TO:
-//	slti a0, a0, 1<<USB_DM // A0 = 0 if 0 bit, A0 = 1 if 1 bit.
+	c.xor a1, a0; // Recover a1, for next cycle
 
 	// a0 is 00110000 << if 0 bit
 	// a0 is 00000000 << if 1 bit.
@@ -172,34 +165,33 @@ bit_process:
 	// A3 is running crc
 	// a4 is polynomial
 
-#define SHIFT_DATA_INTO_A2 \
-	/* */ \
-	c.or a2, a0 /* Store the data into our accumulating register. */ \
-
-#define HANDLE_CRC \
-	c.xor a0, a3; \
-	c.andi a0, 1; \
-	c.addi a0, -1; \
-	c.and a0, a4; \
-	c.srli a3, 1; \
-	c.xor a3, a0
-
-	//c.addi a0, -1; /* 0->0xffffffff 1->0 */
-	//c.or s0, a0;   /* if it's a 0 input (all 1 bits here), reset. */
-	//c.andi s0, 7;  /* if 0 set it to 7, if */
-	c.addi s0, -1; /* Count # of runs of 1 (subtract 1) */s
-	c.srli a0, (USB_DM-1) // If 0, will be 110
-	or s0
+	c.srli a0, USB_DM-1 // 110 if 0 / 0 if 1
+	c.mv a4, a0
+	c.srli a4, 2 // 1 if 0 / 0 if 1
+	c.or a0, a4  //a0 = 111 if 0 / 0 if 1.
+	c.or s0, a0;   /* if it's a 0 input (all 1 bits here), reset. */
+	c.addi s0, -1; /* Count # of runs of 1 (subtract 1) */
 	c.beqz s0, handle_bit_stuff;
 	/* At this point, if bit is 0, a0 0xfffffff, otherise zero */
 
-	HANDLE_CRC
+
+#define HANDLE_CRC_AND_SHIFT_INTO_A2 \
+	c.slli a4, 7;   \
+	c.srli a2, 1;   \
+	c.or a2, a4;  /* Writing out the word */  \
+	c.xor a0, a3;   \
+	c.andi a0, 1;   \
+	c.addi a0, -1;  \
+	and a0, a0, t0; \
+	c.srli a3, 1;   \
+	c.xor a3, a0
+
+	HANDLE_CRC_AND_SHIFT_INTO_A2
 
 #define HANDLE_NEXT_BYTE(is_end_of_byte)  \
 	c.addi s1, -1; \
 	andi a0, s1, 7; /* s1 could be really really big */ \
 	c.beqz a0, is_end_of_byte /* 4 cycles for this section. (Checked) (Sometimes 5)? */ 
-
 	HANDLE_NEXT_BYTE(is_end_of_byte)
 
 	// Debug blip
@@ -214,7 +206,7 @@ handle_bit_stuff:
 	// We want to wait a little bit, then read another byte, and make
 	// sure everything is well, before heading back into the main loop
 	// Debug blip
-	HANDLE_CRC
+	HANDLE_CRC_AND_SHIFT_INTO_A2
 	HANDLE_NEXT_BYTE(is_end_of_byte_and_bit_stuffed)
 	c.j is_not_end_of_byte
 is_end_of_byte_and_bit_stuffed:
