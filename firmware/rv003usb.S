@@ -63,7 +63,6 @@ syncdone:
 	sw	t0, 32(sp)
 	sw	t1, 36(sp)
 	sw  t2, 40(sp) // 16 cycles
-	sw	x3, 44(sp)
 	sw	x4, 48(sp)
 
 	// r0 points to SYSTICK 
@@ -71,10 +70,12 @@ syncdone:
 	la  t0, SYSTICK_CNT
 	la  t2, usb_buffer
 
-	c.nop; c.nop; c.nop; c.nop; c.nop;
-	c.nop; c.nop;
+	la x4, (TIM1_BASE + 0x24) 	// for debug
 
-	c.xor a1, a0 // Recover 
+	c.xor a1, a0 // Recover a1
+
+	sw x0, 0(x4)
+
 preamble_loop:
 	lw a0, INDR_OFFSET(a5);
 	c.andi a0, USB_DMASK;
@@ -90,14 +91,15 @@ done_preamble:
 	// Need to delay about 24 cycles
 	li a2, 0
 
-	la x4, (TIM1_BASE + 0x24) 	// for debug
-
-	c.nop;
-
 	li t0, 0xA001
 
 	// This is the first bit that matters.
 	li s0, 7 // 1 runs.
+
+	c.nop; c.nop; c.nop; c.nop;
+	c.nop; c.nop; c.nop; c.nop;
+	c.nop; c.nop; c.nop; c.nop;
+	c.nop;  //XXX TODO: Tune?
 
 	/* register meanings:
 		* T0 = Polynomial
@@ -126,17 +128,18 @@ packet_type_loop:
 	sw x0, 0(x4)
 	sw x0, 0(x4)
 	sw x0, 0(x4)
-	sw x0, 0(x4)
 
 	c.lw a0, INDR_OFFSET(a5);
 	c.andi a0, USB_DMASK;
-	c.beqz a0, se0_complete
+	c.beqz a0, done_usb_message // Not se0 complete, that can't happen here and be valid.
 	c.xor a0, a1;
 	c.xor a1, a0; // Recover a1, for next cycle
+	// a0 = 00 for 1 and 11 for 0
 
 	// No CRC for the header.
+	c.srli a0, USB_DM
 	c.addi a0, 1 // 00 -> 1, 11 -> 100
-	c.andi a0, 1
+	c.andi a0, 1 // If 1, 1 if 0, 0.
 
 	// Write header into byte in reverse order, because we can.
 	c.slli a2, 1
@@ -277,7 +280,6 @@ se0_complete:
 	sw x0, 0(x4)
 	sw x0, 0(x4)
 
-	lw	x3, 44(sp)
 	lw	x4, 48(sp)
 	la  a0, usb_buffer
 	sub a1, t2, a0
@@ -295,7 +297,6 @@ done_usb_message:
 	lw	t0, 32(sp)
 	lw	t1, 36(sp)
 	lw	t2, 40(sp)
-	lw	x3, 44(sp)
 	lw	x4, 48(sp)
 
 interrupt_complete:
