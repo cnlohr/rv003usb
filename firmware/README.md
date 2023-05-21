@@ -202,4 +202,5 @@ POST-STREAM:
 
 1:51:16 - we have a valid CRC on a setup packet!
 2:04:00 - Having messaged valid and CRC checked!
+3:44:45 - Friday looks adorably at the camera.
 

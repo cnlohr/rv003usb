@@ -4,8 +4,9 @@
 #include "ch32v003fun.h"
 #include "rv003usb.h"
 
-#define BSHR_OFFSET 16
+#define CFGLR_OFFSET 0
 #define INDR_OFFSET 8
+#define BSHR_OFFSET 16
 
 #define SYSTICK_CNT 0xE000F008
 
@@ -14,7 +15,7 @@
 
 
 .global test_memory
-.global usb_buffer
+.global rv003usb_internal_data
 .global rv003usb_handle_packet
 
 /* Register map
@@ -30,11 +31,10 @@ EXTI7_0_IRQHandler:
 	sw	a5, 20(sp)
 	sw	a1, 4(sp)
 
-	la a5, GPIOD_BASE
+	la a5, USB_GPIO_BASE
 	lw a0, INDR_OFFSET(a5)
 	c.andi a0, USB_DMASK
 	c.beqz a0, handle_se0_keepalive
-
 
 	// If we've gotten here, it's a data packet.
 	lw a1, INDR_OFFSET(a5);c.andi a1, USB_DMASK;c.xor a1, a0;c.bnez a1, syncdone
@@ -69,7 +69,7 @@ syncdone:
 	// r0 points to SYSTICK 
 	// a5 points to our port's input.
 	la  t0, SYSTICK_CNT
-	la  t2, usb_buffer
+	la  t2, rv003usb_internal_data
 
 	la x4, (TIM1_BASE + 0x24) 	// for debug
 
@@ -307,17 +307,43 @@ se0_complete:
 	sw x0, 0(x4)
 	sw x0, 0(x4)
 
-// If bad CRC, skip ahead.
+	// Special: handle ACKs?
+	// Now we have to decide what we're doing based on the
+	// packet type.
+	la  a1, rv003usb_internal_data
+	c.lw  a0, 0(a1)
+	c.mv a4, a0
+	c.subi a4, 0b01001011
+	c.beqz a4, usb_pid_handle_ack
+
+	// If bad CRC, skip ahead.
 	c.bnez a3, done_usb_message
 
 	// Good CRC!
-	lw	x4, 48(sp)
-	la  a0, usb_buffer
-	sub a1, t2, a0
-	// rv003usb_handle_packet( data, length );
-	call rv003usb_handle_packet
+	lw	x4, 48(sp) // restore x4 for whatever in C land.
 
-done_usb_message:
+	// a0 contains first 4 bytes.
+	andi a5, a0, 2
+	c.mv a4, a0
+	c.bnez a5, is_data_packet
+		// Else: Is a setup packet
+		c.subi a4, 0b10110100 // a SETUP packet
+		c.beqz a4, usb_pid_handle_setup
+		c.addi a4, (0b10110100-0b10000111) //a OUT token
+		c.beqz a4, usb_pid_handle_out
+		c.addi a4, (0b10000111-0b10010110) //an IN token
+		c.beqz a4, usb_pid_handle_in
+		c.j done_usb_message_in
+	is_data_packet:
+		// Data packet. Handle.
+		c.subi a4, 0b11000011 // a DATA0 packet
+		c.li   a2, 0
+		c.beqz a4, usb_pid_handle_data
+		c.addi a4, (0b11000011-0b11010010) // a DATA1 packet
+		c.li   a2, 1
+		c.beqz a4, usb_pid_handle_data
+
+done_usb_message_in:
 
 	lw	a2, 8(sp)
 	lw	a3, 12(sp)
@@ -348,5 +374,108 @@ handle_se0_keepalive:
 	// In here, we want to do smart stuff with the
 	// 1ms tick.
 	j interrupt_complete
+
+
+//void usb_send_data( uint8_t * data, uint32_t length, uint32_t poly_function );
+usb_send_data:
+	addi	sp,sp,-8
+	sw	s0, 0(sp)
+	sw	s1, 4(sp)
+
+	// t0 is our polynomial
+	// a2 is our running CRC.
+
+	// t1 is bit run length
+	li a2, 0x1f
+
+	li t1, 0
+	li t0, 0
+	c.beqz a2, no_polynomial
+	li t0, 0x14
+no_polynomial:
+
+	// s1 is our last "state"
+	// s0 is our current "bit" / byte / temp.
+
+	// a0 is our data
+	// a1 is is our length
+	// a2 our polynomial
+	// a3 is TEMPORARY
+	// a4 is our LINE STATE
+	// a5 is the output address.
+
+	//XXX TODO Forgot about bit stuffing.
+
+	c.slli a1, 3 // bump up one extra to be # of bits
+
+	la a5, USB_GPIO_BASE
+	c.li a1, (1<<USB_DM) | (1<<(USB_DP+16));
+	c.sw a1, OUTDR_OFFSET(a5)
+	
+	c.lw s1, CFGLR_OFFSET(a5)
+	// Convert D+/D- into 2MHz outputs
+	li a3, ((0b10<<(USB_DM*2)) | (0b10<<(USB_DP*2)))
+	or s1, a3, s1
+
+	//00: Universal push-pull output mode
+	li a3, ~((0b11<<(USB_DM*2+2)) | (0b11<<(USB_DP*2+2)))
+	and s1, a3, s1
+	sw s1, CFGLR(a5)
+
+	c.li s1, 0
+	c.li s0, 0b10000000
+	c.j send_inner_loop
+
+load_next_byte:
+	c.lb s0, 0(a0)
+	c.addi a0, 1
+	c.beqz a1, done_sending_data
+send_inner_loop:
+	andi a3, s0, 1
+
+	// Handle CRC.
+	c.xor a3, a2;
+	c.andi a3, 1;
+	c.addi a3, -1;
+	and a3, a3, t0;
+	c.srli a2, 1;
+	c.xor a2, a0
+
+	// Now compare the values from this to last.
+	andi a3, s0, 1
+	c.xor a3, s1
+	andi s1, s0, 1 // probably can be a c.xor
+	c.beqz a3, send_one_bit_post_xor
+send_zero_bit:
+	c.li a1, (1<<USB_DM) | (1<<(USB_DP+16));
+	c.sw a1, BSHR_OFFSET(a5)
+	c.j send_end_bit_complete
+send_one_bit_post_xor:
+	c.li a1, (1<<USB_DP) | (1<<(USB_DM+16));
+	c.sw a1, BSHR_OFFSET(a5)
+send_end_bit_complete:
+	c.addi a1, -1
+	andi a3, a1, 7
+	c.beqz load_next_byte
+	// Wait an extra 4-5 cycles.
+	c.j send_inner_loop
+
+done_sending_data:
+	c.bnez a2, poly_function
+
+
+	lw s1, CFGLR_OFFSET(a5)
+	// Convert D+/D- into inputs.
+	li a3, ~((0b11<<(USB_DM*2)) | (0b11<<(USB_DP*2)))
+	and s1, a3, s1
+	// 01: Floating input mode.
+	li a3, ((0b01<<(USB_DM*2+2)) | (0b01<<(USB_DP*2+2)))
+	or s1, a3, s1
+	sw s1, CFGLR_OFFSET(a5)
+
+	lw	s0, 0(sp)
+	lw	s1, 4(sp)
+	addi	sp,sp,8
+	ret
 
 
