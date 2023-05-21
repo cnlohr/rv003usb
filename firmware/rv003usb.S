@@ -311,11 +311,12 @@ se0_complete:
 	// Now we have to decide what we're doing based on the
 	// packet type.
 	la  a1, rv003usb_internal_data
-	c.lw  a0, 0(a1)
+	lw  a0, 0(a1)
 	c.mv a4, a0
-	addi a4, a4, -0x4b //0b01001011
+	c.srli a4, 4
+	c.andi a4, 0xf
+	c.addi a4, -0b0100 // ACK packet (but backwards)
 	c.beqz a4, usb_pid_handle_ack
-
 	// If bad CRC, skip ahead.
 	c.bnez a3, done_usb_message
 
@@ -323,13 +324,12 @@ se0_complete:
 	lw	x4, 48(sp) // restore x4 for whatever in C land.
 
 	// a0 contains first 4 bytes.
-	c.mv a4, a0
 	la ra, done_usb_message_in
-	c.srli a4, 4
-	andi a5, a4, 4
+
+	andi a5, a0, 4
 	c.beqz a5, is_data_packet
 		// Else: Is a setup packet
-		addi a4,a4, -0b1011 // a SETUP packet
+		addi a4,a4, 0b0100-0b1011 // a SETUP packet
 		c.beqz a4, usb_pid_handle_setup
 		c.addi a4, (0b1011-0b1000) //a OUT token
 		c.beqz a4, usb_pid_handle_out
@@ -338,7 +338,7 @@ se0_complete:
 		c.j done_usb_message_in
 	is_data_packet:
 		// Data packet. Handle.
-		c.addi a4, -0b1100 // a DATA0 packet
+		c.addi a4, 0b0100-0b1100 // a DATA0 packet
 		c.li   a2, 0
 		c.beqz a4, usb_pid_handle_data
 		c.addi a4, (0b1100-0b1101) // a DATA1 packet
@@ -426,14 +426,21 @@ no_polynomial:
 	c.sw a1, BSHR_OFFSET(a5)
 	
 	c.lw s1, CFGLR_OFFSET(a5)
+
+	li a3, ~((0b1111<<(USB_DM*4)) | (0b1111<<(USB_DP*4)))
+	and s1, a3, s1
+
+
 	// Convert D+/D- into 2MHz outputs
-	li a3, ((0b10<<(USB_DM*2)) | (0b10<<(USB_DP*2)))
+	li a3, ((0b0010<<(USB_DM*4)) | (0b0010<<(USB_DP*4)))
 	or s1, a3, s1
 
 	//00: Universal push-pull output mode
-	li a3, ~((0b11<<(USB_DM*2+2)) | (0b11<<(USB_DP*2+2)))
-	and s1, a3, s1
 	c.sw s1, CFGLR_OFFSET(a5)
+
+	la t2, test_memory
+	sw s1, 0(t2)
+	
 
 	c.li s1, 0
 	li s0, 0b10000000
@@ -457,6 +464,8 @@ send_inner_loop:
 	and a3, a3, t0;
 	c.srli a2, 1;
 	c.xor a2, a0
+
+	andi a3, s0, 1
 
 	// Now compare the values from this to last.
 	andi a3, s0, 1

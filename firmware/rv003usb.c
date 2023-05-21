@@ -9,6 +9,7 @@
 #define INSTANCE_DESCRIPTORS
 #include "rv003usb.h"
 
+uint32_t test_memory[2];
 uint32_t plen;
 int8_t did_get_data;
 uint32_t usb_buffer_back[USB_BUFFER_SIZE];
@@ -102,13 +103,16 @@ int main()
 		//Delay_Ms( 1000 );
 		//GPIOC->BSHR = (1<<16); // Set the pin low
 		//printf( "hello\n" );
+/*
 		uint8_t * buffer = (uint8_t*)usb_buffer_back;
 		printf( " -- %08lx\n", plen );
 		int i;
 		for( i = 0; i < 16; i++ )
 			printf( "%02x ", buffer[i] );
 		Delay_Ms( 100 );
-
+*/
+		printf( "%08lx\n", test_memory[0] );
+		Delay_Ms( 100 );
 
 		//Delay_Ms( 1000 );
 		//dma_buffer[0] = 0;
