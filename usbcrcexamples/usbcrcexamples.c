@@ -19,15 +19,21 @@
 // CRC16 USB is x^16 + x^15 + x^2 + x^0
 //#define CRC16START 0xffff // This the normal way to do it. We go backwards.
 //#define CRC16GOOD  0xB001
-#define CRC16START 0x0000
-#define CRC16GOOD  0xb771
-#define CRC16POLY  0xA001
+//#define CRC16START 0x0000
+//#define CRC16GOOD  0xb771
+#define CRC16START 0xf0eb
+#define CRC16GOOD  0x0000
+#define CRC16POLY  0xa001
 
 // CRC5 is  x^5 + x^2 + x^0
 //#define CRC5START  0x1f
 //#define CRC5GOOD   0x06
-#define CRC5START  0x00
-#define CRC5GOOD   0x16
+
+//#define CRC5START  0x00
+//#define CRC5GOOD   0x16
+
+#define CRC5START  0x1e
+#define CRC5GOOD   0x00
 #define CRC5POLY   0x14  // Reverse polynomial representation. 0x05 is normal
 
 // We do reversed polynomials so we can >>' down the numbers and work with 
@@ -40,6 +46,60 @@
 int main()
 {
 	int i;
+	if( 0 )
+	{
+		// Polynomial seek to find a 0 start polynomial.
+		int sp = 0;
+		for( sp = 0; sp < 32; sp++ )
+		{
+			// First, check CRC5 the naive way.
+			uint32_t crc5 = sp;
+			uint8_t bitstream[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,    0, 1, 0, 0, 0 };
+
+			for( i = 0; i < sizeof( bitstream ); i++ )
+			{
+				uint32_t bv = bitstream[i];
+				uint32_t do_xor = (bv ^ crc5) & 1;
+			    crc5 >>= 1;
+				if( do_xor )
+				    crc5 ^= CRC5POLY;
+			}
+			if( crc5 == 0 ) printf( "Found good start poly: %02x\n", sp );
+		}
+	}
+	if( 1 )
+	{
+		int sp = 0;
+		for( sp = 0; sp < 65536; sp++ )
+		{
+			// CRC16 end-poly-seek
+			uint32_t crc16 = sp;
+			uint8_t bitstream[] = { 
+				0, 0, 0, 0, 0, 0, 0, 1,
+				0, 1, 1, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0,
+				1, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 1, 0,
+				0, 0, 0, 0, 0, 0, 0, 0,
+				1, 0, 1, 1, 1, 0, 1, 1,
+				0, 0, 1, 0, 1, 0, 0, 1,
+			};
+			for( i = 0; i < sizeof( bitstream ); i++ )
+			{
+				uint32_t bv = bitstream[i];
+
+				// This is like the code we have in the USB stack.
+				bv = bv?0:1;
+				uint32_t polyxor = (((uint32_t)((bv ^ crc16))) & 1)-1;
+				polyxor &= CRC16POLY;
+			    crc16 >>= 1;
+				crc16 ^= polyxor;
+			}
+			if( crc16 == 0 ) printf( "Found seeking poly: %04x\n", sp );
+		}
+	}
 
 	{
 		// First, check CRC5 the naive way.
@@ -166,7 +226,7 @@ int main()
 			uint32_t bv = bitstream[i];
 
 			// This is like the code we have in the USB stack.
-			bv = bv?0:7;
+			bv = bv?0:1;
 			uint32_t polyxor = (((uint32_t)((bv ^ crc16))) & 1)-1;
 			polyxor &= CRC16POLY;
 	        crc16 >>= 1;

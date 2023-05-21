@@ -92,12 +92,13 @@ done_preamble:
 	// Need to delay about 24 cycles
 	li a2, 0
 
-	li a4, 0xA001
+	li a4, 0xa001
+	li a3, 0xf0eb // so that if the CRC is correct, it will be 0.
 
 	// This is the first bit that matters.
 	li s0, 7 // 1 runs.
 
-	c.nop; c.nop; c.nop; c.nop;
+	c.nop; c.nop; c.nop;
 	c.nop; c.nop; c.nop; c.nop;
 	c.nop; c.nop; c.nop; c.nop;
 	c.nop;  //XXX TODO: Tune?
@@ -162,6 +163,9 @@ packet_type_loop:
 
 	li s1, (USB_BUFFER_SIZE*8) // # of bits
 
+	// WARNING: a0 is bit-wise backwards here.
+	// 0xb4 for instance is a setup packet.
+	//
 	// When we get here, packet type is loaded in A2.
 	// If packet type is 0xXX01 or 0xXX11
 	// the LSBs are the inverted packet type.
@@ -174,7 +178,7 @@ packet_type_loop:
 	// need to do something IF it's 0!
 	c.bnez a0, data_crc
 	li a4, 0x14	
-	c.nop	
+	li a3, 0x1e
 data_crc:
 	sw x0, 0(x4)
 	//sw x0, 0(x4)
@@ -243,8 +247,8 @@ handle_zero_bit:
 	c.srli a2, 1;   // shift a2 down by 1
 
 	// Handle CRC
-	neg a0, a3
-	c.andi a0, 1
+	andi a0, a3, 1
+	neg a0, a0
 	c.and a0, a4
 	c.srli a3, 1
 	c.xor a3, a0
@@ -302,6 +306,9 @@ se0_complete:
 	sw x0, 0(x4)
 	sw x0, 0(x4)
 	sw x0, 0(x4)
+
+	li a2, 0xaa
+	HANDLE_EOB_YES
 
 	lw	x4, 48(sp)
 	la  a0, usb_buffer
