@@ -201,5 +201,5 @@ POST-STREAM:
  * Maybe send something
 
 1:51:16 - we have a valid CRC on a setup packet!
-
+2:04:00 - Having messaged valid and CRC checked!
 

@@ -11,19 +11,17 @@ uint32_t test_memory[2];
 uint32_t usb_buffer[USB_BUFFER_SIZE];
 
 uint32_t plen;
-uint32_t pcrc;
 
 int8_t did_get_data;
 uint32_t usb_buffer_back[USB_BUFFER_SIZE];
 
-void rv003usb_handle_packet( uint8_t * buffer, int length, uint32_t crc )
+void rv003usb_handle_packet( uint8_t * buffer, int length )
 {
 	if( did_get_data > 0 ) did_get_data--;
 	else
 	if( !did_get_data )
 	{
 		plen = length;
-		pcrc = crc;
 		memcpy( usb_buffer_back, usb_buffer, sizeof( usb_buffer_back ) );
 		did_get_data = -1;
 	}
@@ -109,7 +107,7 @@ int main()
 		//GPIOC->BSHR = (1<<16); // Set the pin low
 		//printf( "hello\n" );
 		uint8_t * buffer = (uint8_t*)usb_buffer_back;
-		printf( " -- %08lx -- %08lx\n", plen, pcrc );
+		printf( " -- %08lx\n", plen );
 		int i;
 		for( i = 0; i < 16; i++ )
 			printf( "%02x ", buffer[i] );

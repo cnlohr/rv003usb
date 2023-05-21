@@ -307,14 +307,14 @@ se0_complete:
 	sw x0, 0(x4)
 	sw x0, 0(x4)
 
-	li a2, 0xaa
-	HANDLE_EOB_YES
+// If bad CRC, skip ahead.
+	c.bnez a3, done_usb_message
 
+	// Good CRC!
 	lw	x4, 48(sp)
 	la  a0, usb_buffer
 	sub a1, t2, a0
-	mv  a2, a3
-	// rv003usb_handle_packet( data, length, crc );
+	// rv003usb_handle_packet( data, length );
 	call rv003usb_handle_packet
 
 done_usb_message:
