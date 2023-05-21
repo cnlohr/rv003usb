@@ -5,6 +5,8 @@
 #include "ch32v003fun.h"
 #include <stdio.h>
 #include <string.h>
+
+#define INSTANCE_DESCRIPTORS
 #include "rv003usb.h"
 
 uint32_t plen;
@@ -15,6 +17,11 @@ struct rv003usb_internal rv003usb_internal_data;
 
 // This is the data actually required for USB.
 uint8_t data_receptive;
+
+void usb_handle_custom_control( uint8_t bmRequestType, uint8_t bRequest, uint16_t wLength,  struct rv003usb_internal * ist )
+{
+	// Do something.
+}
 
 int main()
 {
@@ -120,7 +127,7 @@ int main()
 
 
 //Received a setup for a specific endpoint.
-void usb_pid_handle_setup( uint32_t this_token, struct usb_internal_state_struct * ist )
+void usb_pid_handle_setup( uint32_t this_token, struct rv003usb_internal * ist )
 {
 	uint8_t addr = (this_token>>8) & 0x7f;
 	uint8_t endp = (this_token>>15) & 0xf;
@@ -137,10 +144,10 @@ void usb_pid_handle_setup( uint32_t this_token, struct usb_internal_state_struct
 	e->send = 0;
 	ist->setup_request = 1;
 end:
-	__asm__ __volatile__( "c.j done_usb_message_in" );
+	return;
 }
 
-void usb_pid_handle_in( uint32_t this_token, struct usb_internal_state_struct * ist )
+void usb_pid_handle_in( uint32_t this_token, struct rv003usb_internal * ist )
 {
 	uint8_t addr = (this_token>>8) & 0x7f;
 	uint8_t endp = (this_token>>15) & 0xf;
@@ -196,14 +203,13 @@ void usb_pid_handle_in( uint32_t this_token, struct usb_internal_state_struct * 
 	}
 	else
 	{
-		ets_memcpy( sendnow+2, e->ptr_in + e->place_in, tosend );
+		memcpy( sendnow+2, e->ptr_in + e->place_in, tosend );
 		usb_send_data( sendnow, tosend+2, 0 );
 		e->advance_in = tosend;
 	}
-	__asm__ __volatile__( "c.j done_usb_message_in" );
 }
 
-void usb_pid_handle_out( uint32_t this_token, struct usb_internal_state_struct * ist )
+void usb_pid_handle_out( uint32_t this_token, struct rv003usb_internal * ist )
 {
 	//We need to handle this here because we could have an interrupt in the middle of a control or bulk transfer.
 	//This will correctly swap back the endpoint.
@@ -211,12 +217,10 @@ void usb_pid_handle_out( uint32_t this_token, struct usb_internal_state_struct *
 	uint8_t endp = (this_token>>15) & 0xf;
 	if( endp >= ENDPOINTS ) return;
 	if( addr != 0 && addr != ist->my_address ) return;
-	struct usb_endpoint * e = ist->ce = &ist->eps[endp];
-
-	__asm__ __volatile__( "c.j done_usb_message_in" );
+	/*struct usb_endpoint * e = */ist->ce = &ist->eps[endp];
 }
 
-void usb_pid_handle_data( uint32_t this_token, struct usb_internal_state_struct * ist, uint32_t which_data )
+void usb_pid_handle_data( uint32_t this_token, struct rv003usb_internal * ist, uint32_t which_data )
 {
 	//Received data from host.
 
@@ -291,7 +295,7 @@ void usb_pid_handle_data( uint32_t this_token, struct usb_internal_state_struct 
 			acc = e->max_size_out - place;
 		}
 
-		ets_memcpy( e->ptr_out + e->got_size_out, ist->usb_buffer+1, acc );  //First byte of USB buffer is token.
+		memcpy( e->ptr_out + e->got_size_out, ist->usb_buffer+1, acc );  //First byte of USB buffer is token.
 		e->got_size_out += acc;
 		if( e->got_size_out == e->max_size_out && e->transfer_done_ptr ) {
 			e->ptr_out = 0;
@@ -307,15 +311,13 @@ just_ack:
 		uint8_t sendword[2] = { 0x80, 0xD2 };
 		usb_send_data( sendword, 2, 2 );
 	}
-	__asm__ __volatile__( "c.j done_usb_message_in" );
+	return;
 }
 
-void usb_pid_handle_ack( uint32_t this_token, struct usb_internal_state_struct * ist )
+void usb_pid_handle_ack( uint32_t this_token, struct rv003usb_internal * ist )
 {
 	struct usb_endpoint * e = ist->ce;
-	if( !e ) return;
-
-
+	if( !e ) goto term;
 
 	e->toggle_in = !e->toggle_in;
 	e->place_in += e->advance_in;
@@ -326,7 +328,8 @@ void usb_pid_handle_ack( uint32_t this_token, struct usb_internal_state_struct *
 		if( e->transfer_in_done_ptr ) (*e->transfer_in_done_ptr) = 1;
 		e->transfer_in_done_ptr = 0;
 	}
-	__asm__ __volatile__( "c.j done_usb_message_in" );
+term:
+	return;
 }
 
 

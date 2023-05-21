@@ -1,6 +1,5 @@
 // Test
 
-#define ASSEMBLER
 #include "ch32v003fun.h"
 #include "rv003usb.h"
 
@@ -17,6 +16,7 @@
 .global test_memory
 .global rv003usb_internal_data
 .global rv003usb_handle_packet
+.global usb_send_data
 
 /* Register map
 	zero, ra, sp, gp, tp, t0, t1, t2
@@ -313,7 +313,7 @@ se0_complete:
 	la  a1, rv003usb_internal_data
 	c.lw  a0, 0(a1)
 	c.mv a4, a0
-	c.subi a4, 0b01001011
+	addi a4, a4, -0x4b //0b01001011
 	c.beqz a4, usb_pid_handle_ack
 
 	// If bad CRC, skip ahead.
@@ -323,26 +323,29 @@ se0_complete:
 	lw	x4, 48(sp) // restore x4 for whatever in C land.
 
 	// a0 contains first 4 bytes.
-	andi a5, a0, 2
 	c.mv a4, a0
-	c.bnez a5, is_data_packet
+	la ra, done_usb_message_in
+	c.srli a4, 4
+	andi a5, a4, 4
+	c.beqz a5, is_data_packet
 		// Else: Is a setup packet
-		c.subi a4, 0b10110100 // a SETUP packet
+		addi a4,a4, -0b1011 // a SETUP packet
 		c.beqz a4, usb_pid_handle_setup
-		c.addi a4, (0b10110100-0b10000111) //a OUT token
+		c.addi a4, (0b1011-0b1000) //a OUT token
 		c.beqz a4, usb_pid_handle_out
-		c.addi a4, (0b10000111-0b10010110) //an IN token
+		c.addi a4, (0b1000-0b1001) //an IN token
 		c.beqz a4, usb_pid_handle_in
 		c.j done_usb_message_in
 	is_data_packet:
 		// Data packet. Handle.
-		c.subi a4, 0b11000011 // a DATA0 packet
+		c.addi a4, -0b1100 // a DATA0 packet
 		c.li   a2, 0
 		c.beqz a4, usb_pid_handle_data
-		c.addi a4, (0b11000011-0b11010010) // a DATA1 packet
+		c.addi a4, (0b1100-0b1101) // a DATA1 packet
 		c.li   a2, 1
 		c.beqz a4, usb_pid_handle_data
 
+done_usb_message:
 done_usb_message_in:
 
 	lw	a2, 8(sp)
@@ -376,6 +379,16 @@ handle_se0_keepalive:
 	j interrupt_complete
 
 
+
+
+
+
+
+
+
+
+
+
 //void usb_send_data( uint8_t * data, uint32_t length, uint32_t poly_function );
 usb_send_data:
 	addi	sp,sp,-8
@@ -388,13 +401,13 @@ usb_send_data:
 	// t1 is bit run length
 	li a2, 0x1f
 
-	li t1, 0
+	li t1, 7
 	li t0, 0
 	c.beqz a2, no_polynomial
 	li t0, 0x14
 no_polynomial:
 
-	// s1 is our last "state"
+	// s1 is our last "state" (lsb is last "logical" state, bit 1 is last physical state)
 	// s0 is our current "bit" / byte / temp.
 
 	// a0 is our data
@@ -409,8 +422,8 @@ no_polynomial:
 	c.slli a1, 3 // bump up one extra to be # of bits
 
 	la a5, USB_GPIO_BASE
-	c.li a1, (1<<USB_DM) | (1<<(USB_DP+16));
-	c.sw a1, OUTDR_OFFSET(a5)
+	li a1, (1<<USB_DM) | (1<<(USB_DP+16));
+	c.sw a1, BSHR_OFFSET(a5)
 	
 	c.lw s1, CFGLR_OFFSET(a5)
 	// Convert D+/D- into 2MHz outputs
@@ -420,16 +433,20 @@ no_polynomial:
 	//00: Universal push-pull output mode
 	li a3, ~((0b11<<(USB_DM*2+2)) | (0b11<<(USB_DP*2+2)))
 	and s1, a3, s1
-	sw s1, CFGLR(a5)
+	c.sw s1, CFGLR_OFFSET(a5)
 
 	c.li s1, 0
-	c.li s0, 0b10000000
+	li s0, 0b10000000
 	c.j send_inner_loop
 
 load_next_byte:
-	c.lb s0, 0(a0)
+	lb s0, 0(a0) //replace me with the QingKe v2 "special" opcode for this.
 	c.addi a0, 1
 	c.beqz a1, done_sending_data
+	c.nop
+	c.nop
+	c.nop
+	c.nop
 send_inner_loop:
 	andi a3, s0, 1
 
@@ -444,19 +461,27 @@ send_inner_loop:
 	// Now compare the values from this to last.
 	andi a3, s0, 1
 	c.xor a3, s1
-	andi s1, s0, 1 // probably can be a c.xor
-	c.beqz a3, send_one_bit_post_xor
+	c.andi a3, 1
+	ori s1, s1, 1 // will be reset if a 0 bit.
+	c.beqz a3, send_one_bit
 send_zero_bit:
-	c.li a1, (1<<USB_DM) | (1<<(USB_DP+16));
+	c.andi s1, 2
+	c.mv a3, s1
+	c.andi a3, 2
+	li a1, (1<<USB_DP) | (1<<(USB_DM+16));
+	c.beqz a3, last_bit_was_a_physical_zero
+	// Last bit was a physical 1.
+	li a1, (1<<USB_DM) | (1<<(USB_DP+16));
+last_bit_was_a_physical_zero:
 	c.sw a1, BSHR_OFFSET(a5)
-	c.j send_end_bit_complete
-send_one_bit_post_xor:
-	c.li a1, (1<<USB_DP) | (1<<(USB_DM+16));
-	c.sw a1, BSHR_OFFSET(a5)
+	li t1, 7
+send_one_bit:
+	addi t1, t1, -1
+	beqz t1, insert_stuffed_bit
 send_end_bit_complete:
 	c.addi a1, -1
 	andi a3, a1, 7
-	c.beqz load_next_byte
+	c.beqz a3, load_next_byte
 	// Wait an extra 4-5 cycles.
 	c.j send_inner_loop
 
@@ -478,4 +503,29 @@ done_sending_data:
 	addi	sp,sp,8
 	ret
 
+poly_function:
+	mv s0, a3
+	c.li a1, 5
+	c.j send_inner_loop
 
+
+insert_stuffed_bit:
+	c.nop
+	c.nop
+	c.nop
+	c.nop
+	c.nop
+	c.nop
+	c.nop
+	c.nop
+	c.nop
+	c.nop
+	c.nop
+	c.nop
+	c.nop
+	c.nop
+	c.nop
+	c.nop
+	c.nop
+	c.nop
+	j send_end_bit_complete
