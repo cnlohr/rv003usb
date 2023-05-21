@@ -25,7 +25,7 @@ Compressed:
 
 .global EXTI7_0_IRQHandler
 EXTI7_0_IRQHandler:
-	addi	sp,sp,-52
+	addi	sp,sp,-56
 	sw	a0, 0(sp)
 	sw	a5, 20(sp)
 	sw	a1, 4(sp)
@@ -64,6 +64,7 @@ syncdone:
 	sw	t1, 36(sp)
 	sw  t2, 40(sp) // 16 cycles
 	sw	x4, 48(sp)
+	sw  ra, 52(sp)
 
 	// r0 points to SYSTICK 
 	// a5 points to our port's input.
@@ -91,7 +92,7 @@ done_preamble:
 	// Need to delay about 24 cycles
 	li a2, 0
 
-	li t0, 0xA001
+	li a4, 0xA001
 
 	// This is the first bit that matters.
 	li s0, 7 // 1 runs.
@@ -102,14 +103,14 @@ done_preamble:
 	c.nop;  //XXX TODO: Tune?
 
 	/* register meanings:
-		* T0 = Polynomial
+		* T0 = temp
 		* T1 = TEMPORARY
 
 		* A0 = temp / current bit value.
 		* A1 = last-frame's GPIO values.
 		* A2 = The running word 
 		* A3 = Running CRC
-		* A4 = temp
+		* A4 = Polynomial
 		* A5 = GPIO Offset
 
 		* S0 = Bit Stuff Place
@@ -161,18 +162,27 @@ packet_type_loop:
 
 	li s1, (USB_BUFFER_SIZE*8) // # of bits
 
+	// When we get here, packet type is loaded in A2.
+	// If packet type is 0xXX01 or 0xXX11
+	// the LSBs are the inverted packet type.
+	// we can branch off of bit 2.
+	andi a0, a2, 2
+
+	// if a0 is 1 then it's DATA (full CRC) otheriwse,
+	// (0) for setup or PARTIAL CRC.
+	// a4 is preloaded with 0xa001 up above, SO we only
+	// need to do something IF it's 0!
+	c.bnez a0, data_crc
+	li a4, 0x14	
+	c.nop	
+data_crc:
 	sw x0, 0(x4)
-	sw x0, 0(x4)
-	sw x0, 0(x4)
-	sw x0, 0(x4)
-	sw x0, 0(x4)
-	sw x0, 0(x4)
-	sw x0, 0(x4)
+	//sw x0, 0(x4)
 
 
 #define HANDLE_EOB_YES \
 	sb a2, 0(t2); /* Save the byte off. TODO: Is unaligned byte access to RAM slow? */ \
-	addi t2, t2, 1;
+	.word 0x00138393; /*addi t2, t2, 1;*/
 
 ///////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////	
@@ -182,12 +192,14 @@ is_end_of_byte:
 
 	// end-of-byte.
 bit_process:
+	// Debug blip
+	sw x0, 0(x4)
 	c.lw a0, INDR_OFFSET(a5);
 	c.andi a0, USB_DMASK;
 	c.beqz a0, se0_complete
 	c.xor a0, a1;
 	c.xor a1, a0; // Recover a1, for next cycle
-
+/*
 #define HANDLE_CRC \
 	c.xor a0, a3; \
 	c.andi a0, 1; \
@@ -195,43 +207,54 @@ bit_process:
 	and a0, a0, t0; \
 	c.srli a3, 1; \
 	c.xor a3, a0
-
+*/
 #define HANDLE_NEXT_BYTE(is_end_of_byte)  \
 	c.addi s1, -1; \
 	andi a0, s1, 7; /* s1 could be really really big */ \
 	c.beqz a0, is_end_of_byte /* 4 cycles for this section. (Checked) (Sometimes 5)? */ 
-
 
 	c.bnez a0, handle_zero_bit
 
 handle_one_bit:
 	c.addi s0, -1; // Count # of runs of 1 (subtract 1)
 	c.srli a2, 1;  // shift a2 down by 1
+	//c.li a0, 0
+	//HANDLE_CRC
+	andi a0, a3, 1
+	c.addi a0, -1
+	c.and a0, a4
+	c.srli a3, 1
+	c.xor a3, a0
 
-	HANDLE_CRC
 	c.li a0, 1
 	c.slli a0, 7
 	or a2,a2, a0;   // It's a 1, or it in.
 	c.beqz s0, handle_bit_stuff;
 	HANDLE_NEXT_BYTE(is_end_of_byte)
 
-	// Debug blip
-	c.nop; c.nop;
-	sw x0, 0(x4)
+	c.nop
+	c.nop
+	c.nop
 	c.bnez s1, bit_process // + 4 cycles
 	c.j done_usb_message
 
 handle_zero_bit:
 	c.li s0, 7      // reset runs-of-one.
 	c.srli a2, 1;   // shift a2 down by 1
-	
-	HANDLE_CRC
+
+	// Handle CRC
+	neg a0, a3
+	c.andi a0, 1
+	c.and a0, a4
+	c.srli a3, 1
+	c.xor a3, a0
+
+	//c.li a0, 1
+	//HANDLE_CRC
 	HANDLE_NEXT_BYTE(is_end_of_byte)
 
-	// Debug blip
-	c.nop; c.nop;
-	sw x0, 0(x4)
-
+	c.nop
+	c.nop
 	c.bnez s1, bit_process // + 4 cycles
 	c.j done_usb_message
 
@@ -285,7 +308,7 @@ se0_complete:
 	sub a1, t2, a0
 	mv  a2, a3
 	// rv003usb_handle_packet( data, length, crc );
-	//call rv003usb_handle_packet
+	call rv003usb_handle_packet
 
 done_usb_message:
 
@@ -298,6 +321,7 @@ done_usb_message:
 	lw	t1, 36(sp)
 	lw	t2, 40(sp)
 	lw	x4, 48(sp)
+	lw  ra, 52(sp)
 
 interrupt_complete:
 	// Acknowledge interrupt.
@@ -310,7 +334,7 @@ interrupt_complete:
 	lw	a0, 0(sp)
 	lw	a5, 20(sp)
 	lw	a1, 4(sp)
-	addi	sp,sp,52
+	addi	sp,sp,56
 	mret
 
 handle_se0_keepalive:

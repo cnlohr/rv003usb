@@ -176,7 +176,7 @@ To remember:
  * Test data in user space.
  * CRC Code
 
-Stream #3
+## Stream #3
 3:30:00 ish everything lined up.
 
 Questions
@@ -193,3 +193,12 @@ POST-STREAM:
  * Causes blips, nicely in the middle of clock pulses.
  * Decided to use a branch, based on if it was a 1 or a 0.
  * Branch was much faster. It all fit.
+ * Added the pre-loop for type.
+
+## Stream #4
+ * Read in frames
+ * Check CRC
+ * Maybe send something
+
+
+

@@ -53,7 +53,6 @@ int main()
 		// Enable CH4 output, positive pol
 		TIM1->CCER |= TIM_CC3E | TIM_CC3NP;
 		
-	
 		// CH2 Mode is output, PWM1 (CC1S = 00, OC1M = 110)
 		TIM1->CHCTLR2 |= TIM_OC3M_2 | TIM_OC3M_1;
 
@@ -95,12 +94,12 @@ int main()
 		//Delay_Ms( 1000 );
 		//GPIOC->BSHR = (1<<16); // Set the pin low
 		//printf( "hello\n" );
-	uint8_t * buffer = usb_buffer;
-	printf( "%02x %02x %02x %02x %02x %02x %02x %02x\n",
-		buffer[0], buffer[1],
-		buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7]
-		 );
-	printf( " -- %08lx -- %08lx\n", plen, pcrc );
+		uint8_t * buffer = (uint8_t)usb_buffer;
+		printf( " -- %08lx -- %08lx\n", plen, pcrc );
+		int i;
+		for( i = 0; i < 16; i++ )
+			printf( "%02x ", buffer[i] );
+		Delay_Ms( 100 );
 
 
 		//Delay_Ms( 1000 );
