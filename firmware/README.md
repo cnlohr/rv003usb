@@ -204,3 +204,7 @@ POST-STREAM:
 2:04:00 - Having messaged valid and CRC checked!
 3:44:45 - Friday looks adorably at the camera.
 
+## Stream #5
+ * TODO: `.balign` instead of `.align`
+ * 
+
