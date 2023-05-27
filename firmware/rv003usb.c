@@ -172,6 +172,7 @@ void usb_pid_handle_in( uint32_t this_token, struct rv003usb_internal * ist, uin
 
 	int tosend = 0;
 	uint8_t sendnow[12];
+
 	sendnow[0] = 0x80;
 
 	if( e->send && e->ptr_in ) 

@@ -260,9 +260,32 @@ int main()
 			    crc16 >>= 1;
 				crc16 ^= polyxor;
 			}
-			if( crc16 == 0x0000 ) break;
+			if( crc16 == 0xffff ) break;
 		}
-		printf( "Preload Poly: %04x\n", startpoly );
+		printf( "Preload Poly for DATA1: %04x\n", startpoly );
+
+		for( startpoly = 0; startpoly != 0x10000; startpoly++ )
+		{
+			// Another CRC16 test.
+			uint32_t crc16 = startpoly;
+			uint8_t bitstream[] = { 
+				0, 0, 0, 0, 0, 0, 0, 1,
+				1, 1, 0, 0, 0, 0, 1, 1,
+			};
+			for( i = 0; i < sizeof( bitstream ); i++ )
+			{
+				uint32_t bv = bitstream[i];
+
+				// This is like the code we have in the USB stack.
+				bv = bv?0:1;
+				uint32_t polyxor = (((uint32_t)((bv ^ crc16))) & 1)-1;
+				polyxor &= CRC16POLY;
+			    crc16 >>= 1;
+				crc16 ^= polyxor;
+			}
+			if( crc16 == 0xffff ) break;
+		}
+		printf( "Preload Poly for DATA0: %04x\n", startpoly );
 	}
 
 

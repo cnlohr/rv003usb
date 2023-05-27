@@ -316,8 +316,6 @@ se0_complete:
 	c.mv a4, a0
 	c.srli a4, 4
 	c.andi a4, 0xf
-	c.addi a4, -0b0100 // ACK packet (but backwards)
-	c.beqz a4, usb_pid_handle_ack
 	// If bad CRC, skip ahead.
 //	c.bnez a3, done_usb_message
 
@@ -326,6 +324,9 @@ se0_complete:
 
 	// a0 contains first 4 bytes.
 	la ra, done_usb_message_in
+
+	c.addi a4, -0b0100 // ACK packet (but backwards)
+	c.beqz a4, usb_pid_handle_ack
 
 	andi a5, a0, 4
 	c.beqz a5, is_data_packet
@@ -395,21 +396,39 @@ usb_send_data:
 	addi	sp,sp,-12
 	sw	s0, 0(sp)
 	sw	s1, 4(sp)
+	sw  x4, 8(sp)
 	//sw  s2, 8(sp) // backup if we want the CRC or not.
 
 	// t0 is our polynomial
 	// a2 is our running CRC.
 
+	la x4, (TIM1_BASE + 0x24) 	// for debug
+
+	// XXX TODO: This logic is so bad.
 	li t0, 0xa001
 	c.beqz a2, data_polynomial
 	li t0, 0x00
 	li a2, 0x00
+	c.j done_data
 //	li t0, 0x14
 //	li a2, 0x1f
 data_polynomial:
-	// TODO: Do this for DATA1.
-	// TODO: Compute DATA0.
+
+	lb a3, 1(a0)
+	c.andi a3, 0xf
+	// Check to see if it's data0 or data1.
+	c.addi a3, -0b0011
+	c.beqz a3, is_data_0
+
+	// If data1
 	li a2, 0x5ed7
+	c.j done_data
+
+is_data_0:
+	li a2, 0xd6d7
+	sw x0, 0(x4)
+
+done_data:
 
 	// t0 is used for CRC
 	// t1 is free
@@ -570,6 +589,7 @@ no_really_done_sending_data:
 
 	lw	s0, 0(sp)
 	lw	s1, 4(sp)
+	lw  x4, 8(sp)
 	addi	sp,sp,12
 	ret
 
@@ -584,8 +604,8 @@ insert_stuffed_bit:
 	c.nop;	c.nop;	c.nop;	c.nop;
 	c.nop;	c.nop;	c.nop;	c.nop;
 	c.nop;	c.nop;	c.nop;	c.nop;
-	c.nop;	c.nop;	c.nop;	c.nop;
+	c.nop;
+	c.li a4, 7 // reset bit stuffing.
 	xor s1, s1, t1
 	sw s1, BSHR_OFFSET(a5)
-	c.li a4, 7 // reset bit stuffing.
 	j send_end_bit_complete
