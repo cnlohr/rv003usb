@@ -407,12 +407,18 @@ usb_send_data:
 	li t0, 0x14
 no_polynomial:
 
-	// s1 is our last "state" (lsb is last "logical" state, bit 1 is last physical state)
+	// t0 is used for CRC
+	// t1 is used for bitstuffing
+	// t2 is totally free.
+
+	// s1 is our last "state"
+	//    bit 0 is last "physical" state,
+	//    
 	// s0 is our current "bit" / byte / temp.
 
 	// a0 is our data
 	// a1 is is our length
-	// a2 our polynomial
+	// a2 our CRC
 	// a3 is TEMPORARY
 	// a4 is our LINE STATE
 	// a5 is the output address.
@@ -422,8 +428,8 @@ no_polynomial:
 	c.slli a1, 3 // bump up one extra to be # of bits
 
 	la a5, USB_GPIO_BASE
-	li a1, (1<<USB_DM) | (1<<(USB_DP+16));
-	c.sw a1, BSHR_OFFSET(a5)
+	li a3, (1<<USB_DP) | (1<<(USB_DM+16));
+	c.sw a3, BSHR_OFFSET(a5)
 	
 	c.lw s1, CFGLR_OFFSET(a5)
 
@@ -438,12 +444,14 @@ no_polynomial:
 	//00: Universal push-pull output mode
 	c.sw s1, CFGLR_OFFSET(a5)
 
-	la t2, test_memory
-	sw s1, 0(t2)
-	
+	//la t2, test_memory
+	//sw s1, 0(t2)
 
-	c.li s1, 0
+	// This creates a preamble, which is alternating 1's and 0's
+	// and then it sets the same state.
+	li s1, 0xffffffff
 	li s0, 0b10000000
+
 	c.j send_inner_loop
 
 load_next_byte:
@@ -455,6 +463,7 @@ load_next_byte:
 	c.nop
 	c.nop
 send_inner_loop:
+	// a3 is now the lsb of s0 (the 'next bit' to read out)
 	andi a3, s0, 1
 
 	// Handle CRC.
@@ -465,26 +474,47 @@ send_inner_loop:
 	c.srli a2, 1;
 	c.xor a2, a0
 
+	// a3 is now the lsb of s0 (the running word) again.
 	andi a3, s0, 1
+	c.srli s0, 1 // Shift down into the next bit.
 
+	// If a3 is 0, we should FLIP
+	// if a3 is 1, we should NOT flip.
+
+	c.beqz a3, send_zero_bit
+//send_one_bit:
+	li t1, 7
+	c.j cont_after_jump
+//Send 0 bit. (Flip)
+send_zero_bit:
+	not s1, s1
+	li a3, (1<<USB_DM) | (1<<(USB_DP+16));
+	beqz s1, out_state_j // is this really j?
+	li a3, (1<<USB_DP) | (1<<(USB_DM+16));
+out_state_j:
+	c.sw a3, BSHR_OFFSET(a5)
+	
+	// DO NOT flip.  Allow t1 to increment.
+cont_after_jump:
+#if 0
 	// Now compare the values from this to last.
-	andi a3, s0, 1
+	// If the bits are the same, a3 will be 0.
 	c.xor a3, s1
-	c.andi a3, 1
+	c.andi a3, 1  // ??? Why do we need this?
 	ori s1, s1, 1 // will be reset if a 0 bit.
 	c.beqz a3, send_one_bit
 send_zero_bit:
 	c.andi s1, 2
 	c.mv a3, s1
 	c.andi a3, 2
-	li a1, (1<<USB_DP) | (1<<(USB_DM+16));
+	li t2, (1<<USB_DM) | (1<<(USB_DP+16));
 	c.beqz a3, last_bit_was_a_physical_zero
 	// Last bit was a physical 1.
-	li a1, (1<<USB_DM) | (1<<(USB_DP+16));
+	li t2, (1<<USB_DP) | (1<<(USB_DM+16));
 last_bit_was_a_physical_zero:
-	c.sw a1, BSHR_OFFSET(a5)
+	sw t2, BSHR_OFFSET(a5)
 	li t1, 7
-send_one_bit:
+#endif
 	addi t1, t1, -1
 	beqz t1, insert_stuffed_bit
 send_end_bit_complete:
@@ -495,15 +525,14 @@ send_end_bit_complete:
 	c.j send_inner_loop
 
 done_sending_data:
-	c.bnez a2, poly_function
-
+//	c.bnez a2, poly_function  TODO: Uncomment me!
 
 	lw s1, CFGLR_OFFSET(a5)
 	// Convert D+/D- into inputs.
-	li a3, ~((0b11<<(USB_DM*2)) | (0b11<<(USB_DP*2)))
+	li a3, ~((0b11<<(USB_DM*4)) | (0b11<<(USB_DP*4)))
 	and s1, a3, s1
 	// 01: Floating input mode.
-	li a3, ((0b01<<(USB_DM*2+2)) | (0b01<<(USB_DP*2+2)))
+	li a3, ((0b01<<(USB_DM*4+2)) | (0b01<<(USB_DP*4+2)))
 	or s1, a3, s1
 	sw s1, CFGLR_OFFSET(a5)
 
