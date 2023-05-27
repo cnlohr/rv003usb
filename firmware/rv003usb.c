@@ -35,7 +35,7 @@ int main()
 
 	
 	Delay_Ms( 1000 );
-	printf( "......................\n" );
+//	printf( "......................\n" );
 
 	// Enable GPIOs, DMA and TIMERs
 	RCC->AHBPCENR = RCC_AHBPeriph_SRAM | RCC_AHBPeriph_DMA1;
@@ -101,6 +101,16 @@ int main()
 	// enable interrupt
 	NVIC_EnableIRQ( EXTI7_0_IRQn );
 
+
+//	uint8_t my_ep2[8];
+//	struct rv003usb_internal * uis = &rv003usb_internal_data;
+//	struct usb_endpoint * e2 = &uis->eps[2];
+
+//	e2->ptr_in = my_ep2;
+//	e2->place_in = 0;
+//	e2->size_in = sizeof( my_ep2 );
+	
+
 	while(1)
 	{
 		//GPIOC->BSHR = 1;   // Set pin high
@@ -117,6 +127,10 @@ int main()
 */
 		printf( "%08lx\n", test_memory[0] );
 		Delay_Ms( 100 );
+
+	//	my_ep2[0] = 0x14;
+	//	my_ep2[2] = 0x80;
+	//	e2->send = 1;
 
 		//Delay_Ms( 1000 );
 		//dma_buffer[0] = 0;
