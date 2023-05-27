@@ -72,7 +72,7 @@ struct usb_urb
 
 
 void usb_pid_handle_setup( uint32_t this_token, struct rv003usb_internal * ist );
-void usb_pid_handle_in( uint32_t this_token, struct rv003usb_internal * ist );
+void usb_pid_handle_in( uint32_t this_token, struct rv003usb_internal * ist, uint32_t last_32_bit, int crc_ok );
 void usb_pid_handle_out( uint32_t this_token, struct rv003usb_internal * ist );
 void usb_pid_handle_data( uint32_t this_token, struct rv003usb_internal * ist, uint32_t which_data );
 void usb_pid_handle_ack( uint32_t this_token, struct rv003usb_internal * ist );

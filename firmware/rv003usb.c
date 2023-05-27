@@ -33,6 +33,10 @@ int main()
 	SetupDebugPrintf();
 	SETUP_SYSTICK_HCLK
 
+	
+	Delay_Ms( 1000 );
+	printf( "......................\n" );
+
 	// Enable GPIOs, DMA and TIMERs
 	RCC->AHBPCENR = RCC_AHBPeriph_SRAM | RCC_AHBPeriph_DMA1;
 	RCC->APB2PCENR = RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOC | RCC_APB2Periph_TIM1 | RCC_APB2Periph_GPIOA  | RCC_APB2Periph_AFIO | RCC_APB2Periph_TIM1;
@@ -151,11 +155,11 @@ end:
 	return;
 }
 
-void usb_pid_handle_in( uint32_t this_token, struct rv003usb_internal * ist )
+void usb_pid_handle_in( uint32_t this_token, struct rv003usb_internal * ist, uint32_t last_32_bit, int crc_out )
 {
 	uint8_t addr = (this_token>>8) & 0x7f;
 	uint8_t endp = (this_token>>15) & 0xf;
-
+//printf( "PID_IN: %02x %02x %08x %08x\n", addr, endp, last_32_bit, crc_out );
 	//If we get an "in" token, we have to strike any accept buffers.
 
 	if( endp >= ENDPOINTS ) return;
@@ -252,7 +256,7 @@ void usb_pid_handle_data( uint32_t this_token, struct rv003usb_internal * ist, u
 
 		if( s->bmRequestType & 0x80 )
 		{
-			if( s->bRequest == 0x06 ) //Get Request
+			if( s->bRequest == 0x06 ) //Get Descriptor Request
 			{
 				int i;
 				const struct descriptor_list_struct * dl;

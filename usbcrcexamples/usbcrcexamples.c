@@ -173,6 +173,7 @@ int main()
 	}
 
 
+
 	// Cursed, test CRC-16
 	{
 		// Another CRC16 test.
@@ -234,6 +235,36 @@ int main()
 		}
 		printf( "Awful: %04x ?= %04x\n", crc16, CRC16GOOD );
 	}
+
+	// Tricky junk to un-compute? the beginning of the CRC16s for DATA0/DATA1.
+	
+	// Another cursed, test CRC-16
+	{
+		uint32_t startpoly = 0;
+		for( startpoly = 0; startpoly != 0x10000; startpoly++ )
+		{
+			// Another CRC16 test.
+			uint32_t crc16 = startpoly;
+			uint8_t bitstream[] = { 
+				0, 0, 0, 0, 0, 0, 0, 1,
+				1, 1, 0, 1, 0, 0, 1, 0,
+			};
+			for( i = 0; i < sizeof( bitstream ); i++ )
+			{
+				uint32_t bv = bitstream[i];
+
+				// This is like the code we have in the USB stack.
+				bv = bv?0:1;
+				uint32_t polyxor = (((uint32_t)((bv ^ crc16))) & 1)-1;
+				polyxor &= CRC16POLY;
+			    crc16 >>= 1;
+				crc16 ^= polyxor;
+			}
+			if( crc16 == 0x0000 ) break;
+		}
+		printf( "Preload Poly: %04x\n", startpoly );
+	}
+
 
 return 0;
 
@@ -388,5 +419,7 @@ return 0;
 			printf( "0x%04x, ", crc16table[i] );
 		}
 		printf( "\n};\n" );
-	}}
+	}
+
+}
 

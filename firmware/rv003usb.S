@@ -176,7 +176,7 @@ packet_type_loop:
 	// (0) for setup or PARTIAL CRC.
 	// a4 is preloaded with 0xa001 up above, SO we only
 	// need to do something IF it's 0!
-	c.bnez a0, data_crc
+	c.beqz a0, data_crc // XXX TODO REV'd (I guess it's backwards?)
 	li a4, 0x14	
 	li a3, 0x1e
 data_crc:
@@ -319,7 +319,7 @@ se0_complete:
 	c.addi a4, -0b0100 // ACK packet (but backwards)
 	c.beqz a4, usb_pid_handle_ack
 	// If bad CRC, skip ahead.
-	c.bnez a3, done_usb_message
+//	c.bnez a3, done_usb_message
 
 	// Good CRC!
 	lw	x4, 48(sp) // restore x4 for whatever in C land.
@@ -392,21 +392,24 @@ handle_se0_keepalive:
 
 //void usb_send_data( uint8_t * data, uint32_t length, uint32_t poly_function );
 usb_send_data:
-	addi	sp,sp,-8
+	addi	sp,sp,-12
 	sw	s0, 0(sp)
 	sw	s1, 4(sp)
+	//sw  s2, 8(sp) // backup if we want the CRC or not.
 
 	// t0 is our polynomial
 	// a2 is our running CRC.
 
-	// t1 is bit run length
-	li a2, 0x1f
-
-	li t1, 7
-	li t0, 0
-	c.beqz a2, no_polynomial
-	li t0, 0x14
-no_polynomial:
+	li t0, 0xa001
+	c.beqz a2, data_polynomial
+	li t0, 0x00
+	li a2, 0x00
+//	li t0, 0x14
+//	li a2, 0x1f
+data_polynomial:
+	// TODO: Do this for DATA1.
+	// TODO: Compute DATA0.
+	li a2, 0x5ed7
 
 	// t0 is used for CRC
 	// t1 is free
@@ -429,7 +432,7 @@ no_polynomial:
 	c.slli a1, 3 // bump up one extra to be # of bits
 
 	la a5, USB_GPIO_BASE
-	li s1, (1<<USB_DM) | (1<<(USB_DP+16))
+	li s1, (1<<USB_DP) | (1<<(USB_DM+16))
 	li t1, (1<<USB_DM) | (1<<(USB_DP+16)) | (1<<USB_DP) | (1<<(USB_DM+16));
 	c.sw s1, BSHR_OFFSET(a5)
 	
@@ -446,17 +449,20 @@ no_polynomial:
 	//00: Universal push-pull output mode
 	c.sw s0, CFGLR_OFFSET(a5)
 
+	//xor s1, s1, t1
+	//c.sw s1, BSHR_OFFSET(a5)
+
+	c.nop;	c.nop;	c.nop;	c.nop
+	c.nop;	c.nop;	c.nop;	c.nop
+
 	// This creates a preamble, which is alternating 1's and 0's
 	// and then it sets the same state.
-	li s0, 0b10000000
+//	li s0, 0b10000000
 
-	c.j send_inner_loop
-
-	c.nop
-load_next_byte:
-	lb s0, 0(a0) //replace me with the QingKe v2 "special" opcode for this.
-	c.addi a0, 1
-	c.beqz a1, done_sending_data
+//	c.j send_inner_loop
+load_next_word:
+	lh s0, 0(a0) //replace me with the QingKe v2 "special" opcode for this.
+	c.addi a0, 2
 send_inner_loop:
 	/* High-level:
 		* extract the LSB from s0
@@ -476,7 +482,6 @@ send_inner_loop:
 
 	c.beqz a3, send_zero_bit
 //send_one_bit:
-
 	//HANDLE_CRC (1 bit)
 	andi a3, a2, 1
 	c.addi a3, -1
@@ -484,13 +489,9 @@ send_inner_loop:
 	c.srli a2, 1
 	c.xor a2, a3
 
-	c.li a4, 7
 	c.nop
-	c.nop
-	c.nop
-	c.nop
-	c.nop
-	c.nop
+	c.addi a4, -1
+	c.beqz a4, insert_stuffed_bit
 	c.nop
 	c.j cont_after_jump
 //Send 0 bit. (Flip)
@@ -515,14 +516,16 @@ send_zero_bit:
 	// 01.....10
 	xor s1, s1, t1
 	sw s1, BSHR_OFFSET(a5)
+
+	c.li a4, 6 // reset bit stuffing.
 	// DO NOT flip.  Allow a4 to increment.
 cont_after_jump:
-	c.addi a4, -1
-	c.beqz a4, insert_stuffed_bit
+
 send_end_bit_complete:
 	c.addi a1, -1
-	andi a3, a1, 7
-	c.beqz a3, load_next_byte
+	c.beqz a1, done_sending_data
+	andi a3, a1, 15
+	c.beqz a3, load_next_word
 	// Wait an extra 4-5 cycles.
 	c.nop
 	c.nop
@@ -530,7 +533,31 @@ send_end_bit_complete:
 	c.j send_inner_loop
 
 done_sending_data:
+	// BUT WAIT!! MAYBE WE NEED TO CRC!
+	beqz t0, no_really_done_sending_data
+	not s0, a2 // get read to send out the CRC.
+	li t0, 0 // reset poly - we don't want it anymore.
+	li a1, 16 // Load 16 more bits out
+	c.j send_inner_loop
+
+no_really_done_sending_data:
+
 //	c.bnez a2, poly_function  TODO: Uncomment me!
+
+	c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop;
+
+	// Need to perform an SE0.
+	li s1, (1<<(USB_DP+16)) | (1<<(USB_DM+16))
+	c.sw s1, BSHR_OFFSET(a5)
+
+	c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop;
+	c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop;
+	c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop;
+	c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop;
+	c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop;
+	c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop;
+	li s1, (1<<(USB_DP)) | (1<<(USB_DM+16))
+	c.sw s1, BSHR_OFFSET(a5)
 
 	lw s1, CFGLR_OFFSET(a5)
 	// Convert D+/D- into inputs.
@@ -543,7 +570,7 @@ done_sending_data:
 
 	lw	s0, 0(sp)
 	lw	s1, 4(sp)
-	addi	sp,sp,8
+	addi	sp,sp,12
 	ret
 
 poly_function:
@@ -553,22 +580,12 @@ poly_function:
 
 
 insert_stuffed_bit:
-	c.nop
-	c.nop
-	c.nop
-	c.nop
-	c.nop
-	c.nop
-	c.nop
-	c.nop
-	c.nop
-	c.nop
-	c.nop
-	c.nop
-	c.nop
-	c.nop
-	c.nop
-	c.nop
-	c.nop
-	c.nop
+	c.nop;	c.nop;	c.nop;	c.nop;
+	c.nop;	c.nop;	c.nop;	c.nop;
+	c.nop;	c.nop;	c.nop;	c.nop;
+	c.nop;	c.nop;	c.nop;	c.nop;
+	c.nop;	c.nop;	c.nop;	c.nop;
+	xor s1, s1, t1
+	sw s1, BSHR_OFFSET(a5)
+	c.li a4, 7 // reset bit stuffing.
 	j send_end_bit_complete
