@@ -223,7 +223,8 @@ handle_one_bit:
 	c.addi s0, -1; // Count # of runs of 1 (subtract 1)
 	c.srli a2, 1;  // shift a2 down by 1
 	//c.li a0, 0
-	//HANDLE_CRC
+
+	//HANDLE_CRC (1 bit)
 	andi a0, a3, 1
 	c.addi a0, -1
 	c.and a0, a4
@@ -246,7 +247,7 @@ handle_zero_bit:
 	c.li s0, 7      // reset runs-of-one.
 	c.srli a2, 1;   // shift a2 down by 1
 
-	// Handle CRC
+	// Handle CRC (0 bit)
 	andi a0, a3, 1
 	neg a0, a0
 	c.and a0, a4
@@ -408,7 +409,7 @@ usb_send_data:
 no_polynomial:
 
 	// t0 is used for CRC
-	// t1 is used for bitstuffing
+	// t1 is free
 	// t2 is totally free.
 
 	// s1 is our last "state"
@@ -420,7 +421,7 @@ no_polynomial:
 	// a1 is is our length
 	// a2 our CRC
 	// a3 is TEMPORARY
-	// a4 is our LINE STATE
+	// a4 is used for bit stuffing.
 	// a5 is the output address.
 
 	//XXX TODO Forgot about bit stuffing.
@@ -428,100 +429,104 @@ no_polynomial:
 	c.slli a1, 3 // bump up one extra to be # of bits
 
 	la a5, USB_GPIO_BASE
-	li a3, (1<<USB_DP) | (1<<(USB_DM+16));
-	c.sw a3, BSHR_OFFSET(a5)
+	li s1, (1<<USB_DM) | (1<<(USB_DP+16))
+	li t1, (1<<USB_DM) | (1<<(USB_DP+16)) | (1<<USB_DP) | (1<<(USB_DM+16));
+	c.sw s1, BSHR_OFFSET(a5)
 	
-	c.lw s1, CFGLR_OFFSET(a5)
+	c.lw s0, CFGLR_OFFSET(a5)
 
 	li a3, ~((0b1111<<(USB_DM*4)) | (0b1111<<(USB_DP*4)))
-	and s1, a3, s1
+	and s0, a3, s0
 
 
 	// Convert D+/D- into 2MHz outputs
 	li a3, ((0b0010<<(USB_DM*4)) | (0b0010<<(USB_DP*4)))
-	or s1, a3, s1
+	or s0, a3, s0
 
 	//00: Universal push-pull output mode
-	c.sw s1, CFGLR_OFFSET(a5)
-
-	//la t2, test_memory
-	//sw s1, 0(t2)
+	c.sw s0, CFGLR_OFFSET(a5)
 
 	// This creates a preamble, which is alternating 1's and 0's
 	// and then it sets the same state.
-	li s1, 0xffffffff
 	li s0, 0b10000000
 
 	c.j send_inner_loop
 
+	c.nop
 load_next_byte:
 	lb s0, 0(a0) //replace me with the QingKe v2 "special" opcode for this.
 	c.addi a0, 1
 	c.beqz a1, done_sending_data
-	c.nop
-	c.nop
-	c.nop
-	c.nop
 send_inner_loop:
+	/* High-level:
+		* extract the LSB from s0
+		* If it's 0, we FLIP the USB pin state.
+		* If it's 1, we don't flip.
+		* Regardless of the state, we still compute CRC.
+		* We have to decrement our bit stuffing index.
+		* If it is 0, we can reset our bit stuffing index.
+	*/
+
 	// a3 is now the lsb of s0 (the 'next bit' to read out)
-	andi a3, s0, 1
-
-	// Handle CRC.
-	c.xor a3, a2;
-	c.andi a3, 1;
-	c.addi a3, -1;
-	and a3, a3, t0;
-	c.srli a2, 1;
-	c.xor a2, a0
-
-	// a3 is now the lsb of s0 (the running word) again.
-	andi a3, s0, 1
+	c.mv a3, s0
 	c.srli s0, 1 // Shift down into the next bit.
-
+	c.andi a3, 1
 	// If a3 is 0, we should FLIP
 	// if a3 is 1, we should NOT flip.
 
 	c.beqz a3, send_zero_bit
 //send_one_bit:
-	li t1, 7
+
+	//HANDLE_CRC (1 bit)
+	andi a3, a2, 1
+	c.addi a3, -1
+	and a3, a3, t0
+	c.srli a2, 1
+	c.xor a2, a3
+
+	c.li a4, 7
+	c.nop
+	c.nop
+	c.nop
+	c.nop
+	c.nop
+	c.nop
+	c.nop
 	c.j cont_after_jump
 //Send 0 bit. (Flip)
 send_zero_bit:
-	not s1, s1
-	li a3, (1<<USB_DM) | (1<<(USB_DP+16));
-	beqz s1, out_state_j // is this really j?
-	li a3, (1<<USB_DP) | (1<<(USB_DM+16));
-out_state_j:
-	c.sw a3, BSHR_OFFSET(a5)
-	
-	// DO NOT flip.  Allow t1 to increment.
+
+	// Handle CRC (0 bit)
+	// a2 is our running CRC
+	// a3 is temp
+	// t0 is polynomial.
+
+	// XXX WARNING: this was by https://github.com/cnlohr/rv003usb/issues/7 
+	// TODO Check me!
+	slli a3,a2,31 // Put a3s LSB into a0s MSB
+	c.srai a3,31    // Copy MSB into all other bits
+	c.srli a2,1
+	and a3,a3,t0
+	c.xor  a2,a3
+
+	// Flip s1 (our bshr setting) by xoring it.
+	// 10.....01
+	// 11.....11 (xor with)
+	// 01.....10
+	xor s1, s1, t1
+	sw s1, BSHR_OFFSET(a5)
+	// DO NOT flip.  Allow a4 to increment.
 cont_after_jump:
-#if 0
-	// Now compare the values from this to last.
-	// If the bits are the same, a3 will be 0.
-	c.xor a3, s1
-	c.andi a3, 1  // ??? Why do we need this?
-	ori s1, s1, 1 // will be reset if a 0 bit.
-	c.beqz a3, send_one_bit
-send_zero_bit:
-	c.andi s1, 2
-	c.mv a3, s1
-	c.andi a3, 2
-	li t2, (1<<USB_DM) | (1<<(USB_DP+16));
-	c.beqz a3, last_bit_was_a_physical_zero
-	// Last bit was a physical 1.
-	li t2, (1<<USB_DP) | (1<<(USB_DM+16));
-last_bit_was_a_physical_zero:
-	sw t2, BSHR_OFFSET(a5)
-	li t1, 7
-#endif
-	addi t1, t1, -1
-	beqz t1, insert_stuffed_bit
+	c.addi a4, -1
+	c.beqz a4, insert_stuffed_bit
 send_end_bit_complete:
 	c.addi a1, -1
 	andi a3, a1, 7
 	c.beqz a3, load_next_byte
 	// Wait an extra 4-5 cycles.
+	c.nop
+	c.nop
+	c.nop
 	c.j send_inner_loop
 
 done_sending_data:
