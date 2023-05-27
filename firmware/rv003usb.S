@@ -426,6 +426,10 @@ data_polynomial:
 
 is_data_0:
 	li a2, 0xd6d7
+
+	andi a3, a0, 1
+	beqz a3, done_data
+	sw x0, 0(x4)
 	sw x0, 0(x4)
 
 done_data:

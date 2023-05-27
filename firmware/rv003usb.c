@@ -212,7 +212,17 @@ void usb_pid_handle_in( uint32_t this_token, struct rv003usb_internal * ist, uin
 	}
 	else
 	{
-		memcpy( sendnow+2, e->ptr_in + e->place_in, tosend );
+		if( tosend & 1 )
+		{
+			// Super tricky: If we are odd, it will accidentally
+			// skip the second byte.
+			memcpy( sendnow+3, e->ptr_in + e->place_in, tosend );
+			sendnow[2] = sendnow[1];
+		}
+		else
+		{
+			memcpy( sendnow+2, e->ptr_in + e->place_in, tosend );
+		}
 		usb_send_data( sendnow, tosend+2, 0 );
 		e->advance_in = tosend;
 	}
