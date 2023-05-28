@@ -2,7 +2,6 @@
 
 Project is not ready for prime time.  Proof of concept works, we are on track for proper releases soon.  See the list below.  Can you help out?
 
-Game plan:
   :white_check_mark: Able to go on-bus and receive USB frames  
   :white_check_mark: Compute CRC in-line while receiving data  
   :black_square_button: Bit Stuffing  
