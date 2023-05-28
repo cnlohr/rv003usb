@@ -206,5 +206,19 @@ POST-STREAM:
 
 ## Stream #5
  * TODO: `.balign` instead of `.align`
- * 
+
+Got it working.
+
+
+## After the fact.
+
+Interrupt Vector: 160 bytes
+Primary ingest interrupt: 588 bytes.
+Sending: 420 bytes.
+Other C code to do stuff: 1162 bytes.
+Startup code: 638 bytes
+Descriptors, etc. 294 bytes.
+
+
+
 

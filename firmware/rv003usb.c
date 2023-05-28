@@ -125,7 +125,7 @@ int main()
 			printf( "%02x ", buffer[i] );
 		Delay_Ms( 100 );
 */
-		printf( "%08lx\n", test_memory[0] );
+//		printf( "%08lx\n", test_memory[0] );
 		Delay_Ms( 100 );
 
 	//	my_ep2[0] = 0x14;
