@@ -12,6 +12,8 @@
 // This is 6 * n + 3 cylces
 #define nx6p3delay( n ) li s0, ((n)+1); 1: c.addi s0, -1; c.bnez s0, 1b
 
+#define DEBUG_TICK_SETUP la x4, (TIM1_BASE + 0x24) 	// for debug
+#define DEBUG_TICK_MARK sw x0, 0(x4)
 
 .global test_memory
 .global rv003usb_internal_data
@@ -72,11 +74,11 @@ syncdone:
 	la  t0, SYSTICK_CNT
 	la  t2, rv003usb_internal_data
 
-	la x4, (TIM1_BASE + 0x24) 	// for debug
+	DEBUG_TICK_SETUP
 
 	c.xor a1, a0 // Recover a1
 
-	sw x0, 0(x4)
+	DEBUG_TICK_MARK
 
 preamble_loop:
 	lw a0, INDR_OFFSET(a5);
@@ -125,12 +127,9 @@ done_preamble:
 ///////////////////////////////////////////////////////////////////////////////////////
 
 packet_type_loop:
-	sw x0, 0(x4)
-	sw x0, 0(x4)
-	sw x0, 0(x4)
-	sw x0, 0(x4)
-	sw x0, 0(x4)
-	sw x0, 0(x4)
+	nx6p3delay(1);
+	c.nop
+	DEBUG_TICK_MARK
 
 	c.lw a0, INDR_OFFSET(a5);
 	c.andi a0, USB_DMASK;
@@ -181,8 +180,7 @@ packet_type_loop:
 	li a4, 0x14	
 	li a3, 0x1e
 data_crc:
-	sw x0, 0(x4)
-	//sw x0, 0(x4)
+	DEBUG_TICK_MARK
 
 
 #define HANDLE_EOB_YES \
@@ -198,7 +196,7 @@ is_end_of_byte:
 	// end-of-byte.
 bit_process:
 	// Debug blip
-	sw x0, 0(x4)
+	DEBUG_TICK_MARK
 	c.lw a0, INDR_OFFSET(a5);
 	c.andi a0, USB_DMASK;
 	c.beqz a0, se0_complete
@@ -275,8 +273,8 @@ is_end_of_byte_and_bit_stuffed:
 
 is_not_end_of_byte:
 
-	sw x0, 0(x4)
-	sw x0, 0(x4)
+	DEBUG_TICK_MARK
+	DEBUG_TICK_MARK
 
 	c.lw a0, INDR_OFFSET(a5);
 	c.andi a0, USB_DMASK;
@@ -293,21 +291,21 @@ is_not_end_of_byte:
 	c.addi s0, -1 // Count # of runs of 1 (subtract 1)
 
 	// debug blip chain.
-	sw x0, 0(x4)
-	sw x0, 0(x4)
-	sw x0, 0(x4)
-	sw x0, 0(x4)
-	sw x0, 0(x4)
-	sw x0, 0(x4)
-	sw x0, 0(x4)
-	sw x0, 0(x4)
+	DEBUG_TICK_MARK
+	DEBUG_TICK_MARK
+	DEBUG_TICK_MARK
+	DEBUG_TICK_MARK
+	DEBUG_TICK_MARK
+	DEBUG_TICK_MARK
+	DEBUG_TICK_MARK
+	DEBUG_TICK_MARK
 
 	c.bnez s1, bit_process // + 4 cycles
 
 se0_complete:
-	sw x0, 0(x4)
-	sw x0, 0(x4)
-	sw x0, 0(x4)
+	DEBUG_TICK_MARK
+	DEBUG_TICK_MARK
+	DEBUG_TICK_MARK
 
 	// Special: handle ACKs?
 	// Now we have to decide what we're doing based on the
@@ -432,8 +430,8 @@ is_data_0:
 
 	andi a3, a0, 1
 	beqz a3, done_data
-	sw x0, 0(x4)
-	sw x0, 0(x4)
+	DEBUG_TICK_MARK
+	DEBUG_TICK_MARK
 
 done_data:
 
