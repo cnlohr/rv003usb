@@ -154,12 +154,11 @@ void usb_pid_handle_setup( uint32_t this_token, struct rv003usb_internal * ist )
 	uint8_t addr = (this_token>>8) & 0x7f;
 	uint8_t endp = (this_token>>15) & 0xf;
 
-	ist->there_is_a_host = 1;
-
 	if( endp >= ENDPOINTS ) goto end;
 	if( addr != 0 && addr != ist->my_address ) goto end;
 
-	struct usb_endpoint * e = ist->ce = &ist->eps[endp];
+	ist->current_endpoint = endp;
+	struct usb_endpoint * e = &ist->eps[endp];
 	e->toggle_out = 0;
 	e->toggle_in = 1;
 	e->ptr_in = 0;
@@ -175,12 +174,11 @@ void usb_pid_handle_in( uint32_t this_token, struct rv003usb_internal * ist, uin
 	uint8_t endp = (this_token>>15) & 0xf;
 	//If we get an "in" token, we have to strike any accept buffers.
 
-test_memory[0] = crc_out;
-
 	if( endp >= ENDPOINTS ) return;
 	if( addr != 0 && addr != ist->my_address ) return;
 
-	struct usb_endpoint * e = ist->ce = &ist->eps[endp];
+	ist->current_endpoint = endp;
+	struct usb_endpoint * e = &ist->eps[endp];
 
 	e->got_size_out = 0;  //Cancel any out transaction
 
@@ -253,14 +251,14 @@ void usb_pid_handle_out( uint32_t this_token, struct rv003usb_internal * ist )
 	uint8_t endp = (this_token>>15) & 0xf;
 	if( endp >= ENDPOINTS ) return;
 	if( addr != 0 && addr != ist->my_address ) return;
-	/*struct usb_endpoint * e = */ist->ce = &ist->eps[endp];
+	ist->current_endpoint = endp;
 }
 
-void usb_pid_handle_data( uint32_t this_token, struct rv003usb_internal * ist, uint32_t which_data )
+void usb_pid_handle_data( uint32_t this_token, struct rv003usb_internal * ist, uint32_t which_data, uint32_t length )
 {
 	//Received data from host.
 
-	struct usb_endpoint * e = ist->ce;
+	struct usb_endpoint * e = &ist->eps[ist->current_endpoint];
 
 	if( e == 0 ) return;
 
@@ -323,7 +321,7 @@ void usb_pid_handle_data( uint32_t this_token, struct rv003usb_internal * ist, u
 	else if( e->ptr_out )
 	{
 		//Read into that buffer.
-		int acc = ist->packet_size-3;  //packet_size includes CRC and PID, need just data size.
+		int acc = length-3;  //packet_size includes CRC and PID, need just data size.
 		int place = e->got_size_out;
 
 		if( place + acc > e->max_size_out )
@@ -352,7 +350,7 @@ just_ack:
 
 void usb_pid_handle_ack( uint32_t this_token, struct rv003usb_internal * ist )
 {
-	struct usb_endpoint * e = ist->ce;
+	struct usb_endpoint * e = &ist->eps[ist->current_endpoint];
 	if( !e ) goto term;
 
 	e->toggle_in = !e->toggle_in;

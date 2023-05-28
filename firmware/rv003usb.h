@@ -13,7 +13,8 @@
 		
 #define USB_GPIO_BASE GPIOD_BASE
 
-#define USB_BUFFER_SIZE 16
+// Packet Type + 8 + CRC + Buffer
+#define USB_BUFFER_SIZE 12
 
 #define USB_DMASK ((1<<(USB_DM)) | 1<<(USB_DP))
 
@@ -27,9 +28,9 @@
 
 struct usb_endpoint
 {
-	const uint8_t * ptr_in;		// Pointer to "IN" data (US->PC)
+	const uint8_t * ptr_in;	// Pointer to "IN" data (US->PC)
 	uint16_t size_in;		// Total size of the structure pointed to by ptr_in
-	uint16_t advance_in;		// How much data was sent this packet? (How much to advance in ack)
+	uint16_t advance_in;	// How much data was sent this packet? (How much to advance in ack)
 	uint16_t place_in;		// Where in the ptr_in we are currently pointing.
 	uint8_t toggle_in; 		// DATA0 or DATA1?
 	uint8_t send;			// Sets back to 0 when done sending.
@@ -44,13 +45,12 @@ struct usb_endpoint
 
 struct rv003usb_internal
 {
+	// 14 bytes minimum.
 	uint8_t usb_buffer[USB_BUFFER_SIZE];
-	uint8_t setup_request;
-	uint8_t my_address;
-	uint8_t there_is_a_host;
-	uint8_t packet_size; //Of data currently in usb_buffer
+	uint8_t current_endpoint;
+	uint8_t my_address : 7; // Will be 0 until set up.
+	uint8_t setup_request : 1;
 
-	struct usb_endpoint * ce;  //Current endpoint (set by IN/OUT PIDs)
 	struct usb_endpoint eps[ENDPOINTS];
 };
 
@@ -74,7 +74,7 @@ struct usb_urb
 void usb_pid_handle_setup( uint32_t this_token, struct rv003usb_internal * ist );
 void usb_pid_handle_in( uint32_t this_token, struct rv003usb_internal * ist, uint32_t last_32_bit, int crc_ok );
 void usb_pid_handle_out( uint32_t this_token, struct rv003usb_internal * ist );
-void usb_pid_handle_data( uint32_t this_token, struct rv003usb_internal * ist, uint32_t which_data );
+void usb_pid_handle_data( uint32_t this_token, struct rv003usb_internal * ist, uint32_t which_data, uint32_t length );
 void usb_pid_handle_ack( uint32_t this_token, struct rv003usb_internal * ist );
 
 //poly_function = 0 to include CRC.
