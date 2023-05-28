@@ -125,7 +125,7 @@ int main()
 			printf( "%02x ", buffer[i] );
 		Delay_Ms( 100 );
 */
-//		printf( "%08lx\n", test_memory[0] );
+	//	printf( "%08lx\n", test_memory[0] );
 		Delay_Ms( 100 );
 
 	//	my_ep2[0] = 0x14;
@@ -173,8 +173,9 @@ void usb_pid_handle_in( uint32_t this_token, struct rv003usb_internal * ist, uin
 {
 	uint8_t addr = (this_token>>8) & 0x7f;
 	uint8_t endp = (this_token>>15) & 0xf;
-//printf( "PID_IN: %02x %02x %08x %08x\n", addr, endp, last_32_bit, crc_out );
 	//If we get an "in" token, we have to strike any accept buffers.
+
+test_memory[0] = crc_out;
 
 	if( endp >= ENDPOINTS ) return;
 	if( addr != 0 && addr != ist->my_address ) return;
@@ -182,7 +183,6 @@ void usb_pid_handle_in( uint32_t this_token, struct rv003usb_internal * ist, uin
 	struct usb_endpoint * e = ist->ce = &ist->eps[endp];
 
 	e->got_size_out = 0;  //Cancel any out transaction
-
 
 	int tosend = 0;
 	uint8_t sendnow[12];
@@ -226,6 +226,7 @@ void usb_pid_handle_in( uint32_t this_token, struct rv003usb_internal * ist, uin
 	}
 	else
 	{
+
 		if( tosend & 1 )
 		{
 			// Super tricky: If we are odd, it will accidentally
@@ -238,6 +239,8 @@ void usb_pid_handle_in( uint32_t this_token, struct rv003usb_internal * ist, uin
 			memcpy( sendnow+2, e->ptr_in + e->place_in, tosend );
 		}
 		usb_send_data( sendnow, tosend+2, 0 );
+	//printf( "PID_IN: %02x %02x %08x %08x %02x / %02x %02x %08x %08x\n", addr, endp, last_32_bit, crc_out, sendnow[1],
+	//	tosend, e->send, e->ptr_in, EMPTY_SEND_BUFFER );
 		e->advance_in = tosend;
 	}
 }

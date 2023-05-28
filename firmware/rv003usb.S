@@ -25,6 +25,7 @@ Compressed:
 */
 
 .global EXTI7_0_IRQHandler
+.balign 4
 EXTI7_0_IRQHandler:
 	addi	sp,sp,-56
 	sw	a0, 0(sp)
@@ -100,8 +101,7 @@ done_preamble:
 
 	c.nop; c.nop; c.nop;
 	c.nop; c.nop; c.nop; c.nop;
-	c.nop; c.nop; c.nop; c.nop;
-	c.nop;  //XXX TODO: Tune?
+	//XXX TODO: Tune?
 
 	/* register meanings:
 		* T0 = temp
@@ -125,6 +125,7 @@ done_preamble:
 ///////////////////////////////////////////////////////////////////////////////////////
 
 packet_type_loop:
+	sw x0, 0(x4)
 	sw x0, 0(x4)
 	sw x0, 0(x4)
 	sw x0, 0(x4)
@@ -313,9 +314,10 @@ se0_complete:
 	// packet type.
 	la  a1, rv003usb_internal_data
 	lw  a0, 0(a1)
-	c.mv a4, a0
-	c.srli a4, 4
-	c.andi a4, 0xf
+	sub a4, a1, t2      //A4 = # of bytes read..
+	c.mv s0, a0
+	c.srli s0, 4
+	c.andi s0, 0xf
 	// If bad CRC, skip ahead.
 //	c.bnez a3, done_usb_message
 
@@ -325,27 +327,27 @@ se0_complete:
 	// a0 contains first 4 bytes.
 	la ra, done_usb_message_in
 
-	c.addi a4, -0b0100 // ACK packet (but backwards)
-	c.beqz a4, usb_pid_handle_ack
+	c.addi s0, -0b0100 // ACK packet (but backwards)
+	c.beqz s0, usb_pid_handle_ack
 
 	andi a5, a0, 4
 	c.beqz a5, is_data_packet
 		// Else: Is a setup packet
-		addi a4,a4, 0b0100-0b1011 // a SETUP packet
-		c.beqz a4, usb_pid_handle_setup
-		c.addi a4, (0b1011-0b1000) //a OUT token
-		c.beqz a4, usb_pid_handle_out
-		c.addi a4, (0b1000-0b1001) //an IN token
-		c.beqz a4, usb_pid_handle_in
+		addi s0,s0, 0b0100-0b1011 // a SETUP packet
+		c.beqz s0, usb_pid_handle_setup
+		c.addi s0, (0b1011-0b1000) //a OUT token
+		c.beqz s0, usb_pid_handle_out
+		c.addi s0, (0b1000-0b1001) //an IN token
+		c.beqz s0, usb_pid_handle_in
 		c.j done_usb_message_in
 	is_data_packet:
 		// Data packet. Handle.
-		c.addi a4, 0b0100-0b1100 // a DATA0 packet
+		c.addi s0, 0b0100-0b1100 // a DATA0 packet
 		c.li   a2, 0
-		c.beqz a4, usb_pid_handle_data
-		c.addi a4, (0b1100-0b1101) // a DATA1 packet
+		c.beqz s0, usb_pid_handle_data
+		c.addi s0, (0b1100-0b1101) // a DATA1 packet
 		c.li   a2, 1
-		c.beqz a4, usb_pid_handle_data
+		c.beqz s0, usb_pid_handle_data
 
 done_usb_message:
 done_usb_message_in:
@@ -392,6 +394,7 @@ handle_se0_keepalive:
 
 
 //void usb_send_data( uint8_t * data, uint32_t length, uint32_t poly_function );
+.balign 4
 usb_send_data:
 	addi	sp,sp,-12
 	sw	s0, 0(sp)
@@ -423,7 +426,7 @@ data_polynomial:
 	// If data1
 	li a2, 0x5ed7
 	c.j done_data
-
+	c.nop
 is_data_0:
 	li a2, 0xd6d7
 
@@ -485,7 +488,8 @@ done_data:
 //	c.j send_inner_loop
 load_next_word:
 	lh s0, 0(a0) //replace me with the QingKe v2 "special" opcode for this.
-	c.addi a0, 2
+	//c.addi a0, 2
+	.long 0x00250513 // addi a0, a0, 2
 send_inner_loop:
 	/* High-level:
 		* extract the LSB from s0
