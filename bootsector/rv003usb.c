@@ -11,10 +11,12 @@
 
 struct rv003usb_internal rv003usb_internal_data;
 
+void SystemInit48HSIUNSAFE( void );
+
 int main()
 {
-	SystemInit48HSI();
-	SETUP_SYSTICK_HCLK
+	SystemInit48HSIUNSAFE();
+	// This comes in hot.  Reasonable chance clocks won't be settled.
 
 	// Enable GPIOs, TIMERs
 	RCC->APB2PCENR = RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOC | RCC_APB2Periph_TIM1 | RCC_APB2Periph_GPIOA  | RCC_APB2Periph_AFIO | RCC_APB2Periph_TIM1;
@@ -33,7 +35,6 @@ int main()
 
 #ifdef DEBUG_TIMING
 	{
-#if 1
 		// PC4 is MCO (for watching timing)
 		GPIOC->CFGLR &= ~(GPIO_CFGLR_MODE4 | GPIO_CFGLR_CNF4);
 		GPIOC->CFGLR |= GPIO_CFGLR_CNF4_1 | GPIO_CFGLR_MODE4_0 | GPIO_CFGLR_MODE4_1;
@@ -44,7 +45,6 @@ int main()
 
 		// Auto Reload - sets period
 		TIM1->ATRLR = 0xffff;
-#endif
 
 		// Reload immediately
 		TIM1->SWEVGR |= TIM_UG;
@@ -107,7 +107,6 @@ void usb_pid_handle_setup( uint32_t this_token, uint8_t * data )
 	e->toggle_out = 0;
 	e->toggle_in = 1;
 	e->count_in = 0;
-	//e->count_out = 0;
 	ist->setup_request = 1;
 end:
 	return;
@@ -163,10 +162,6 @@ void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bi
 			sendnow[1] = 0; //CRC = 0
 			usb_send_data( sendnow, 2, 2, sendtok );  //DATA = 0, 0 CRC.
 		}
-		else
-		{
-			usb_send_data( sendnow, 0, 2, 0x5a ); //Empty data (NAK)
-		}
 	}
 	else
 	{
@@ -187,7 +182,6 @@ void usb_pid_handle_out( uint32_t this_token, uint8_t * data )
 	ist->current_endpoint = endp;
 	struct usb_endpoint * e = &ist->eps[endp];
 	e->count_in = 0;  //Cancel any in transaction
-
 }
 
 void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, uint32_t length )
@@ -335,7 +329,7 @@ asm volatile( "\
 }
 
 
-void SystemInit48HSI( void )
+void SystemInit48HSIUNSAFE( void )
 {
 	// Values lifted from the EVT.  There is little to no documentation on what this does.
 	RCC->CFGR0 = RCC_HPRE_DIV1 | RCC_PLLSRC_HSI_Mul2;      // PLLCLK = HSI * 2 = 48 MHz; HCLK = SYSCLK = APB1
@@ -344,7 +338,7 @@ void SystemInit48HSI( void )
 	RCC->INTR  = 0x009F0000;                               // Clear PLL, CSSC, HSE, HSI and LSI ready flags.
 
 	// From SetSysClockTo_48MHZ_HSI
-	while((RCC->CTLR & RCC_PLLRDY) == 0);                                      // Wait till PLL is ready
+//	while((RCC->CTLR & RCC_PLLRDY) == 0);                                      // Wait till PLL is ready
 	RCC->CFGR0 = ( RCC->CFGR0 & ((uint32_t)~(RCC_SW))) | (uint32_t)RCC_SW_PLL; // Select PLL as system clock source
 //	while ((RCC->CFGR0 & (uint32_t)RCC_SWS) != (uint32_t)0x08);                // Wait till PLL is used as system clock source
 }
