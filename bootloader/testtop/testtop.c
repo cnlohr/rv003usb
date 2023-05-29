@@ -11,35 +11,37 @@ int main()
 	printf( "HD: %p\n", hd );
 	if( !hd ) return -4;
 
-	uint8_t buffer[64] = { 0 };
+	uint8_t buffer0[32] = { 0 };
+	uint8_t buffer1[32] = { 0 };
 	int r;
 
 	int i;
-	for( i = 0; i < sizeof( buffer ); i++ )
-		buffer[i] = i;
 	int j;
 	for( j = 0; ; j++ )
 	{
-		buffer[0] = 0xaa;
-		buffer[1] = 0xff;
-		buffer[2] = 0xd7;
-		buffer[3] = 0x37;
-		buffer[4] = 0xf8;
-		r = hid_send_feature_report( hd, buffer, sizeof(buffer) );
+		buffer0[0] = 0xaa;
+		int i;
+		for( i = 1; i < sizeof( buffer0 ); i ++ )
+			buffer0[i] = rand(); 
+		r = hid_send_feature_report( hd, buffer0, sizeof(buffer0)+1 );
 	/*	printf( "%d: ", r );
 		for( i = 0; i < r; i++ )
 			printf( "%02x ", buffer[i] );
 		printf( "\n" );*/
 		printf( "<" );
 
-		buffer[0] = 0xaa;
-		r = hid_get_feature_report( hd, buffer, sizeof(buffer) );
-/*		printf( "%d: ", r );
-		for( i = 0; i < r; i++ )
-			printf( "%02x ", buffer[i] );
-		printf( "\n" );*/
+		buffer1[0] = 0xaa;
+		r = hid_get_feature_report( hd, buffer1, sizeof(buffer1) );
 		printf( ">" ); fflush( stdout);
-		if( r != sizeof( buffer ) ) break;
+		if( r != sizeof( buffer1 ) ) { printf( "Got %d\n", r ); break; }
+		if( memcmp( buffer0, buffer1, sizeof( buffer0 ) ) != 0 ) 
+		{
+			printf( "%d: ", r );
+			for( i = 0; i < r; i++ )
+				printf( "[%d] %02x>%02x %s", i, buffer0[i], buffer1[i], (buffer1[i] != buffer0[i])?"MISMATCH ":""  );
+			printf( "\n" );
+			break;
+		}
 	}
 
 	hid_close( hd );

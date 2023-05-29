@@ -119,8 +119,8 @@ done_preamble:
 	li s0, 6 // 1 runs.
 
 	c.nop; c.nop; c.nop;
-	c.nop; c.nop; c.nop; c.nop;
-	//XXX TODO: Tune?
+	c.nop; 
+	//XXX TODO: Tune? 
 
 	/* register meanings:
 		* T0 = temp
@@ -145,7 +145,7 @@ done_preamble:
 
 packet_type_loop:
 	nx6p3delay(1, a0);
-	c.nop
+	c.nop; c.nop;
 	DEBUG_TICK_MARK
 
 	c.lw a0, INDR_OFFSET(a5);
