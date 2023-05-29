@@ -11,34 +11,29 @@
 
 struct rv003usb_internal rv003usb_internal_data;
 
-// This is the data actually required for USB.
-uint8_t data_receptive;
-/*
-void usb_handle_custom_control( uint8_t bmRequestType, uint8_t bRequest, uint16_t wLength,  struct rv003usb_internal * ist )
-{
-	// Do something.
-}*/
-
 int main()
 {
 	SystemInit48HSI();
 	SETUP_SYSTICK_HCLK
 
-
-	// Enable GPIOs, DMA and TIMERs
-	RCC->AHBPCENR = RCC_AHBPeriph_SRAM | RCC_AHBPeriph_DMA1;
+	// Enable GPIOs, TIMERs
 	RCC->APB2PCENR = RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOC | RCC_APB2Periph_TIM1 | RCC_APB2Periph_GPIOA  | RCC_APB2Periph_AFIO | RCC_APB2Periph_TIM1;
+
+// To use time debugging, enable thsi here, and DEBUG_TIMING in the .S
+// You must update in tandem
+//#define DEBUG_TIMING
 
 	// GPIO C0 Push-Pull
 	GPIOC->CFGLR = (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*0) |
 	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF)<<(4*3) | // PC3 = T1C3
+#ifdef DEBUG_TIMING
 	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF)<<(4*4) | // PC4 = T1C4
+#endif
 	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*2);
 
-// To use time debugging, enable thsi here, and DEBUG_TIMING in the .S
-// You must update in tandem
-#if 1
+#ifdef DEBUG_TIMING
 	{
+#if 1
 		// PC4 is MCO (for watching timing)
 		GPIOC->CFGLR &= ~(GPIO_CFGLR_MODE4 | GPIO_CFGLR_CNF4);
 		GPIOC->CFGLR |= GPIO_CFGLR_CNF4_1 | GPIO_CFGLR_MODE4_0 | GPIO_CFGLR_MODE4_1;
@@ -46,10 +41,11 @@ int main()
 
 		// PWM is used for debug timing. 
 		TIM1->PSC = 0x0000;
-		
+
 		// Auto Reload - sets period
 		TIM1->ATRLR = 0xffff;
-		
+#endif
+
 		// Reload immediately
 		TIM1->SWEVGR |= TIM_UG;
 
@@ -90,45 +86,8 @@ int main()
 	NVIC_EnableIRQ( EXTI7_0_IRQn );
 
 
-//	uint8_t my_ep2[8];
-//	struct rv003usb_internal * uis = &rv003usb_internal_data;
-//	struct usb_endpoint * e2 = &uis->eps[2];
-
-//	e2->ptr_in = my_ep2;
-//	e2->place_in = 0;
-//	e2->size_in = sizeof( my_ep2 );
-	
-
-	while(1)
-	{
-		//GPIOC->BSHR = 1;   // Set pin high
-		//Delay_Ms( 1000 );
-		//GPIOC->BSHR = (1<<16); // Set the pin low
-		//printf( "hello\n" );
-/*
-		uint8_t * buffer = (uint8_t*)usb_buffer_back;
-		printf( " -- %08lx\n", plen );
-		int i;
-		for( i = 0; i < 16; i++ )
-			printf( "%02x ", buffer[i] );
-		Delay_Ms( 100 );
-*/
-	//	printf( "%08lx\n", test_memory[0] );
-	//	Delay_Ms( 100 );
-
-	//	my_ep2[0] = 0x14;
-	//	my_ep2[2] = 0x80;
-	//	e2->send = 1;
-
-		//Delay_Ms( 1000 );
-		//dma_buffer[0] = 0;
-		//dma_buffer[1] = 0;
-		//printf( "%08lx %08lx\n", test_memory[0], test_memory[1] );
-	}
+	while(1);
 }
-
-
-
 
 #define ENDPOINT0_SIZE 8 //Fixed for USB 1.1, Low Speed.
 
@@ -148,7 +107,7 @@ void usb_pid_handle_setup( uint32_t this_token, uint8_t * data )
 	e->toggle_out = 0;
 	e->toggle_in = 1;
 	e->count_in = 0;
-	e->count_out = 0;
+	//e->count_out = 0;
 	ist->setup_request = 1;
 end:
 	return;
@@ -167,7 +126,7 @@ void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bi
 	ist->current_endpoint = endp;
 	struct usb_endpoint * e = &ist->eps[endp];
 
-	e->count_out = 0;  //Cancel any out transaction
+	//e->count_out = 0;  //Cancel any out transaction
 
 	int tosend = 0;
 
@@ -366,21 +325,13 @@ handle_reset:\n\
 	addi a0, a0, 4\n\
 	blt a0, a1, 1b\n\
 2:\n\
-	la a0, _data_lma\n\
-	la a1, _data_vma\n\
-	j continue_boot\n\
-	.word   EXTI7_0_IRQHandler         /* EXTI Line 7..0 */                 \n\
-continue_boot:\n\
-	la a2, _edata\n\
-1:	beq a1, a2, 2f\n\
-	lw a3, 0(a0)\n\
-	sw a3, 0(a1)\n\
-	addi a0, a0, 4\n\
-	addi a1, a1, 4\n\
-	bne a1, a2, 1b\n\
-2:\n\
+");
+asm volatile( "\
 	csrw mepc, %[main]\n\
-	mret\n" : : [main]"r"(main) );
+	mret\n\
+	.balign 16\n\
+	.word   EXTI7_0_IRQHandler         /* EXTI Line 7..0 */                 \n\
+" : : [main]"r"(main) );
 }
 
 
@@ -395,7 +346,7 @@ void SystemInit48HSI( void )
 	// From SetSysClockTo_48MHZ_HSI
 	while((RCC->CTLR & RCC_PLLRDY) == 0);                                      // Wait till PLL is ready
 	RCC->CFGR0 = ( RCC->CFGR0 & ((uint32_t)~(RCC_SW))) | (uint32_t)RCC_SW_PLL; // Select PLL as system clock source
-	while ((RCC->CFGR0 & (uint32_t)RCC_SWS) != (uint32_t)0x08);                // Wait till PLL is used as system clock source
+//	while ((RCC->CFGR0 & (uint32_t)RCC_SWS) != (uint32_t)0x08);                // Wait till PLL is used as system clock source
 }
 
 

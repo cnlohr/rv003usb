@@ -93,24 +93,24 @@ static const uint8_t config_descriptor[] = {  //Mostly stolen from a USB mouse I
 struct usb_string_descriptor_struct {
 	uint8_t bLength;
 	uint8_t bDescriptorType;
-	uint16_t wString[];
+	const uint16_t wString[];
 };
-const static struct usb_string_descriptor_struct string0 = {
+const static struct usb_string_descriptor_struct string0 __attribute__((section(".text"))) = {
 	4,
 	3,
 	{0x0409}
 };
-const static struct usb_string_descriptor_struct string1 = {
+const static struct usb_string_descriptor_struct string1 __attribute__((section(".text")))  = {
 	sizeof(STR_MANUFACTURER),
 	3,
 	STR_MANUFACTURER
 };
-const static struct usb_string_descriptor_struct string2 = {
+const static struct usb_string_descriptor_struct string2 __attribute__((section(".text")))  = {
 	sizeof(STR_PRODUCT),
 	3,
 	STR_PRODUCT
 };
-const static struct usb_string_descriptor_struct string3 = {
+const static struct usb_string_descriptor_struct string3 __attribute__((section(".text")))  = {
 	sizeof(STR_SERIAL),
 	3,
 	STR_SERIAL
