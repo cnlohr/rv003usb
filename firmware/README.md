@@ -222,3 +222,8 @@ Descriptors, etc. 294 bytes.
 
 
 
+## When backporting...
+
+```const static struct usb_string_descriptor_struct string0 __attribute__((section(".text"))) ```
+
+
