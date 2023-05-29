@@ -12,8 +12,20 @@
 // This is 6 * n + 3 cylces
 #define nx6p3delay( n, freereg ) li freereg, ((n)+1); 1: c.addi freereg, -1; c.bnez freereg, 1b
 
+//See DEBUG_TIMING note in .c file.
+//#define DEBUG_TIMING
+#ifdef DEBUG_TIMING
 #define DEBUG_TICK_SETUP la x4, (TIM1_BASE + 0x24) 	// for debug
 #define DEBUG_TICK_MARK sw x0, 0(x4)
+#define	RESTORE_DEBUG_MARKER(x) lw	x4, x(sp)
+#define SAVE_DEBUG_MARKER(x)	sw	x4, x(sp)
+#else
+#define DEBUG_TICK_SETUP nop 	// for debug
+#define DEBUG_TICK_MARK c.nop; c.nop
+#define	RESTORE_DEBUG_MARKER(x)
+#define SAVE_DEBUG_MARKER(x)
+#endif
+
 
 .global test_memory
 .global rv003usb_internal_data
@@ -66,7 +78,7 @@ syncdone:
 	sw	t0, 32(sp)
 	sw	t1, 36(sp)
 	sw  t2, 40(sp) // 16 cycles
-	sw	x4, 48(sp)
+	SAVE_DEBUG_MARKER( 48 );
 	sw  ra, 52(sp)
 	// 16-byte temporary buffer at 56+sp
 
@@ -318,7 +330,7 @@ se0_complete:
 //	c.bnez a3, done_usb_message
 
 	// Good CRC!
-	lw	x4, 48(sp) // restore x4 for whatever in C land.
+	RESTORE_DEBUG_MARKER(48) // restore x4 for whatever in C land.
 
 	// a0 contains first 4 bytes.
 	la ra, done_usb_message_in // Common return address for all function calls.
@@ -362,7 +374,7 @@ done_usb_message_in:
 	lw	t0, 32(sp)
 	lw	t1, 36(sp)
 	lw	t2, 40(sp)
-	lw	x4, 48(sp)
+	RESTORE_DEBUG_MARKER(48)
 	lw  ra, 52(sp)
 
 interrupt_complete:
@@ -424,7 +436,7 @@ usb_send_data:
 
 	li t1, (1<<USB_DM) | (1<<(USB_DP+16)) | (1<<USB_DP) | (1<<(USB_DM+16));
 
-	sw  x4, 8(sp)
+	SAVE_DEBUG_MARKER( 8 )
 
 	// Save off our preamble and token.
 	c.slli a3, 7     //Put token further up so it gets sent later.
@@ -438,7 +450,7 @@ usb_send_data:
 	// t0 is our polynomial
 	// a2 is our running CRC.
 	// a3 is our token.
-	la x4, (TIM1_BASE + 0x24) 	// for debug
+	DEBUG_TICK_SETUP
 
 	c.li a4, 6 // reset bit stuffing.
 	c.li a1, 15 // 15 bits.
@@ -528,9 +540,9 @@ done_poly_check:
 //	c.j send_inner_loop
 .balign 4
 load_next_word:
-	lh s0, 0(a0) //replace me with the QingKe v2 "special" opcode for this.
+	lb s0, 0(a0) //replace me with the QingKe v2 "special" opcode for this.
 	//c.addi a0, 2
-	.long 0x00250513 // addi a0, a0, 2  (For alignment's sake)
+	.long 0x00150513 // addi a0, a0, 1  (For alignment's sake)
 send_inner_loop:
 	/* High-level:
 		* extract the LSB from s0
@@ -556,7 +568,7 @@ send_inner_loop:
 	and a3, a3, t0
 	c.srli a2, 1
 	c.xor a2, a3
-	c.nop
+
 	c.addi a4, -1
 	c.beqz a4, insert_stuffed_bit
 	c.j cont_after_jump
@@ -574,7 +586,6 @@ send_zero_bit:
 	slli a3,a2,31 // Put a3s LSB into a0s MSB
 	c.srai a3,31    // Copy MSB into all other bits
 	c.srli a2,1
-	and a3,a3,t0
 
 	// Flip s1 (our bshr setting) by xoring it.
 	// 10.....01
@@ -583,7 +594,9 @@ send_zero_bit:
 	xor s1, s1, t1
 	sw s1, BSHR_OFFSET(a5)
 
-	c.xor  a2,a3 // XXX XXX CRC down here to make bit stuffing timings line up.
+	// XXX XXX CRC down here to make bit stuffing timings line up.
+	and a3,a3,t0
+	c.xor  a2,a3 
 
 	c.li a4, 6 // reset bit stuffing.
 	// DO NOT flip.  Allow a4 to increment.
@@ -593,7 +606,7 @@ cont_after_jump:
 send_end_bit_complete:
 	c.addi a1, -1
 	c.beqz a1, done_sending_data
-	andi a3, a1, 15
+	andi a3, a1, 7
 	c.beqz a3, load_next_word
 	// Wait an extra few cycles.
 	c.nop
@@ -605,10 +618,16 @@ send_end_bit_complete:
 done_sending_data:
 	// BUT WAIT!! MAYBE WE NEED TO CRC!
 	beqz t0, no_really_done_sending_data
+	srli t0, t0, 8 // reset poly - we don't want it anymore.
+	beqz t0, second_crc_byte
+	li a1, 8 // Load 16 more bits out
+	// First CRC byte
 	not s0, a2 // get read to send out the CRC.
-	li t0, 0 // reset poly - we don't want it anymore.
-	li a1, 16 // Load 16 more bits out
 	c.j send_inner_loop
+second_crc_byte:
+	li a1, 8 // Load 16 more bits out
+	c.j send_inner_loop
+
 
 .balign 4
 no_really_done_sending_data:
@@ -637,7 +656,7 @@ no_really_done_sending_data:
 
 	lw	s0, 0(sp)
 	lw	s1, 4(sp)
-	lw  x4, 8(sp)
+	RESTORE_DEBUG_MARKER( 8 )
 	addi	sp,sp,16
 	ret
 

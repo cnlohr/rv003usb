@@ -30,11 +30,11 @@ int main()
 	did_get_data = 0;
 
 	SystemInit48HSI();
-	SetupDebugPrintf();
+//	SetupDebugPrintf();
 	SETUP_SYSTICK_HCLK
 
 	
-	Delay_Ms( 1000 );
+//	Delay_Ms( 1000 );
 //	printf( "......................\n" );
 
 	// Enable GPIOs, DMA and TIMERs
@@ -53,6 +53,9 @@ int main()
 	GPIOC->CFGLR |= GPIO_CFGLR_CNF4_1 | GPIO_CFGLR_MODE4_0 | GPIO_CFGLR_MODE4_1;
 	RCC->CFGR0 = (RCC->CFGR0 & ~RCC_CFGR0_MCO) | RCC_CFGR0_MCO_SYSCLK;
 
+// To use time debugging, enable thsi here, and DEBUG_TIMING in the .S
+// You must update in tandem
+#if 0
 	{
 		// PWM is used for debug timing. 
 		TIM1->PSC = 0x0000;
@@ -78,6 +81,7 @@ int main()
 		// Enable TIM1
 		TIM1->CTLR1 |= TIM_CEN;
 	}
+#endif
 
 	// GPIO D3 for input pin change.
 	GPIOD->CFGLR =
@@ -126,7 +130,7 @@ int main()
 		Delay_Ms( 100 );
 */
 	//	printf( "%08lx\n", test_memory[0] );
-		Delay_Ms( 100 );
+	//	Delay_Ms( 100 );
 
 	//	my_ep2[0] = 0x14;
 	//	my_ep2[2] = 0x80;
@@ -197,7 +201,7 @@ void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bi
 				tosend = ist->control_max_len - offset;
 				if( tosend > ENDPOINT0_SIZE ) tosend = ENDPOINT0_SIZE;
 				if( tosend < 0 ) tosend = 0;
-				memcpy( sendnow, ((uint8_t*)dl->addr) + offset, tosend );
+				sendnow = ((uint8_t*)dl->addr) + offset;
 			}
 			else
 			{
@@ -223,17 +227,6 @@ void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bi
 	}
 	else
 	{
-		if( tosend & 1 )
-		{
-			// Super tricky: If we are odd, it will accidentally
-			// skip the second byte.  TODO: Fixme.
-
-			int i;
-			for( i = tosend; i >= 1; i-- )
-			{
-				sendnow[i] = sendnow[i-1];
-			}
-		}
 		usb_send_data( sendnow, tosend, 0, sendtok );
 	}
 }
