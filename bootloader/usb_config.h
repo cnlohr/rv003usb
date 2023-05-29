@@ -79,15 +79,15 @@ static const uint8_t config_descriptor[] = {  //Mostly stolen from a USB mouse I
 	0x81, //Endpoint Address
 	0x03, //Attributes
 	0x40,	0x00, //Size
-	10, //Interval (Was 0x0a)*/
+	0xff, //Interval
 };
 
 
 //Ever wonder how you have more than 6 keys down at the same time on a USB keyboard?  It's easy. Enumerate two keyboards!
 
 
-#define STR_MANUFACTURER u"CNLohr"
-#define STR_PRODUCT      u"bootloader"
+#define STR_MANUFACTURER u"c"
+#define STR_PRODUCT      u"b"
 #define STR_SERIAL       u"💾"
 
 struct usb_string_descriptor_struct {

@@ -117,6 +117,7 @@ void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bi
 	uint8_t addr = (this_token>>8) & 0x7f;
 	uint8_t endp = (this_token>>15) & 0xf;
 
+
 	//If we get an "in" token, we have to strike any accept buffers.
 	if( addr != 0 && addr != ist->my_address ) return;
 	struct usb_endpoint * e = &ist->eps[0];
@@ -124,12 +125,16 @@ void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bi
 	uint8_t * sendnow = data-1;
 	uint8_t * sendnowo = data-1;
 	uint8_t sendtok = e->toggle_in?0b01001011:0b11000011;
+	ist->current_endpoint = endp;
 	
 	// Handle IN (sending data back to PC)
 	// Do this down here.
 	// We do this because we are required to have an in-endpoint.  We don't
 	// have to do anything with it, though.
-	if( endp ) goto send_nada;
+	if( endp )
+	{
+		goto send_nada;
+	}
 
 	uint8_t * tsend;
 

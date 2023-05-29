@@ -305,6 +305,7 @@ is_not_end_of_byte:
 	c.bnez a0, done_usb_message
 
 	c.li s0, 6  // reset bit stuffing.
+	c.nop
 
 	// debug blip chain.
 	DEBUG_TICK_MARK
@@ -326,6 +327,9 @@ se0_complete:
 	// packet type.
 	addi  a1, sp, DATA_PTR_OFFSET
 	lbu  a0, 0(a1)
+	lhu  a4, 1(a1)
+	c.slli a4, 8
+	c.or  a0, a4
 	sub a4, t2, a1      //A4 = # of bytes read..
 
 	// If bad CRC, skip ahead.
