@@ -1,0 +1,140 @@
+#ifndef _USB_CONFIG_H
+#define _USB_CONFIG_H
+
+// This is a freebie from ESPUSB
+
+#include "tinyusb_hid.h"
+
+//Defines the number of endpoints for this device. (Always add one for EP0). For two EPs, this should be 3.
+#define ENDPOINTS 2
+
+#ifdef INSTANCE_DESCRIPTORS
+//Taken from http://www.usbmadesimple.co.uk/ums_ms_desc_dev.htm
+static const uint8_t device_descriptor[] = {
+	18, //Length
+	1,  //Type (Device)
+	0x10, 0x01, //Spec
+	0x0, //Device Class
+	0x0, //Device Subclass
+	0x0, //Device Protocol  (000 = use config descriptor)
+	0x08, //Max packet size for EP0 (This has to be 8 because of the USB Low-Speed Standard)
+	0xcd, 0xab, //ID Vendor   //TODO: register this in http://pid.codes/howto/ or somewhere.
+	0x66, 0x82, //ID Product
+	0x02, 0x00, //ID Rev
+	1, //Manufacturer string
+	2, //Product string
+	0, //Serial string
+	1, //Max number of configurations
+};
+
+
+static const uint8_t special_hid_desc[] = { 
+  HID_USAGE_PAGE ( HID_USAGE_PAGE_DESKTOP      )                 ,
+  HID_USAGE      ( 0xff  )                 , // Needed?
+  HID_COLLECTION ( HID_COLLECTION_APPLICATION )                 ,
+    HID_REPORT_ID    ( 0xaa                                   )
+    HID_USAGE        ( 0xff              ) ,
+    HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE    ) ,
+    HID_REPORT_COUNT ( 8 ) ,
+  HID_COLLECTION_END
+};
+
+
+static const uint8_t config_descriptor[] = {  //Mostly stolen from a USB mouse I found.
+	// configuration descriptor, USB spec 9.6.3, page 264-266, Table 9-10
+	9, 					// bLength;
+	2,					// bDescriptorType;
+	0x3b, 0x00,			// wTotalLength  	
+
+	//34, 0x00, //for just the one descriptor
+	
+	0x01,					// bNumInterfaces (Normally 1)  (If we need an additional HID interface add here)
+	0x01,					// bConfigurationValue
+	0x00,					// iConfiguration
+	0x80,					// bmAttributes (was 0xa0)
+	0x64,					// bMaxPower (200mA)
+
+
+	//Mouse
+	9,					// bLength
+	4,					// bDescriptorType
+	0,			// bInterfaceNumber (unused, would normally be used for HID)
+	0,					// bAlternateSetting
+	1,					// bNumEndpoints
+	0x03,					// bInterfaceClass (0x03 = HID)
+	0xff,					// bInterfaceSubClass
+	0xff,					// bInterfaceProtocol
+	0,					// iInterface
+
+	9,					// bLength
+	0x21,					// bDescriptorType (HID)
+	0x10,0x01,		//bcd 1.1
+	0x00, //country code
+	0x01, //Num descriptors
+	0x22, //DescriptorType[0] (HID)
+	sizeof(special_hid_desc), 0x00, //Descriptor length XXX This looks wrong!!!
+
+	7, //endpoint descriptor (For endpoint 1)
+	0x05, //Endpoint Descriptor (Must be 5)
+	0x81, //Endpoint Address
+	0x03, //Attributes
+	0x40,	0x00, //Size
+	10, //Interval (Was 0x0a)
+};
+
+
+//Ever wonder how you have more than 6 keys down at the same time on a USB keyboard?  It's easy. Enumerate two keyboards!
+
+
+#define STR_MANUFACTURER u"CNLohr"
+#define STR_PRODUCT      u"RV003USB"
+#define STR_SERIAL       u"000"
+
+struct usb_string_descriptor_struct {
+	uint8_t bLength;
+	uint8_t bDescriptorType;
+	uint16_t wString[];
+};
+const static struct usb_string_descriptor_struct string0 = {
+	4,
+	3,
+	{0x0409}
+};
+const static struct usb_string_descriptor_struct string1 = {
+	sizeof(STR_MANUFACTURER),
+	3,
+	STR_MANUFACTURER
+};
+const static struct usb_string_descriptor_struct string2 = {
+	sizeof(STR_PRODUCT),
+	3,
+	STR_PRODUCT
+};
+const static struct usb_string_descriptor_struct string3 = {
+	sizeof(STR_SERIAL),
+	3,
+	STR_SERIAL
+};
+
+
+// This table defines which descriptor data is sent for each specific
+// request from the host (in wValue and wIndex).
+const static struct descriptor_list_struct {
+	uint16_t	wValue;
+	uint16_t	wIndex;
+	const uint8_t	*addr;
+	uint8_t		length;
+} descriptor_list[] = {
+	{0x0100, 0x0000, device_descriptor, sizeof(device_descriptor)},
+	{0x0200, 0x0000, config_descriptor, sizeof(config_descriptor)},
+	{0x2200, 0x0000, special_hid_desc, sizeof(special_hid_desc)},
+	{0x0300, 0x0000, (const uint8_t *)&string0, 4},
+	{0x0301, 0x0409, (const uint8_t *)&string1, sizeof(STR_MANUFACTURER)},
+	{0x0302, 0x0409, (const uint8_t *)&string2, sizeof(STR_PRODUCT)},	
+	{0x0303, 0x0409, (const uint8_t *)&string3, sizeof(STR_SERIAL)}
+};
+#define DESCRIPTOR_LIST_ENTRIES ((sizeof(descriptor_list))/(sizeof(struct descriptor_list_struct)) )
+
+#endif // INSTANCE_DESCRIPTORS
+
+#endif 
