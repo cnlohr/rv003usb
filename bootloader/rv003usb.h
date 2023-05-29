@@ -56,8 +56,7 @@ struct rv003usb_internal
 
 struct usb_urb
 {
-	uint8_t bmRequestType;
-	uint8_t bRequest;
+	uint16_t bmRequestTypeLSBRequestMSB;
 	uint32_t lIndexValue;
 	uint16_t wLength;
 } __attribute__((packed));
@@ -66,7 +65,7 @@ struct usb_urb
 void usb_pid_handle_setup( uint32_t this_token, uint8_t * data );
 void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bit, int crc_ok );
 void usb_pid_handle_out( uint32_t this_token, uint8_t * data );
-void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, uint32_t length );
+void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, int32_t crc_ok, uint32_t length );
 void usb_pid_handle_ack( uint32_t this_token, uint8_t * data );
 
 //poly_function = 0 to include CRC.

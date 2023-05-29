@@ -42,7 +42,7 @@ Compressed:
 .global EXTI7_0_IRQHandler
 .balign 4
 EXTI7_0_IRQHandler:
-	addi	sp,sp,-72
+	addi	sp,sp,-76
 	sw	a0, 0(sp)
 	sw	a5, 20(sp)
 	sw	a1, 4(sp)
@@ -144,7 +144,7 @@ done_preamble:
 ///////////////////////////////////////////////////////////////////////////////////////
 
 packet_type_loop:
-	nx6p3delay(1, s0);
+	nx6p3delay(1, a0);
 	c.nop
 	DEBUG_TICK_MARK
 
@@ -167,8 +167,8 @@ packet_type_loop:
 	// Handle bit stuffing rules.
 	c.addi a0, -1 // 0->0xffffffff 1->0
 	c.or s0, a0
-	c.addi s0, -1
 	c.andi s0, 7
+	c.addi s0, -1
 
 	c.addi s1, -1
 	c.bnez s1, packet_type_loop
@@ -260,7 +260,7 @@ handle_one_bit:
 	c.j done_usb_message
 
 handle_zero_bit:
-	c.li s0, 7      // reset runs-of-one.
+	c.li s0, 6      // reset runs-of-one.
 	c.srli a2, 1;   // shift a2 down by 1
 
 	// Handle CRC (0 bit)
@@ -327,7 +327,7 @@ se0_complete:
 	// packet type.
 	addi  a1, sp, DATA_PTR_OFFSET
 	lbu  a0, 0(a1)
-	sub a4, a1, t2      //A4 = # of bytes read..
+	sub a4, t2, a1      //A4 = # of bytes read..
 
 	// If bad CRC, skip ahead.
 //	c.bnez a3, done_usb_message
@@ -391,7 +391,7 @@ interrupt_complete:
 	lw	a0, 0(sp)
 	lw	a5, 20(sp)
 	lw	a1, 4(sp)
-	addi	sp,sp,72
+	addi	sp,sp,76
 	mret
 
 handle_se0_keepalive:

@@ -18,8 +18,8 @@ static const uint8_t device_descriptor[] = {
 	0x0, //Device Subclass
 	0x0, //Device Protocol  (000 = use config descriptor)
 	0x08, //Max packet size for EP0 (This has to be 8 because of the USB Low-Speed Standard)
-	0xcd, 0xab, //ID Vendor   //TODO: register this in http://pid.codes/howto/ or somewhere.
-	0x66, 0x82, //ID Product
+	0xcd, 0xcd, //ID Vendor   //TODO: register this in http://pid.codes/howto/ or somewhere.
+	0x63, 0x15, //ID Product
 	0x02, 0x00, //ID Rev
 	1, //Manufacturer string
 	2, //Product string
@@ -87,7 +87,7 @@ static const uint8_t config_descriptor[] = {  //Mostly stolen from a USB mouse I
 
 
 #define STR_MANUFACTURER u"CNLohr"
-#define STR_PRODUCT      u"RV003USB-BOOTLOAD"
+#define STR_PRODUCT      u"bootloader"
 #define STR_SERIAL       u"💾"
 
 struct usb_string_descriptor_struct {

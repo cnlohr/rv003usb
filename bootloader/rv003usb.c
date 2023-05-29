@@ -10,7 +10,7 @@
 #include "rv003usb.h"
 
 struct rv003usb_internal rv003usb_internal_data;
-
+uint8_t scratchpad[128];
 void SystemInit48HSIUNSAFE( void );
 
 int main()
@@ -122,6 +122,7 @@ void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bi
 	struct usb_endpoint * e = &ist->eps[0];
 	int tosend = 0;
 	uint8_t * sendnow = data-1;
+	uint8_t * sendnowo = data-1;
 	uint8_t sendtok = e->toggle_in?0b01001011:0b11000011;
 	
 	// Handle IN (sending data back to PC)
@@ -130,20 +131,24 @@ void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bi
 	// have to do anything with it, though.
 	if( endp ) goto send_nada;
 
+	uint8_t * tsend;
+
 	if( e->is_descriptor )
 	{
 		const struct descriptor_list_struct * dl = &descriptor_list[e->opaque];
-		int offset = (e->count_in)<<3;
-		tosend = ist->control_max_len - offset;
-		if( tosend > ENDPOINT0_SIZE ) tosend = ENDPOINT0_SIZE;
-		if( tosend < 0 ) tosend = 0;
-		sendnow = ((uint8_t*)dl->addr) + offset;
+		tsend = ((uint8_t*)dl->addr);
 	}
-	else
+	else if( e->opaque )
 	{
-		// I guess we let the user handle this one.
+		// Yes, it's a 0xAA
+		tsend = scratchpad;
 	}
 
+	int offset = (e->count_in)<<3;
+	tosend = ist->control_max_len - offset;
+	if( tosend > ENDPOINT0_SIZE ) tosend = ENDPOINT0_SIZE;
+	if( tosend < 0 ) tosend = 0;
+	sendnow = tsend + offset;
 
 	if( !tosend )
 	{
@@ -155,9 +160,9 @@ void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bi
 	}
 	return;
 send_nada:
-	sendnow[0] = 0;
-	sendnow[1] = 0; //CRC = 0
-	usb_send_data( sendnow, 2, 2, sendtok );  //DATA = 0, 0 CRC.
+	sendnowo[0] = 0;
+	sendnowo[1] = 0; //CRC = 0
+	usb_send_data( sendnowo, 2, 2, sendtok );  //DATA = 0, 0 CRC.
 }
 
 void usb_pid_handle_out( uint32_t this_token, uint8_t * data )
@@ -177,7 +182,7 @@ void usb_pid_handle_out( uint32_t this_token, uint8_t * data )
 	e->count_in = 0;  //Cancel any in transaction
 }
 
-void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, uint32_t length )
+void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, int32_t crc_ok, uint32_t length )
 {
 	//Received data from host.
 	struct rv003usb_internal * ist = &rv003usb_internal_data;
@@ -189,57 +194,76 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 
 	e->toggle_out = !e->toggle_out;
 
+	ist->control_max_len = 0;
+
 	if( ist->setup_request )
 	{
-		ist->setup_request = 0;
 		struct usb_urb * s = __builtin_assume_aligned( (struct usb_urb *)(data+1), 4 );
 
 		uint32_t wvi = s->lIndexValue;
 		//Send just a data packet.
 		e->count_in = 0;
-		e->is_descriptor = 0;
+		e->count_out = 0;
 		e->opaque = 0;
+		e->is_descriptor = 0;
+		ist->setup_request = 0;
+		ist->control_max_len = 0;
 
-		if( s->bmRequestType & 0x80 )
+		if( s->bmRequestTypeLSBRequestMSB == 0x01a1 )
 		{
-			if( s->bRequest == 0x06 ) //Get Descriptor Request
-			{
-				int i;
-				const struct descriptor_list_struct * dl;
-				for( i = 0; i < DESCRIPTOR_LIST_ENTRIES; i++ )
-				{
-					dl = &descriptor_list[i];
-					if( dl->lIndexValue == wvi )
-						break;
-				}
-
-				if( i == DESCRIPTOR_LIST_ENTRIES )
-				{
-					//??? Somehow fail?  Is 'nak' the right thing? I don't know what to do here.
-					goto just_ack;
-				}
-
-				// Send back descriptor.
-				e->opaque = i;
-				e->is_descriptor = 1;
-				uint16_t swLen = s->wLength;
-				uint16_t elLen = dl->length;
-				ist->control_max_len = (swLen < elLen)?swLen:elLen;
-			}
+			uint32_t wlen = s->wLength;
+			if( wlen > sizeof(scratchpad) ) wlen = sizeof(scratchpad);
+			// The host wants to read back from us.
+			ist->control_max_len = wlen;
+			e->opaque = 1;
 		}
-		else if( s->bmRequestType == 0x00 )
+		if( s->bmRequestTypeLSBRequestMSB == 0x0921 )
 		{
-			if( s->bRequest == 0x05 ) //Set address.
+			// Class request (Will be writing)
+			ist->control_max_len = sizeof( scratchpad );
+			e->opaque = 0xff;
+		}
+		else if( (s->bmRequestTypeLSBRequestMSB & 0xff80) == 0x0680 )
+		{
+			int i;
+			const struct descriptor_list_struct * dl;
+			for( i = 0; i < DESCRIPTOR_LIST_ENTRIES; i++ )
 			{
-				ist->my_address = wvi;
+				dl = &descriptor_list[i];
+				if( dl->lIndexValue == wvi )
+					break;
 			}
-			//if( s->bRequest == 0x09 ) //Set configuration.
-			//{
-			//}
+
+			if( i == DESCRIPTOR_LIST_ENTRIES )
+			{
+				//??? Somehow fail?  Is 'nak' the right thing? I don't know what to do here.
+				goto just_ack;
+			}
+
+			// Send back descriptor.
+			e->opaque = i;
+			e->is_descriptor = 1;
+			uint16_t swLen = s->wLength;
+			uint16_t elLen = dl->length;
+			ist->control_max_len = (swLen < elLen)?swLen:elLen;
+		}
+		else if( s->bmRequestTypeLSBRequestMSB == 0x0500 )
+		{
+			//Set address.
+			ist->my_address = wvi;
 		}
 	}
 	else
 	{
+		if( e->opaque == 0xff  )
+		{
+			uint8_t * start = &scratchpad[e->count_out];
+			int l = length-3;
+			int i;
+			for( i = 0; i < l; i++ )
+				start[i] = data[i+1];//((intptr_t)data)>>(i*8);
+			e->count_out += l;
+		}
 		// Allow user code to receive data.
 	}
 
