@@ -23,7 +23,7 @@ static const uint8_t device_descriptor[] = {
 	0x02, 0x00, //ID Rev
 	1, //Manufacturer string
 	2, //Product string
-	0, //Serial string
+	3, //Serial string
 	1, //Max number of configurations
 };
 
@@ -87,8 +87,8 @@ static const uint8_t config_descriptor[] = {  //Mostly stolen from a USB mouse I
 
 
 #define STR_MANUFACTURER u"CNLohr"
-#define STR_PRODUCT      u"RV003USB"
-#define STR_SERIAL       u"000"
+#define STR_PRODUCT      u"RV003USB-BOOTLOAD"
+#define STR_SERIAL       u"💾"
 
 struct usb_string_descriptor_struct {
 	uint8_t bLength;
