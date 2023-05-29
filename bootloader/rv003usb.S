@@ -87,7 +87,9 @@ syncdone:
 	// a5 points to our port's input.
 	la  t0, SYSTICK_CNT
 
-	addi  t2, sp, 56 //rv003usb_internal_data
+	// A little weird, but this way, the USB packet is always aligned.
+#define DATA_PTR_OFFSET 59
+	addi  t2, sp, DATA_PTR_OFFSET //rv003usb_internal_data
 
 	DEBUG_TICK_SETUP
 
@@ -323,8 +325,8 @@ se0_complete:
 	// Special: handle ACKs?
 	// Now we have to decide what we're doing based on the
 	// packet type.
-	addi  a1, sp, 56
-	lw  a0, 0(a1)
+	addi  a1, sp, DATA_PTR_OFFSET
+	lbu  a0, 0(a1)
 	sub a4, a1, t2      //A4 = # of bytes read..
 
 	// If bad CRC, skip ahead.

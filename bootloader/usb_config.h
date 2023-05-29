@@ -120,18 +120,17 @@ const static struct usb_string_descriptor_struct string3 __attribute__((section(
 // This table defines which descriptor data is sent for each specific
 // request from the host (in wValue and wIndex).
 const static struct descriptor_list_struct {
-	uint16_t	wValue;
-	uint16_t	wIndex;
+	uint32_t	lIndexValue;
 	const uint8_t	*addr;
 	uint8_t		length;
 } descriptor_list[] = {
-	{0x0100, 0x0000, device_descriptor, sizeof(device_descriptor)},
-	{0x0200, 0x0000, config_descriptor, sizeof(config_descriptor)},
-	{0x2200, 0x0000, special_hid_desc, sizeof(special_hid_desc)},
-	{0x0300, 0x0000, (const uint8_t *)&string0, 4},
-	{0x0301, 0x0409, (const uint8_t *)&string1, sizeof(STR_MANUFACTURER)},
-	{0x0302, 0x0409, (const uint8_t *)&string2, sizeof(STR_PRODUCT)},	
-	{0x0303, 0x0409, (const uint8_t *)&string3, sizeof(STR_SERIAL)}
+	{0x00000100, device_descriptor, sizeof(device_descriptor)},
+	{0x00000200, config_descriptor, sizeof(config_descriptor)},
+	{0x00002200, special_hid_desc, sizeof(special_hid_desc)},
+	{0x00000300, (const uint8_t *)&string0, 4},
+	{0x04090301, (const uint8_t *)&string1, sizeof(STR_MANUFACTURER)},
+	{0x04090302, (const uint8_t *)&string2, sizeof(STR_PRODUCT)},	
+	{0x04090303, (const uint8_t *)&string3, sizeof(STR_SERIAL)}
 };
 #define DESCRIPTOR_LIST_ENTRIES ((sizeof(descriptor_list))/(sizeof(struct descriptor_list_struct)) )
 

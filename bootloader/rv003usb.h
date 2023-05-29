@@ -56,11 +56,9 @@ struct rv003usb_internal
 
 struct usb_urb
 {
-	uint8_t pktp;
 	uint8_t bmRequestType;
 	uint8_t bRequest;
-	uint16_t wValue;
-	uint16_t wIndex;
+	uint32_t lIndexValue;
 	uint16_t wLength;
 } __attribute__((packed));
 

@@ -116,37 +116,34 @@ void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bi
 	struct rv003usb_internal * ist = &rv003usb_internal_data;
 	uint8_t addr = (this_token>>8) & 0x7f;
 	uint8_t endp = (this_token>>15) & 0xf;
-	if( endp )
-		goto send_nada;
-	//If we get an "in" token, we have to strike any accept buffers.
 
+	//If we get an "in" token, we have to strike any accept buffers.
 	if( addr != 0 && addr != ist->my_address ) return;
 	struct usb_endpoint * e = &ist->eps[0];
 	int tosend = 0;
-	uint8_t * sendnow = data;
+	uint8_t * sendnow = data-1;
 	uint8_t sendtok = e->toggle_in?0b01001011:0b11000011;
 	
 	// Handle IN (sending data back to PC)
-	switch( endp )
+	// Do this down here.
+	// We do this because we are required to have an in-endpoint.  We don't
+	// have to do anything with it, though.
+	if( endp ) goto send_nada;
+
+	if( e->is_descriptor )
 	{
-		case 0: // control endpoint.
-			if( e->is_descriptor )
-			{
-				const struct descriptor_list_struct * dl = &descriptor_list[e->opaque];
-				int offset = (e->count_in)<<3;
-				tosend = ist->control_max_len - offset;
-				if( tosend > ENDPOINT0_SIZE ) tosend = ENDPOINT0_SIZE;
-				if( tosend < 0 ) tosend = 0;
-				sendnow = ((uint8_t*)dl->addr) + offset;
-			}
-			else
-			{
-				// I guess we let the user handle this one.
-			}
-		default:
-			break; //no data
+		const struct descriptor_list_struct * dl = &descriptor_list[e->opaque];
+		int offset = (e->count_in)<<3;
+		tosend = ist->control_max_len - offset;
+		if( tosend > ENDPOINT0_SIZE ) tosend = ENDPOINT0_SIZE;
+		if( tosend < 0 ) tosend = 0;
+		sendnow = ((uint8_t*)dl->addr) + offset;
 	}
-	
+	else
+	{
+		// I guess we let the user handle this one.
+	}
+
 
 	if( !tosend )
 	{
@@ -196,8 +193,9 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 	if( ist->setup_request )
 	{
 		ist->setup_request = 0;
-		struct usb_urb * s = (struct usb_urb *)(data);
+		struct usb_urb * s = __builtin_assume_aligned( (struct usb_urb *)(data+1), 4 );
 
+		uint32_t wvi = s->lIndexValue;
 		//Send just a data packet.
 		e->count_in = 0;
 		e->is_descriptor = 0;
@@ -212,7 +210,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 				for( i = 0; i < DESCRIPTOR_LIST_ENTRIES; i++ )
 				{
 					dl = &descriptor_list[i];
-					if( dl->wIndex == s->wIndex && dl->wValue == s->wValue )
+					if( dl->lIndexValue == wvi )
 						break;
 				}
 
@@ -234,7 +232,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 		{
 			if( s->bRequest == 0x05 ) //Set address.
 			{
-				ist->my_address = s->wValue;
+				ist->my_address = wvi;
 			}
 			//if( s->bRequest == 0x09 ) //Set configuration.
 			//{
