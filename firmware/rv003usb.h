@@ -74,7 +74,7 @@ void usb_pid_handle_ack( uint32_t this_token, uint8_t * data );
 //poly_function = 0 to include CRC.
 //poly_function = 2 to exclude CRC.
 //This function is provided in assembly
-void usb_send_data( uint8_t * data, uint32_t length, uint32_t poly_function );
+void usb_send_data( uint8_t * data, uint32_t length, uint32_t poly_function, uint32_t token );
 #endif
 
 #endif

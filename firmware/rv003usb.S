@@ -306,8 +306,6 @@ is_not_end_of_byte:
 
 se0_complete:
 	DEBUG_TICK_MARK
-	DEBUG_TICK_MARK
-	DEBUG_TICK_MARK
 
 	// Special: handle ACKs?
 	// Now we have to decide what we're doing based on the
@@ -315,9 +313,7 @@ se0_complete:
 	addi  a1, sp, 56
 	lw  a0, 0(a1)
 	sub a4, a1, t2      //A4 = # of bytes read..
-	c.mv s0, a0
-	c.srli s0, 4
-	c.andi s0, 0xf
+
 	// If bad CRC, skip ahead.
 //	c.bnez a3, done_usb_message
 
@@ -325,29 +321,35 @@ se0_complete:
 	lw	x4, 48(sp) // restore x4 for whatever in C land.
 
 	// a0 contains first 4 bytes.
-	la ra, done_usb_message_in
+	la ra, done_usb_message_in // Common return address for all function calls.
 
-	c.addi s0, -0b0100 // ACK packet (but backwards)
-	c.beqz s0, usb_pid_handle_ack
-
+	// s0 now contains the bitwise flip of the PID 
+	//  SETUP: 0100
+	//  IN   : 0110
+	//  OUT  : 0111
+	//
+	//  DATA0: 0011
+	//  DATA1: 0010
+	//  ACK  : 1011
 	andi a5, a0, 4
-	c.beqz a5, is_data_packet
-		// Else: Is a setup packet
-		addi s0,s0, 0b0100-0b1011 // a SETUP packet
-		c.beqz s0, usb_pid_handle_setup
-		c.addi s0, (0b1011-0b1000) //a OUT token
-		c.beqz s0, usb_pid_handle_out
-		c.addi s0, (0b1000-0b1001) //an IN token
-		c.beqz s0, usb_pid_handle_in
-		c.j done_usb_message_in
-	is_data_packet:
-		// Data packet. Handle.
-		c.addi s0, 0b0100-0b1100 // a DATA0 packet
-		c.li   a2, 0
-		c.beqz s0, usb_pid_handle_data
-		c.addi s0, (0b1100-0b1101) // a DATA1 packet
-		c.li   a2, 1
-		c.beqz s0, usb_pid_handle_data
+	c.beqz a5, tokencheck
+		// Not a token check (SETUP/SOF/IN/OUT)
+		andi a5, a0, 8
+		c.bnez a5, done_usb_message_in  // Make sure it's not a "Special" packet.
+		andi a5, a0, 2
+		c.beqz a5, usb_pid_handle_setup
+		andi a5, a0, 1
+		c.beqz a5, usb_pid_handle_in
+		c.j usb_pid_handle_out
+	tokencheck:
+		// DATA0, DATA1, ACK
+		andi a5, a0, 2
+		c.beqz a5, done_usb_message_in // DATA2, MDATA, STALL, NYET
+		andi a5, a0, 8
+		c.bnez a5, usb_pid_handle_ack // May also trigger with NAK but host doesn't send those.
+		addi a2, a0, -1 // invert
+		c.andi a2, 1
+		c.j usb_pid_handle_data
 
 done_usb_message:
 done_usb_message_in:
@@ -393,49 +395,112 @@ handle_se0_keepalive:
 
 
 
-//void usb_send_data( uint8_t * data, uint32_t length, uint32_t poly_function );
+//void usb_send_data( uint8_t * data, uint32_t length, uint32_t poly_function, uint32_t token );
 .balign 4
 usb_send_data:
-	addi	sp,sp,-12
-	sw	s0, 0(sp)
+	addi	sp,sp,-16
 	sw	s1, 4(sp)
+
+	la a5, USB_GPIO_BASE
+
+	// ASAP: Turn the bus around and send our preamble + token.	
+	c.lw a4, CFGLR_OFFSET(a5)
+
+	li s1, ~((0b1111<<(USB_DM*4)) | (0b1111<<(USB_DP*4)))
+	and a4, s1, a4
+
+	// Convert D+/D- into 2MHz outputs
+	li s1, ((0b0010<<(USB_DM*4)) | (0b0010<<(USB_DP*4)))
+	or a4, s1, a4
+
+	li s1, (1<<USB_DM) | (1<<(USB_DP+16))
+	c.sw s1, BSHR_OFFSET(a5)
+
+	//00: Universal push-pull output mode
+	c.sw a4, CFGLR_OFFSET(a5)
+
+	// We have quite some time now.
+	sw	s0, 0(sp)
+
+	li t1, (1<<USB_DM) | (1<<(USB_DP+16)) | (1<<USB_DP) | (1<<(USB_DM+16));
+
 	sw  x4, 8(sp)
+
+	// Save off our preamble and token.
+	c.slli a3, 7     //Put token further up so it gets sent later.
+	ori s0, a3, 0x40  
+
+
+	c.slli a1, 3 // bump up one extra to be # of bits
+	sw  a1, 12(sp)
 	//sw  s2, 8(sp) // backup if we want the CRC or not.
 
 	// t0 is our polynomial
 	// a2 is our running CRC.
-
+	// a3 is our token.
 	la x4, (TIM1_BASE + 0x24) 	// for debug
 
-	// XXX TODO: This logic is so bad.
+	c.li a4, 6 // reset bit stuffing.
+	c.li a1, 15 // 15 bits.
+
+	c.nop; c.nop; c.nop;
+
+////////////////////////////////////////////////////////////////////////////
+// Send preamble + token
+.balign 4
+pre_and_tok_send_inner_loop:
+	/* High-level:
+		* extract the LSB from s0
+		* If it's 0, we FLIP the USB pin state.
+		* If it's 1, we don't flip.
+		* Regardless of the state, we still compute CRC.
+		* We have to decrement our bit stuffing index.
+		* If it is 0, we can reset our bit stuffing index.
+	*/
+
+	// a3 is now the lsb of s0 (the 'next bit' to read out)
+	c.mv a3, s0
+	c.srli s0, 1 // Shift down into the next bit.
+	c.andi a3, 1
+	// If a3 is 0, we should FLIP
+	// if a3 is 1, we should NOT flip.
+
+	c.addi a4, -1
+	c.bnez a3, pre_and_tok_send_one_bit
+//pre_and_tok_send_one_bit:
+//Send 0 bit. (Flip)
+	// Flip s1 (our bshr setting) by xoring it.
+	// 10.....01
+	// 11.....11 (xor with)
+	// 01.....10
+	xor s1, s1, t1
+	c.li a4, 6 // reset bit stuffing.
+	// DO NOT flip.  Allow a4 to increment.
+// Deliberately unaligned for timing purposes.
+.balign 4
+pre_and_tok_send_one_bit:
+	sw s1, BSHR_OFFSET(a5)
+	//Bit stuffing doesn't happen.
+	c.addi a1, -1
+	c.beqz a1, pre_and_tok_done_sending_data
+	nx6p3delay( 2, a3 );	c.nop;             // Free time!
+	c.j pre_and_tok_send_inner_loop
+.balign 4
+pre_and_tok_done_sending_data:
+////////////////////////////////////////////////////////////////////////////
+
+	// We have very little time here.  Just enough to do this.
+
+	//Restore size.
+	lw  a1, 12(sp)
+	c.beqz a1, no_really_done_sending_data  //No actual payload?  Bail!
+
+	li t0, 0x0000
+	c.bnez a2, done_poly_check
 	li t0, 0xa001
-	c.beqz a2, data_polynomial
-	li t0, 0x00
-	li a2, 0x00
-	c.j done_data
-//	li t0, 0x14
-//	li a2, 0x1f
-data_polynomial:
+	li a2, 0xffff
+done_poly_check:
 
-	lb a3, 1(a0)
-	c.andi a3, 0xf
-	// Check to see if it's data0 or data1.
-	c.addi a3, -0b0011
-	c.beqz a3, is_data_0
-
-	// If DATA1 return
-	li a2, 0x5ed7
-	c.j done_data
-	c.nop
-is_data_0: // DATA0 return
-	li a2, 0xd6d7
-
-	andi a3, a0, 1
-	beqz a3, done_data
-	DEBUG_TICK_MARK
-	DEBUG_TICK_MARK
-
-done_data:
 
 	// t0 is used for CRC
 	// t1 is free
@@ -453,39 +518,15 @@ done_data:
 	// a4 is used for bit stuffing.
 	// a5 is the output address.
 
-	//XXX TODO Forgot about bit stuffing.
-
-	c.slli a1, 3 // bump up one extra to be # of bits
-
-	la a5, USB_GPIO_BASE
-	li s1, (1<<USB_DP) | (1<<(USB_DM+16))
-	li t1, (1<<USB_DM) | (1<<(USB_DP+16)) | (1<<USB_DP) | (1<<(USB_DM+16));
-	c.sw s1, BSHR_OFFSET(a5)
-	
-	c.lw s0, CFGLR_OFFSET(a5)
-
-	li a3, ~((0b1111<<(USB_DM*4)) | (0b1111<<(USB_DP*4)))
-	and s0, a3, s0
-
-
-	// Convert D+/D- into 2MHz outputs
-	li a3, ((0b0010<<(USB_DM*4)) | (0b0010<<(USB_DP*4)))
-	or s0, a3, s0
-
-	//00: Universal push-pull output mode
-	c.sw s0, CFGLR_OFFSET(a5)
-
 	//xor s1, s1, t1
 	//c.sw s1, BSHR_OFFSET(a5)
-
-	c.nop;	c.nop;	c.nop;	c.nop
-	c.nop;	c.nop;	c.nop;	c.nop
 
 	// This creates a preamble, which is alternating 1's and 0's
 	// and then it sets the same state.
 //	li s0, 0b10000000
 
 //	c.j send_inner_loop
+.balign 4
 load_next_word:
 	lh s0, 0(a0) //replace me with the QingKe v2 "special" opcode for this.
 	//c.addi a0, 2
@@ -515,13 +556,12 @@ send_inner_loop:
 	and a3, a3, t0
 	c.srli a2, 1
 	c.xor a2, a3
-
 	c.nop
 	c.addi a4, -1
 	c.beqz a4, insert_stuffed_bit
-	c.nop
 	c.j cont_after_jump
 //Send 0 bit. (Flip)
+.balign 4
 send_zero_bit:
 
 	// Handle CRC (0 bit)
@@ -535,7 +575,6 @@ send_zero_bit:
 	c.srai a3,31    // Copy MSB into all other bits
 	c.srli a2,1
 	and a3,a3,t0
-	c.xor  a2,a3
 
 	// Flip s1 (our bshr setting) by xoring it.
 	// 10.....01
@@ -544,10 +583,13 @@ send_zero_bit:
 	xor s1, s1, t1
 	sw s1, BSHR_OFFSET(a5)
 
+	c.xor  a2,a3 // XXX XXX CRC down here to make bit stuffing timings line up.
+
 	c.li a4, 6 // reset bit stuffing.
 	// DO NOT flip.  Allow a4 to increment.
 cont_after_jump:
 
+.balign 4
 send_end_bit_complete:
 	c.addi a1, -1
 	c.beqz a1, done_sending_data
@@ -573,7 +615,7 @@ no_really_done_sending_data:
 
 //	c.bnez a2, poly_function  TODO: Uncomment me!
 
-	nx6p3delay( 1, a3 );
+	nx6p3delay( 2, a3 );
 
 	// Need to perform an SE0.
 	li s1, (1<<(USB_DP+16)) | (1<<(USB_DM+16))
@@ -596,7 +638,7 @@ no_really_done_sending_data:
 	lw	s0, 0(sp)
 	lw	s1, 4(sp)
 	lw  x4, 8(sp)
-	addi	sp,sp,12
+	addi	sp,sp,16
 	ret
 
 .balign 4
@@ -609,9 +651,11 @@ poly_function:
 // TODO: This seems to be either 222 or 226 (not 224) in cases.
 // It's off by 2 clock cycles.  Probably OK, but, hmm.
 insert_stuffed_bit:
-	nx6p3delay(4, a3)
-	c.li a4, 6 // reset bit stuffing.
+	nx6p3delay(3, a3)
 	xor s1, s1, t1
+	c.li a4, 6 // reset bit stuffing.
+	c.nop
+	c.nop
 	sw s1, BSHR_OFFSET(a5)
-	j send_end_bit_complete
+	c.j send_end_bit_complete
 

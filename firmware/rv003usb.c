@@ -184,14 +184,7 @@ void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bi
 	int tosend = 0;
 
 	uint8_t * sendnow = data;
-
-	sendnow[0] = 0x80;
-
-	if( e->toggle_in )
-		sendnow[1] = 0b01001011; //DATA1
-	else
-		sendnow[1] = 0b11000011; //DATA0
-
+	uint8_t sendtok = e->toggle_in?0b01001011:0b11000011;
 	
 	// Handle IN (sending data back to PC)
 	switch( endp )
@@ -204,7 +197,7 @@ void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bi
 				tosend = ist->control_max_len - offset;
 				if( tosend > ENDPOINT0_SIZE ) tosend = ENDPOINT0_SIZE;
 				if( tosend < 0 ) tosend = 0;
-				memcpy( sendnow+2, ((uint8_t*)dl->addr) + offset, tosend );
+				memcpy( sendnow, ((uint8_t*)dl->addr) + offset, tosend );
 			}
 			else
 			{
@@ -219,14 +212,13 @@ void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bi
 	{
 		if( endp == 0 )
 		{
-			sendnow[2] = 0;
-			sendnow[3] = 0; //CRC = 0
-			usb_send_data( sendnow, 4, 2 );  //DATA = 0, 0 CRC.
+			sendnow[0] = 0;
+			sendnow[1] = 0; //CRC = 0
+			usb_send_data( sendnow, 2, 2, sendtok );  //DATA = 0, 0 CRC.
 		}
 		else
 		{
-			sendnow[1] = 0x5a; //Empty data (NAK)
-			usb_send_data( sendnow, 2, 2 );
+			usb_send_data( sendnow, 0, 2, 0x5a ); //Empty data (NAK)
 		}
 	}
 	else
@@ -237,12 +229,12 @@ void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bi
 			// skip the second byte.  TODO: Fixme.
 
 			int i;
-			for( i = tosend+2; i >= 2; i-- )
+			for( i = tosend; i >= 1; i-- )
 			{
 				sendnow[i] = sendnow[i-1];
 			}
 		}
-		usb_send_data( sendnow, tosend+2, 0 );
+		usb_send_data( sendnow, tosend, 0, sendtok );
 	}
 }
 
@@ -339,8 +331,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 just_ack:
 	{
 		//Got the right data.  Acknowledge.
-		uint8_t sendword[2] = { 0x80, 0xD2 };
-		usb_send_data( sendword, 2, 2 );
+		usb_send_data( 0, 0, 2, 0xD2 ); // Send ACK
 	}
 	return;
 }
