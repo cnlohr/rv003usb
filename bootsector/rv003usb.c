@@ -85,7 +85,6 @@ int main()
 	// enable interrupt
 	NVIC_EnableIRQ( EXTI7_0_IRQn );
 
-
 	while(1);
 }
 
@@ -117,18 +116,13 @@ void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bi
 	struct rv003usb_internal * ist = &rv003usb_internal_data;
 	uint8_t addr = (this_token>>8) & 0x7f;
 	uint8_t endp = (this_token>>15) & 0xf;
+	if( endp )
+		goto send_nada;
 	//If we get an "in" token, we have to strike any accept buffers.
 
-	if( endp >= ENDPOINTS ) return;
 	if( addr != 0 && addr != ist->my_address ) return;
-
-	ist->current_endpoint = endp;
-	struct usb_endpoint * e = &ist->eps[endp];
-
-	//e->count_out = 0;  //Cancel any out transaction
-
+	struct usb_endpoint * e = &ist->eps[0];
 	int tosend = 0;
-
 	uint8_t * sendnow = data;
 	uint8_t sendtok = e->toggle_in?0b01001011:0b11000011;
 	
@@ -156,17 +150,17 @@ void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bi
 
 	if( !tosend )
 	{
-		if( endp == 0 )
-		{
-			sendnow[0] = 0;
-			sendnow[1] = 0; //CRC = 0
-			usb_send_data( sendnow, 2, 2, sendtok );  //DATA = 0, 0 CRC.
-		}
+		goto send_nada;
 	}
 	else
 	{
 		usb_send_data( sendnow, tosend, 0, sendtok );
 	}
+	return;
+send_nada:
+	sendnow[0] = 0;
+	sendnow[1] = 0; //CRC = 0
+	usb_send_data( sendnow, 2, 2, sendtok );  //DATA = 0, 0 CRC.
 }
 
 void usb_pid_handle_out( uint32_t this_token, uint8_t * data )
@@ -235,10 +229,6 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 				uint16_t elLen = dl->length;
 				ist->control_max_len = (swLen < elLen)?swLen:elLen;
 			}
-			else
-			{
-				//usb_handle_custom_control( s->bmRequestType, s->bRequest, s->wLength, ist );
-			}
 		}
 		else if( s->bmRequestType == 0x00 )
 		{
@@ -246,11 +236,9 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			{
 				ist->my_address = s->wValue;
 			}
-			if( s->bRequest == 0x09 ) //Set configuration.
-			{
-				//s->wValue; has the index.  We don't really care about this.
-			}
-			//usb_handle_custom_control( s->bmRequestType, s->bRequest, s->wLength, ist );
+			//if( s->bRequest == 0x09 ) //Set configuration.
+			//{
+			//}
 		}
 	}
 	else
@@ -274,13 +262,6 @@ void usb_pid_handle_ack( uint32_t this_token, uint8_t * data )
 	e->count_in++;
 	return;
 }
-
-
-
-
-
-
-
 
 
 void InterruptVector()         __attribute__((naked)) __attribute((section(".init"))) __attribute((weak,alias("InterruptVectorDefault")));

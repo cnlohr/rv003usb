@@ -44,7 +44,7 @@ static const uint8_t config_descriptor[] = {  //Mostly stolen from a USB mouse I
 	// configuration descriptor, USB spec 9.6.3, page 264-266, Table 9-10
 	9, 					// bLength;
 	2,					// bDescriptorType;
-	0x3b, 0x00,			// wTotalLength  	
+	0x22, 0x00,			// wTotalLength  	
 
 	//34, 0x00, //for just the one descriptor
 	
@@ -79,7 +79,7 @@ static const uint8_t config_descriptor[] = {  //Mostly stolen from a USB mouse I
 	0x81, //Endpoint Address
 	0x03, //Attributes
 	0x40,	0x00, //Size
-	10, //Interval (Was 0x0a)
+	10, //Interval (Was 0x0a)*/
 };
 
 
