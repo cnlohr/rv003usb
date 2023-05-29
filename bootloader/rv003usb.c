@@ -164,14 +164,16 @@ void usb_pid_handle_out( uint32_t this_token, uint8_t * data )
 {
 	struct rv003usb_internal * ist = &rv003usb_internal_data;
 
-	//We need to handle this here because we could have an interrupt in the middle of a control or bulk transfer.
+	//We need to handle this here because we could have an interrupt in the middle of a control or big transfer.
 	//This will correctly swap back the endpoint.
+
+	//XXX NOTE: Acutally just not doing that.  Only support OUT on CP0
 	uint8_t addr = (this_token>>8) & 0x7f;
-	uint8_t endp = (this_token>>15) & 0xf;
-	if( endp >= ENDPOINTS ) return;
+//	uint8_t endp = (this_token>>15) & 0xf;
+//	if( endp >= ENDPOINTS ) return;
 	if( addr != 0 && addr != ist->my_address ) return;
-	ist->current_endpoint = endp;
-	struct usb_endpoint * e = &ist->eps[endp];
+//	ist->current_endpoint = endp;
+	struct usb_endpoint * e = &ist->eps[0];
 	e->count_in = 0;  //Cancel any in transaction
 }
 
@@ -180,9 +182,6 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 	//Received data from host.
 	struct rv003usb_internal * ist = &rv003usb_internal_data;
 	struct usb_endpoint * e = &ist->eps[ist->current_endpoint];
-
-	if( e == 0 ) return;
-
 	if( e->toggle_out != which_data )
 	{
 		goto just_ack;

@@ -41,7 +41,7 @@ struct rv003usb_internal
 	uint8_t current_endpoint;
 	uint8_t my_address; // Will be 0 until set up.
 	uint8_t setup_request;
-	uint16_t control_max_len;
+	uint8_t control_max_len;  // "should" be 16 bits.
 
 	// 4 bytes + 4 * ENDPOINTS
 
