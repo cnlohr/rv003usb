@@ -18,11 +18,11 @@ struct rv003usb_internal rv003usb_internal_data;
 
 // This is the data actually required for USB.
 uint8_t data_receptive;
-
+/*
 void usb_handle_custom_control( uint8_t bmRequestType, uint8_t bRequest, uint16_t wLength,  struct rv003usb_internal * ist )
 {
 	// Do something.
-}
+}*/
 
 int main()
 {
@@ -142,15 +142,13 @@ int main()
 
 
 
-
-
-
 #define ENDPOINT0_SIZE 8 //Fixed for USB 1.1, Low Speed.
 
 
 //Received a setup for a specific endpoint.
-void usb_pid_handle_setup( uint32_t this_token, struct rv003usb_internal * ist )
+void usb_pid_handle_setup( uint32_t this_token, uint8_t * data )
 {
+	struct rv003usb_internal * ist = &rv003usb_internal_data;
 	uint8_t addr = (this_token>>8) & 0x7f;
 	uint8_t endp = (this_token>>15) & 0xf;
 
@@ -161,15 +159,16 @@ void usb_pid_handle_setup( uint32_t this_token, struct rv003usb_internal * ist )
 	struct usb_endpoint * e = &ist->eps[endp];
 	e->toggle_out = 0;
 	e->toggle_in = 1;
-	e->ptr_in = 0;
-	e->send = 0;
+	e->count_in = 0;
+	e->count_out = 0;
 	ist->setup_request = 1;
 end:
 	return;
 }
 
-void usb_pid_handle_in( uint32_t this_token, struct rv003usb_internal * ist, uint32_t last_32_bit, int crc_out )
+void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bit, int crc_out )
 {
+	struct rv003usb_internal * ist = &rv003usb_internal_data;
 	uint8_t addr = (this_token>>8) & 0x7f;
 	uint8_t endp = (this_token>>15) & 0xf;
 	//If we get an "in" token, we have to strike any accept buffers.
@@ -180,41 +179,49 @@ void usb_pid_handle_in( uint32_t this_token, struct rv003usb_internal * ist, uin
 	ist->current_endpoint = endp;
 	struct usb_endpoint * e = &ist->eps[endp];
 
-	e->got_size_out = 0;  //Cancel any out transaction
+	e->count_out = 0;  //Cancel any out transaction
 
 	int tosend = 0;
-	uint8_t sendnow[12];
+
+	uint8_t * sendnow = data;
 
 	sendnow[0] = 0x80;
 
-	if( e->send && e->ptr_in ) 
-	{
-		tosend = e->size_in - e->place_in;
-
-		if( tosend > 8 ) tosend = 8;
-	}
-
 	if( e->toggle_in )
-	{
 		sendnow[1] = 0b01001011; //DATA1
-	}
 	else
-	{
 		sendnow[1] = 0b11000011; //DATA0
-	}
 
-	if( tosend == 0 || !e->send || !e->ptr_in || e->ptr_in == EMPTY_SEND_BUFFER )  //Tricky: Empty packet.
+	
+	// Handle IN (sending data back to PC)
+	switch( endp )
 	{
+		case 0: // control endpoint.
+			if( e->is_descriptor )
+			{
+				const struct descriptor_list_struct * dl = &descriptor_list[e->opaque];
+				int offset = (e->count_in)<<3;
+				tosend = ist->control_max_len - offset;
+				if( tosend > ENDPOINT0_SIZE ) tosend = ENDPOINT0_SIZE;
+				if( tosend < 0 ) tosend = 0;
+				memcpy( sendnow+2, ((uint8_t*)dl->addr) + offset, tosend );
+			}
+			else
+			{
+				// I guess we let the user handle this one.
+			}
+		default:
+			break; //no data
+	}
+	
 
-		//Tricky: Control messages are not allowed to send NAKs.  We /have/ to send an empty packet for them if no more data is available.
-		//With endpoints, proper, it's okay to send NAKs.
-
+	if( !tosend )
+	{
 		if( endp == 0 )
 		{
 			sendnow[2] = 0;
 			sendnow[3] = 0; //CRC = 0
-			usb_send_data( sendnow, 4, 2 );  //Force a CRC
-			e->ptr_in = 0;
+			usb_send_data( sendnow, 4, 2 );  //DATA = 0, 0 CRC.
 		}
 		else
 		{
@@ -224,27 +231,25 @@ void usb_pid_handle_in( uint32_t this_token, struct rv003usb_internal * ist, uin
 	}
 	else
 	{
-
 		if( tosend & 1 )
 		{
 			// Super tricky: If we are odd, it will accidentally
-			// skip the second byte.
-			memcpy( sendnow+3, e->ptr_in + e->place_in, tosend );
-			sendnow[2] = sendnow[1];
-		}
-		else
-		{
-			memcpy( sendnow+2, e->ptr_in + e->place_in, tosend );
+			// skip the second byte.  TODO: Fixme.
+
+			int i;
+			for( i = tosend+2; i >= 2; i-- )
+			{
+				sendnow[i] = sendnow[i-1];
+			}
 		}
 		usb_send_data( sendnow, tosend+2, 0 );
-	//printf( "PID_IN: %02x %02x %08x %08x %02x / %02x %02x %08x %08x\n", addr, endp, last_32_bit, crc_out, sendnow[1],
-	//	tosend, e->send, e->ptr_in, EMPTY_SEND_BUFFER );
-		e->advance_in = tosend;
 	}
 }
 
-void usb_pid_handle_out( uint32_t this_token, struct rv003usb_internal * ist )
+void usb_pid_handle_out( uint32_t this_token, uint8_t * data )
 {
+	struct rv003usb_internal * ist = &rv003usb_internal_data;
+
 	//We need to handle this here because we could have an interrupt in the middle of a control or bulk transfer.
 	//This will correctly swap back the endpoint.
 	uint8_t addr = (this_token>>8) & 0x7f;
@@ -252,12 +257,15 @@ void usb_pid_handle_out( uint32_t this_token, struct rv003usb_internal * ist )
 	if( endp >= ENDPOINTS ) return;
 	if( addr != 0 && addr != ist->my_address ) return;
 	ist->current_endpoint = endp;
+	struct usb_endpoint * e = &ist->eps[endp];
+	e->count_in = 0;  //Cancel any in transaction
+
 }
 
-void usb_pid_handle_data( uint32_t this_token, struct rv003usb_internal * ist, uint32_t which_data, uint32_t length )
+void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, uint32_t length )
 {
 	//Received data from host.
-
+	struct rv003usb_internal * ist = &rv003usb_internal_data;
 	struct usb_endpoint * e = &ist->eps[ist->current_endpoint];
 
 	if( e == 0 ) return;
@@ -272,13 +280,12 @@ void usb_pid_handle_data( uint32_t this_token, struct rv003usb_internal * ist, u
 	if( ist->setup_request )
 	{
 		ist->setup_request = 0;
-		struct usb_urb * s = (struct usb_urb *)ist->usb_buffer;
+		struct usb_urb * s = (struct usb_urb *)(data);
 
 		//Send just a data packet.
-		e->ptr_in = EMPTY_SEND_BUFFER;
-		e->place_in = 0;
-		e->size_in = 0;
-		e->send = 1;
+		e->count_in = 0;
+		e->is_descriptor = 0;
+		e->opaque = 0;
 
 		if( s->bmRequestType & 0x80 )
 		{
@@ -299,11 +306,17 @@ void usb_pid_handle_data( uint32_t this_token, struct rv003usb_internal * ist, u
 					goto just_ack;
 				}
 
-				e->ptr_in = dl->addr;
-				e->size_in = dl->length;
-				if( s->wLength < e->size_in ) e->size_in = s->wLength;
+				// Send back descriptor.
+				e->opaque = i;
+				e->is_descriptor = 1;
+				uint16_t swLen = s->wLength;
+				uint16_t elLen = dl->length;
+				ist->control_max_len = (swLen < elLen)?swLen:elLen;
 			}
-			usb_handle_custom_control( s->bmRequestType, s->bRequest, s->wLength, ist );
+			else
+			{
+				//usb_handle_custom_control( s->bmRequestType, s->bRequest, s->wLength, ist );
+			}
 		}
 		else if( s->bmRequestType == 0x00 )
 		{
@@ -315,29 +328,13 @@ void usb_pid_handle_data( uint32_t this_token, struct rv003usb_internal * ist, u
 			{
 				//s->wValue; has the index.  We don't really care about this.
 			}
-			usb_handle_custom_control( s->bmRequestType, s->bRequest, s->wLength, ist );
+			//usb_handle_custom_control( s->bmRequestType, s->bRequest, s->wLength, ist );
 		}
 	}
-	else if( e->ptr_out )
+	else
 	{
-		//Read into that buffer.
-		int acc = length-3;  //packet_size includes CRC and PID, need just data size.
-		int place = e->got_size_out;
-
-		if( place + acc > e->max_size_out )
-		{
-			acc = e->max_size_out - place;
-		}
-
-		memcpy( e->ptr_out + e->got_size_out, ist->usb_buffer+1, acc );  //First byte of USB buffer is token.
-		e->got_size_out += acc;
-		if( e->got_size_out == e->max_size_out && e->transfer_done_ptr ) {
-			e->ptr_out = 0;
-			*e->transfer_done_ptr = e->got_size_out;
-			e->transfer_done_ptr = 0;
-		}
+		// Allow user code to receive data.
 	}
-
 
 just_ack:
 	{
@@ -348,21 +345,12 @@ just_ack:
 	return;
 }
 
-void usb_pid_handle_ack( uint32_t this_token, struct rv003usb_internal * ist )
+void usb_pid_handle_ack( uint32_t this_token, uint8_t * data )
 {
+	struct rv003usb_internal * ist = &rv003usb_internal_data;
 	struct usb_endpoint * e = &ist->eps[ist->current_endpoint];
-	if( !e ) goto term;
-
 	e->toggle_in = !e->toggle_in;
-	e->place_in += e->advance_in;
-	e->advance_in = 0;
-	if( e->place_in == e->size_in )
-	{
-		e->send = 0;
-		if( e->transfer_in_done_ptr ) (*e->transfer_in_done_ptr) = 1;
-		e->transfer_in_done_ptr = 0;
-	}
-term:
+	e->count_in++;
 	return;
 }
 

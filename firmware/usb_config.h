@@ -3,7 +3,7 @@
 
 // This is a freebie from ESPUSB
 
-//Defines the number of endpoints for this device. (Always add one for EP0)
+//Defines the number of endpoints for this device. (Always add one for EP0). For two EPs, this should be 3.
 #define ENDPOINTS 3
 
 #ifdef INSTANCE_DESCRIPTORS
@@ -17,7 +17,7 @@ static const uint8_t device_descriptor[] = {
 	0x0, //Device Protocol  (000 = use config descriptor)
 	0x08, //Max packet size for EP0 (This has to be 8 because of the USB Low-Speed Standard)
 	0xcd, 0xab, //ID Vendor   //TODO: register this in http://pid.codes/howto/ or somewhere.
-	0x66, 0x82, //ID Product
+	0xe0, 0xff, //ID Product
 	0x02, 0x00, //ID Rev
 	1, //Manufacturer string
 	2, //Product string

@@ -28,28 +28,22 @@
 
 struct usb_endpoint
 {
-	const uint8_t * ptr_in;	// Pointer to "IN" data (US->PC)
-	uint16_t size_in;		// Total size of the structure pointed to by ptr_in
-	uint16_t advance_in;	// How much data was sent this packet? (How much to advance in ack)
-	uint16_t place_in;		// Where in the ptr_in we are currently pointing.
-	uint8_t toggle_in; 		// DATA0 or DATA1?
-	uint8_t send;			// Sets back to 0 when done sending.
-	int * transfer_in_done_ptr;
-
-	uint8_t * ptr_out;
-	int * transfer_done_ptr;  //Written to # of bytes received when a datagram is done.
-	uint16_t max_size_out;
-	uint16_t got_size_out;
-	uint8_t toggle_out;  //Out PC->US
+	uint8_t count_in;	// ack count
+	uint8_t count_out;	// For future: When receiving data.
+	uint8_t opaque;     // For user.
+	uint8_t toggle_in:1;   // DATA0 or DATA1?
+	uint8_t toggle_out:1;  //Out PC->US
+	uint8_t is_descriptor:1;
 };
 
 struct rv003usb_internal
 {
-	// 14 bytes minimum.
-	uint8_t usb_buffer[USB_BUFFER_SIZE];
 	uint8_t current_endpoint;
 	uint8_t my_address : 7; // Will be 0 until set up.
 	uint8_t setup_request : 1;
+	uint16_t control_max_len;
+
+	// 4 bytes + 4 * ENDPOINTS
 
 	struct usb_endpoint eps[ENDPOINTS];
 };
@@ -71,11 +65,11 @@ struct usb_urb
 } __attribute__((packed));
 
 
-void usb_pid_handle_setup( uint32_t this_token, struct rv003usb_internal * ist );
-void usb_pid_handle_in( uint32_t this_token, struct rv003usb_internal * ist, uint32_t last_32_bit, int crc_ok );
-void usb_pid_handle_out( uint32_t this_token, struct rv003usb_internal * ist );
-void usb_pid_handle_data( uint32_t this_token, struct rv003usb_internal * ist, uint32_t which_data, uint32_t length );
-void usb_pid_handle_ack( uint32_t this_token, struct rv003usb_internal * ist );
+void usb_pid_handle_setup( uint32_t this_token, uint8_t * data );
+void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bit, int crc_ok );
+void usb_pid_handle_out( uint32_t this_token, uint8_t * data );
+void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, uint32_t length );
+void usb_pid_handle_ack( uint32_t this_token, uint8_t * data );
 
 //poly_function = 0 to include CRC.
 //poly_function = 2 to exclude CRC.

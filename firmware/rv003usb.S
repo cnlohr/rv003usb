@@ -10,7 +10,7 @@
 #define SYSTICK_CNT 0xE000F008
 
 // This is 6 * n + 3 cylces
-#define nx6p3delay( n ) li s0, ((n)+1); 1: c.addi s0, -1; c.bnez s0, 1b
+#define nx6p3delay( n, freereg ) li freereg, ((n)+1); 1: c.addi freereg, -1; c.bnez freereg, 1b
 
 #define DEBUG_TICK_SETUP la x4, (TIM1_BASE + 0x24) 	// for debug
 #define DEBUG_TICK_MARK sw x0, 0(x4)
@@ -29,7 +29,7 @@ Compressed:
 .global EXTI7_0_IRQHandler
 .balign 4
 EXTI7_0_IRQHandler:
-	addi	sp,sp,-56
+	addi	sp,sp,-72
 	sw	a0, 0(sp)
 	sw	a5, 20(sp)
 	sw	a1, 4(sp)
@@ -68,11 +68,13 @@ syncdone:
 	sw  t2, 40(sp) // 16 cycles
 	sw	x4, 48(sp)
 	sw  ra, 52(sp)
+	// 16-byte temporary buffer at 56+sp
 
 	// r0 points to SYSTICK 
 	// a5 points to our port's input.
 	la  t0, SYSTICK_CNT
-	la  t2, rv003usb_internal_data
+
+	addi  t2, sp, 56 //rv003usb_internal_data
 
 	DEBUG_TICK_SETUP
 
@@ -87,7 +89,7 @@ preamble_loop:
 	c.xor a1, a0; // Recover a1.
 	c.beqz a0, done_preamble
 	// 6 cycles
-	nx6p3delay( 3 ); // 21 cycles
+	nx6p3delay( 3, s0 ); // 21 cycles
 	c.nop
 	j preamble_loop // 4 cycles
 done_preamble:
@@ -127,7 +129,7 @@ done_preamble:
 ///////////////////////////////////////////////////////////////////////////////////////
 
 packet_type_loop:
-	nx6p3delay(1);
+	nx6p3delay(1, s0);
 	c.nop
 	DEBUG_TICK_MARK
 
@@ -310,7 +312,7 @@ se0_complete:
 	// Special: handle ACKs?
 	// Now we have to decide what we're doing based on the
 	// packet type.
-	la  a1, rv003usb_internal_data
+	addi  a1, sp, 56
 	lw  a0, 0(a1)
 	sub a4, a1, t2      //A4 = # of bytes read..
 	c.mv s0, a0
@@ -372,7 +374,7 @@ interrupt_complete:
 	lw	a0, 0(sp)
 	lw	a5, 20(sp)
 	lw	a1, 4(sp)
-	addi	sp,sp,56
+	addi	sp,sp,72
 	mret
 
 handle_se0_keepalive:
@@ -421,11 +423,11 @@ data_polynomial:
 	c.addi a3, -0b0011
 	c.beqz a3, is_data_0
 
-	// If data1
+	// If DATA1 return
 	li a2, 0x5ed7
 	c.j done_data
 	c.nop
-is_data_0:
+is_data_0: // DATA0 return
 	li a2, 0xd6d7
 
 	andi a3, a0, 1
@@ -487,7 +489,7 @@ done_data:
 load_next_word:
 	lh s0, 0(a0) //replace me with the QingKe v2 "special" opcode for this.
 	//c.addi a0, 2
-	.long 0x00250513 // addi a0, a0, 2
+	.long 0x00250513 // addi a0, a0, 2  (For alignment's sake)
 send_inner_loop:
 	/* High-level:
 		* extract the LSB from s0
@@ -551,12 +553,13 @@ send_end_bit_complete:
 	c.beqz a1, done_sending_data
 	andi a3, a1, 15
 	c.beqz a3, load_next_word
-	// Wait an extra 4-5 cycles.
+	// Wait an extra few cycles.
 	c.nop
 	c.nop
 	c.nop
 	c.j send_inner_loop
 
+.balign 4
 done_sending_data:
 	// BUT WAIT!! MAYBE WE NEED TO CRC!
 	beqz t0, no_really_done_sending_data
@@ -565,22 +568,19 @@ done_sending_data:
 	li a1, 16 // Load 16 more bits out
 	c.j send_inner_loop
 
+.balign 4
 no_really_done_sending_data:
 
 //	c.bnez a2, poly_function  TODO: Uncomment me!
 
-	c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop;
+	nx6p3delay( 1, a3 );
 
 	// Need to perform an SE0.
 	li s1, (1<<(USB_DP+16)) | (1<<(USB_DM+16))
 	c.sw s1, BSHR_OFFSET(a5)
 
-	c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop;
-	c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop;
-	c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop;
-	c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop;
-	c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop;
-	c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop; c.nop;
+	nx6p3delay( 7, a3 );
+
 	li s1, (1<<(USB_DP)) | (1<<(USB_DM+16))
 	c.sw s1, BSHR_OFFSET(a5)
 
@@ -599,19 +599,19 @@ no_really_done_sending_data:
 	addi	sp,sp,12
 	ret
 
+.balign 4
 poly_function:
 	mv s0, a3
 	c.li a1, 5
 	c.j send_inner_loop
 
-
+.balign 4
+// TODO: This seems to be either 222 or 226 (not 224) in cases.
+// It's off by 2 clock cycles.  Probably OK, but, hmm.
 insert_stuffed_bit:
-	c.nop;	c.nop;	c.nop;	c.nop;
-	c.nop;	c.nop;	c.nop;	c.nop;
-	c.nop;	c.nop;	c.nop;	c.nop;
-	c.nop;	c.nop;	c.nop;	c.nop;
-	c.nop;
-	c.li a4, 7 // reset bit stuffing.
+	nx6p3delay(4, a3)
+	c.li a4, 6 // reset bit stuffing.
 	xor s1, s1, t1
 	sw s1, BSHR_OFFSET(a5)
 	j send_end_bit_complete
+
