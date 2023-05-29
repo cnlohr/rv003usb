@@ -9,11 +9,6 @@
 #define INSTANCE_DESCRIPTORS
 #include "rv003usb.h"
 
-uint32_t test_memory[2];
-uint32_t plen;
-int8_t did_get_data;
-uint32_t usb_buffer_back[USB_BUFFER_SIZE];
-
 struct rv003usb_internal rv003usb_internal_data;
 
 // This is the data actually required for USB.
@@ -26,15 +21,9 @@ void usb_handle_custom_control( uint8_t bmRequestType, uint8_t bRequest, uint16_
 
 int main()
 {
-	did_get_data = 0;
-
 	SystemInit48HSI();
-//	SetupDebugPrintf();
 	SETUP_SYSTICK_HCLK
 
-	
-//	Delay_Ms( 1000 );
-//	printf( "......................\n" );
 
 	// Enable GPIOs, DMA and TIMERs
 	RCC->AHBPCENR = RCC_AHBPeriph_SRAM | RCC_AHBPeriph_DMA1;
@@ -46,16 +35,15 @@ int main()
 	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF)<<(4*4) | // PC4 = T1C4
 	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*2);
 
-
-	// PC4 is MCO (for watching timing)
-	GPIOC->CFGLR &= ~(GPIO_CFGLR_MODE4 | GPIO_CFGLR_CNF4);
-	GPIOC->CFGLR |= GPIO_CFGLR_CNF4_1 | GPIO_CFGLR_MODE4_0 | GPIO_CFGLR_MODE4_1;
-	RCC->CFGR0 = (RCC->CFGR0 & ~RCC_CFGR0_MCO) | RCC_CFGR0_MCO_SYSCLK;
-
 // To use time debugging, enable thsi here, and DEBUG_TIMING in the .S
 // You must update in tandem
 #if 1
 	{
+		// PC4 is MCO (for watching timing)
+		GPIOC->CFGLR &= ~(GPIO_CFGLR_MODE4 | GPIO_CFGLR_CNF4);
+		GPIOC->CFGLR |= GPIO_CFGLR_CNF4_1 | GPIO_CFGLR_MODE4_0 | GPIO_CFGLR_MODE4_1;
+		RCC->CFGR0 = (RCC->CFGR0 & ~RCC_CFGR0_MCO) | RCC_CFGR0_MCO_SYSCLK;
+
 		// PWM is used for debug timing. 
 		TIM1->PSC = 0x0000;
 		
@@ -64,10 +52,10 @@ int main()
 		
 		// Reload immediately
 		TIM1->SWEVGR |= TIM_UG;
-			
+
 		// Enable CH4 output, positive pol
 		TIM1->CCER |= TIM_CC3E | TIM_CC3NP;
-		
+
 		// CH2 Mode is output, PWM1 (CC1S = 00, OC1M = 110)
 		TIM1->CHCTLR2 |= TIM_OC3M_2 | TIM_OC3M_1;
 
@@ -97,9 +85,6 @@ int main()
 
 	// This drive GPIO5 high, which will tell the host that we are going on-bus.
 	GPIOD->BSHR = 1<<USB_DPU;
-
-	// Disable fast interrupts. "HPE"
-	asm volatile( "addi t1,x0, 0\ncsrrw x0, 0x804, t1\n" : : :  "t1" );
 
 	// enable interrupt
 	NVIC_EnableIRQ( EXTI7_0_IRQn );
