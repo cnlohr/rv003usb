@@ -8,7 +8,7 @@ Project is not ready for prime time.  Proof of concept works, we are on track fo
 :white_check_mark: Compute CRC in-line while receiving data  
 :black_square_button: Bit Stuffing (Works, needs more testing)  
 :white_check_mark: Sending USB Frames  
-:white_check_mark: High Level USB Stack in C 
+:white_check_mark: High Level USB Stack in C  
 :large_orange_diamond: Make USB timing more precise.  
 :white_check_mark: Rework sending code to send tokens/data separately.
 :white_square_button: Fix CRC Code  
