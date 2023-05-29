@@ -116,7 +116,7 @@ done_preamble:
 	li a3, 0xf0eb // so that if the CRC is correct, it will be 0.
 
 	// This is the first bit that matters.
-	li s0, 7 // 1 runs.
+	li s0, 6 // 1 runs.
 
 	c.nop; c.nop; c.nop;
 	c.nop; c.nop; c.nop; c.nop;
@@ -304,8 +304,7 @@ is_not_end_of_byte:
 	// If a0 is a 1 then that's bad.
 	c.bnez a0, done_usb_message
 
-	c.andi s0, 7  // if 0 set it to 7, if 
-	c.addi s0, -1 // Count # of runs of 1 (subtract 1)
+	c.li s0, 6  // reset bit stuffing.
 
 	// debug blip chain.
 	DEBUG_TICK_MARK
