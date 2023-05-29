@@ -31,16 +31,16 @@ struct usb_endpoint
 	uint8_t count_in;	// ack count
 	uint8_t count_out;	// For future: When receiving data.
 	uint8_t opaque;     // For user.
-	uint8_t toggle_in:1;   // DATA0 or DATA1?
-	uint8_t toggle_out:1;  //Out PC->US
-	uint8_t is_descriptor:1;
+	uint8_t toggle_in;   // DATA0 or DATA1?
+	uint8_t toggle_out;  //Out PC->US
+	uint8_t is_descriptor;
 };
 
 struct rv003usb_internal
 {
 	uint8_t current_endpoint;
-	uint8_t my_address : 7; // Will be 0 until set up.
-	uint8_t setup_request : 1;
+	uint8_t my_address; // Will be 0 until set up.
+	uint8_t setup_request;
 	uint16_t control_max_len;
 
 	// 4 bytes + 4 * ENDPOINTS
