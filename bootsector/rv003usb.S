@@ -20,10 +20,10 @@
 #define	RESTORE_DEBUG_MARKER(x) lw	x4, x(sp)
 #define SAVE_DEBUG_MARKER(x)	sw	x4, x(sp)
 #else
-#define DEBUG_TICK_SETUP nop 	// for debug
-#define DEBUG_TICK_MARK c.nop; c.nop
+#define DEBUG_TICK_SETUP c.nop 	// for debug
+#define DEBUG_TICK_MARK c.nop; c.nop;
 #define	RESTORE_DEBUG_MARKER(x)
-#define SAVE_DEBUG_MARKER(x)
+#define SAVE_DEBUG_MARKER(x) c.nop; c.nop 
 #endif
 
 
@@ -38,6 +38,7 @@ Compressed:
 	s0, s1,	a0, a1, a2, a3, a4, a5
 */
 
+.section .text.vector_handler
 .global EXTI7_0_IRQHandler
 .balign 4
 EXTI7_0_IRQHandler:

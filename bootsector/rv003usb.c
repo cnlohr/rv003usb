@@ -26,7 +26,6 @@ void usb_handle_custom_control( uint8_t bmRequestType, uint8_t bRequest, uint16_
 
 int main()
 {
-	memset( usb_buffer_back, 0, sizeof( usb_buffer_back ) );
 	did_get_data = 0;
 
 	SystemInit48HSI();
@@ -55,7 +54,7 @@ int main()
 
 // To use time debugging, enable thsi here, and DEBUG_TIMING in the .S
 // You must update in tandem
-#if 0
+#if 1
 	{
 		// PWM is used for debug timing. 
 		TIM1->PSC = 0x0000;
@@ -338,5 +337,80 @@ void usb_pid_handle_ack( uint32_t this_token, uint8_t * data )
 	return;
 }
 
+
+
+
+
+
+
+
+
+void InterruptVector()         __attribute__((naked)) __attribute((section(".init"))) __attribute((weak,alias("InterruptVectorDefault")));
+void InterruptVectorDefault()  __attribute__((naked)) __attribute((section(".init")));
+//void EXTI7_0_IRQHandler( void )          __attribute__((section(".text.vector_handler"))) __attribute((weak,alias("DefaultIRQHandler"))) __attribute__((used));
+
+void InterruptVectorDefault()
+{
+	asm volatile( "\n\
+	.align  2\n\
+	.option   push;\n\
+	.option   norvc;\n\
+	j handle_reset\n\
+.option push\n\
+.option norelax\n\
+handle_reset:\n\
+	la gp, __global_pointer$\n\
+.option pop\n\
+	la sp, _eusrstack\n"
+".option pop\n"
+#if __GNUC__ > 10
+".option arch, +zicsr\n"
+#endif
+"\n\
+	li a0, 0x80\n\
+	csrw mstatus, a0\n\
+	li a3, 0x0\n\
+	csrw 0x804, a3\n\
+	li a0, 3\n\
+	csrw mtvec, a0\n\
+	la a0, _sbss\n\
+	la a1, _ebss\n\
+	li a2, 0\n\
+	bge a0, a1, 2f\n\
+1:	sw a2, 0(a0)\n\
+	addi a0, a0, 4\n\
+	blt a0, a1, 1b\n\
+2:\n\
+	la a0, _data_lma\n\
+	la a1, _data_vma\n\
+	j continue_boot\n\
+	.word   EXTI7_0_IRQHandler         /* EXTI Line 7..0 */                 \n\
+continue_boot:\n\
+	la a2, _edata\n\
+1:	beq a1, a2, 2f\n\
+	lw a3, 0(a0)\n\
+	sw a3, 0(a1)\n\
+	addi a0, a0, 4\n\
+	addi a1, a1, 4\n\
+	bne a1, a2, 1b\n\
+2:\n\
+	csrw mepc, %[main]\n\
+	mret\n" : : [main]"r"(main) );
+}
+
+
+void SystemInit48HSI( void )
+{
+	// Values lifted from the EVT.  There is little to no documentation on what this does.
+	RCC->CFGR0 = RCC_HPRE_DIV1 | RCC_PLLSRC_HSI_Mul2;      // PLLCLK = HSI * 2 = 48 MHz; HCLK = SYSCLK = APB1
+	RCC->CTLR  = RCC_HSION | RCC_PLLON | ((HSITRIM) << 3); // Use HSI, but enable PLL.
+	FLASH->ACTLR = FLASH_ACTLR_LATENCY_1;                  // 1 Cycle Latency
+	RCC->INTR  = 0x009F0000;                               // Clear PLL, CSSC, HSE, HSI and LSI ready flags.
+
+	// From SetSysClockTo_48MHZ_HSI
+	while((RCC->CTLR & RCC_PLLRDY) == 0);                                      // Wait till PLL is ready
+	RCC->CFGR0 = ( RCC->CFGR0 & ((uint32_t)~(RCC_SW))) | (uint32_t)RCC_SW_PLL; // Select PLL as system clock source
+	while ((RCC->CFGR0 & (uint32_t)RCC_SWS) != (uint32_t)0x08);                // Wait till PLL is used as system clock source
+}
 
 
