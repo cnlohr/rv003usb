@@ -201,7 +201,8 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 {
 	//Received data from host.
 	struct rv003usb_internal * ist = &rv003usb_internal_data;
-	struct usb_endpoint * e = &ist->eps[ist->current_endpoint];
+	int cep = ist->current_endpoint;
+	struct usb_endpoint * e = &ist->eps[cep];
 	if( e->toggle_out != which_data )
 	{
 		goto just_ack;
@@ -209,79 +210,81 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 
 	e->toggle_out = !e->toggle_out;
 
-	ist->control_max_len = 0;
-
-	if( ist->setup_request )
+	if( cep == 0 )
 	{
-		struct usb_urb * s = __builtin_assume_aligned( (struct usb_urb *)(data+1), 4 );
-
-		uint32_t wvi = s->lValueLSBIndexMSB;
-		//Send just a data packet.
-		e->count_in = 0;
-		e->count_out = 0;
-		e->opaque = 0;
-		e->is_descriptor = 0;
-		ist->setup_request = 0;
 		ist->control_max_len = 0;
 
-		if( s->wRequestTypeLSBRequestMSB == 0x01a1 )
+		if( ist->setup_request  )
 		{
-			uint32_t wlen = s->wLength;
-			if( wlen > sizeof(scratchpad) ) wlen = sizeof(scratchpad);
-			// The host wants to read back from us.
-			ist->control_max_len = wlen;
-			e->opaque = 1;
-		}
-		if( s->wRequestTypeLSBRequestMSB == 0x0921 )
-		{
-			// Class request (Will be writing)
-			ist->control_max_len = sizeof( scratchpad );
-			e->opaque = 0xff;
-		}
-		else if( (s->wRequestTypeLSBRequestMSB & 0xff80) == 0x0680 )
-		{
-			int i;
-			const struct descriptor_list_struct * dl;
-			for( i = 0; i < DESCRIPTOR_LIST_ENTRIES; i++ )
-			{
-				dl = &descriptor_list[i];
-				if( dl->lIndexValue == wvi )
-					break;
-			}
+			struct usb_urb * s = __builtin_assume_aligned( (struct usb_urb *)(data+1), 4 );
 
-			if( i == DESCRIPTOR_LIST_ENTRIES )
-			{
-				//??? Somehow fail?  Is 'nak' the right thing? I don't know what to do here.
-				goto just_ack;
-			}
+			uint32_t wvi = s->lValueLSBIndexMSB;
+			//Send just a data packet.
+			e->count_in = 0;
+			e->count_out = 0;
+			e->opaque = 0;
+			e->is_descriptor = 0;
+			ist->setup_request = 0;
+			ist->control_max_len = 0;
 
-			// Send back descriptor.
-			e->opaque = i;
-			e->is_descriptor = 1;
-			uint16_t swLen = s->wLength;
-			uint16_t elLen = dl->length;
-			ist->control_max_len = (swLen < elLen)?swLen:elLen;
+			if( s->wRequestTypeLSBRequestMSB == 0x01a1 )
+			{
+				uint32_t wlen = s->wLength;
+				if( wlen > sizeof(scratchpad) ) wlen = sizeof(scratchpad);
+				// The host wants to read back from us.
+				ist->control_max_len = wlen;
+				e->opaque = 1;
+			}
+			if( s->wRequestTypeLSBRequestMSB == 0x0921 )
+			{
+				// Class request (Will be writing)
+				ist->control_max_len = sizeof( scratchpad );
+				e->opaque = 0xff;
+			}
+			else if( (s->wRequestTypeLSBRequestMSB & 0xff80) == 0x0680 )
+			{
+				int i;
+				const struct descriptor_list_struct * dl;
+				for( i = 0; i < DESCRIPTOR_LIST_ENTRIES; i++ )
+				{
+					dl = &descriptor_list[i];
+					if( dl->lIndexValue == wvi )
+						break;
+				}
+
+				if( i == DESCRIPTOR_LIST_ENTRIES )
+				{
+					//??? Somehow fail?  Is 'nak' the right thing? I don't know what to do here.
+					goto just_ack;
+				}
+
+				// Send back descriptor.
+				e->opaque = i;
+				e->is_descriptor = 1;
+				uint16_t swLen = s->wLength;
+				uint16_t elLen = dl->length;
+				ist->control_max_len = (swLen < elLen)?swLen:elLen;
+			}
+			else if( s->wRequestTypeLSBRequestMSB == 0x0500 )
+			{
+				//Set address.
+				ist->my_address = wvi;
+			}
 		}
-		else if( s->wRequestTypeLSBRequestMSB == 0x0500 )
+		else
 		{
-			//Set address.
-			ist->my_address = wvi;
+			if( e->opaque == 0xff  )
+			{
+				uint8_t * start = &scratchpad[e->count_out];
+				int l = length-3;
+				int i;
+				for( i = 0; i < l; i++ )
+					start[i] = data[i+1];//((intptr_t)data)>>(i*8);
+				e->count_out += l;
+			}
+			// Allow user code to receive data.
 		}
 	}
-	else
-	{
-		if( e->opaque == 0xff  )
-		{
-			uint8_t * start = &scratchpad[e->count_out];
-			int l = length-3;
-			int i;
-			for( i = 0; i < l; i++ )
-				start[i] = data[i+1];//((intptr_t)data)>>(i*8);
-			e->count_out += l;
-		}
-		// Allow user code to receive data.
-	}
-
 just_ack:
 	{
 		//Got the right data.  Acknowledge.

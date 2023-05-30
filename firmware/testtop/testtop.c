@@ -23,7 +23,7 @@ int main()
 		int i;
 		for( i = 1; i < sizeof( buffer0 ); i ++ )
 			buffer0[i] = rand(); 
-		r = hid_send_feature_report( hd, buffer0, sizeof(buffer0)+1 );
+		r = hid_send_feature_report( hd, buffer0, sizeof(buffer0) );
 	/*	printf( "%d: ", r );
 		for( i = 0; i < r; i++ )
 			printf( "%02x ", buffer[i] );
