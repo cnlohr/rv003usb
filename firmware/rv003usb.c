@@ -102,40 +102,34 @@ int main()
 
 
 //Received a setup for a specific endpoint.
-void usb_pid_handle_setup( uint32_t this_token, uint8_t * data )
+void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, struct rv003usb_internal * ist )
 {
-	struct rv003usb_internal * ist = &rv003usb_internal_data;
-	uint8_t addr = (this_token>>8) & 0x7f;
-	uint8_t endp = (this_token>>15) & 0xf;
-
-	if( endp >= ENDPOINTS ) goto end;
-	if( addr != 0 && addr != ist->my_address ) goto end;
-
 	ist->current_endpoint = endp;
 	struct usb_endpoint * e = &ist->eps[endp];
+
 	e->toggle_out = 0;
 	e->toggle_in = 1;
 	e->count_in = 0;
 	ist->setup_request = 1;
-end:
-	return;
+
+	TIM1->CNT = 0;
+	TIM1->CNT = 0;
+	TIM1->CNT = 0;
+	TIM1->CNT = 0;
+	TIM1->CNT = 0;
+	TIM1->CNT = 0;
+	TIM1->CNT = 0;
 }
 
-void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bit, int crc_out )
+void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, struct rv003usb_internal * ist )
 {
-	struct rv003usb_internal * ist = &rv003usb_internal_data;
-	uint8_t addr = (this_token>>8) & 0x7f;
-	uint8_t endp = (this_token>>15) & 0xf;
-
-
-	//If we get an "in" token, we have to strike any accept buffers.
-	if( addr != 0 && addr != ist->my_address ) return;
+	ist->current_endpoint = endp;
 	struct usb_endpoint * e = &ist->eps[endp];
+
 	int tosend = 0;
 	uint8_t * sendnow = data-1;
 	uint8_t * sendnowo = data-1;
 	uint8_t sendtok = e->toggle_in?0b01001011:0b11000011;
-	ist->current_endpoint = endp;
 	
 	// Handle IN (sending data back to PC)
 	// Do this down here.
@@ -143,6 +137,11 @@ void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bi
 	// have to do anything with it, though.
 	if( endp )
 	{
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
 		goto send_nada;
 	}
 
@@ -180,21 +179,12 @@ send_nada:
 	usb_send_data( sendnowo, 2, 2, sendtok );  //DATA = 0, 0 CRC.
 }
 
-void usb_pid_handle_out( uint32_t this_token, uint8_t * data )
+void usb_pid_handle_out( uint32_t addr, uint8_t * data, uint32_t endp, struct rv003usb_internal * ist )
 {
-	struct rv003usb_internal * ist = &rv003usb_internal_data;
+	ist->current_endpoint = endp;
 
 	//We need to handle this here because we could have an interrupt in the middle of a control or big transfer.
 	//This will correctly swap back the endpoint.
-
-	//XXX NOTE: Acutally just not doing that.  Only support OUT on CP0
-	uint8_t addr = (this_token>>8) & 0x7f;
-	uint8_t endp = (this_token>>15) & 0xf;
-//	if( endp >= ENDPOINTS ) return;
-	if( addr != 0 && addr != ist->my_address ) return;
-//	ist->current_endpoint = endp;
-//	struct usb_endpoint * e = &ist->eps[ist->current_endpoint];
-	ist->current_endpoint = endp;
 }
 
 void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, int32_t crc_ok, uint32_t length )
@@ -203,8 +193,18 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 	struct rv003usb_internal * ist = &rv003usb_internal_data;
 	int cep = ist->current_endpoint;
 	struct usb_endpoint * e = &ist->eps[cep];
+
+	// Alrady received this packet.
 	if( e->toggle_out != which_data )
 	{
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
 		goto just_ack;
 	}
 
@@ -212,9 +212,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 
 	if( cep == 0 )
 	{
-		ist->control_max_len = 0;
-
-		if( ist->setup_request  )
+		if( ist->setup_request )
 		{
 			struct usb_urb * s = __builtin_assume_aligned( (struct usb_urb *)(data+1), 4 );
 
@@ -229,6 +227,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 
 			if( s->wRequestTypeLSBRequestMSB == 0x01a1 )
 			{
+				// Class read request.
 				uint32_t wlen = s->wLength;
 				if( wlen > sizeof(scratchpad) ) wlen = sizeof(scratchpad);
 				// The host wants to read back from us.
@@ -273,6 +272,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 		}
 		else
 		{
+			// Continuing data.
 			if( e->opaque == 0xff  )
 			{
 				uint8_t * start = &scratchpad[e->count_out];
@@ -293,7 +293,7 @@ just_ack:
 	return;
 }
 
-void usb_pid_handle_ack( uint32_t this_token, uint8_t * data )
+void usb_pid_handle_ack( uint32_t dummy, uint8_t * data )
 {
 	struct rv003usb_internal * ist = &rv003usb_internal_data;
 	struct usb_endpoint * e = &ist->eps[ist->current_endpoint];

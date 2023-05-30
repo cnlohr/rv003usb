@@ -196,6 +196,27 @@ int main()
 			}
 		}
 		printf( "Generic CRC16 Empty: %04x ?= %04x\n", crc16, CRC16GOOD );
+	}
+	{
+		uint32_t crc16 = 0xffff;
+		uint8_t bitstream[] = { 
+			0, 0, 0, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 0, 0, 0,
+		};
+		for( i = 0; i < sizeof( bitstream ); i++ )
+		{
+			uint32_t bv = bitstream[i];
+		    if ( (bv ^ crc16) & 1 )
+		    {
+		        crc16 >>= 1;
+		        crc16 ^= CRC16POLY;
+		    }
+		    else
+			{
+		        crc16 >>= 1;
+			}
+		}
+		printf( "DATA1 w/ 0xAA+C0C0 CRC16: %04x ?= %04x\n", crc16, CRC16GOOD );
 
 		int crccheck;
 		int j;

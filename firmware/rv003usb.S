@@ -114,7 +114,7 @@ done_preamble:
 	li a2, 0
 
 	li a4, 0xa001
-	li a3, 0xf0eb // so that if the CRC is correct, it will be 0.
+	li a3, 0xffff // Starting CRC of 0.   Because USB doesn't respect reverse CRCing.
 
 	// This is the first bit that matters.
 	li s0, 6 // 1 runs.
@@ -306,7 +306,6 @@ is_not_end_of_byte:
 
 .balign 4
 se0_complete:
-	DEBUG_TICK_MARK
 
 	// Special: handle ACKs?
 	// Now we have to decide what we're doing based on the
@@ -321,62 +320,60 @@ se0_complete:
 	// 0111 => 11100001 => PID_OUT
 	// 1101 => 10110100 => SETUP    (OK)
 
-	// Good CRC!
-	RESTORE_DEBUG_MARKER(48) // restore x4 for whatever in C land.
-
 	// a0 contains first 4 bytes.
 	la ra, done_usb_message_in // Common return address for all function calls.
 
 	// For ACK don't worry about CRC.
 	addi a5, a0, -0b01001011
 
-	lhu  a4, 1(a1)
-	c.slli a4, 8
-	c.or  a0, a4
-	sub a4, t2, a1      //A4 = # of bytes read..
-
+	RESTORE_DEBUG_MARKER(48) // restore x4 for whatever in C land.
 	// ACK doesn't need good CRC.
 	c.beqz a5, usb_pid_handle_ack
 
-	// XXX TODO: SPECIAL: What about DATA + No payload? 
-	// If bad CRC, skip ahead.
-	c.beqz a3, crc_is_ok
+	// Next, check for tokens.
+	c.bnez a3, crc_for_tokens_would_be_bad_maybe_data
+may_be_a_token:
+	// Our CRC is 0, so we might be a token.
 
-	// Ok, because some moron in 1994 decided that CRCs of empty packets would
-	// look "prettier" you need a stupid exception to the CRC rules. This is
-	// the dumbest extra aesthetic I've ever seen.  Why in the world did they
-	// they let Jim, the underwater basket weaver decide "oh, yeah, your empty
-	// packet's CRC being 0xf0eb is just ugly and hard for me to remember,
-	// because I make artesan USB packets and I just can't remember that
-	// number."  And everyone just kinda went along with it and said sure. 
-	// Let's just make every implemetatnion, until the end of time need this
-	// janky exception. Gosh I wish people would let things be just a little
-	// ugly.
-	//
-	// Oh, yeah and because it works out to 0xb44e here, we can't even just xor
-	// or addi it out.  Thanks, Jim.
-	li t0, 0xb44e
-	xor a3, a3, t0
-	c.bnez a3, done_usb_message_in
-	addi a3, a4, -3
-	c.bnez a3, done_usb_message_in
-
-crc_is_ok:
+	// Do token-y things.
+	lhu  a2, 1(a1)
+	andi a0, a2, 0x7f // addr
+	c.srli a2, 7
+	c.andi a2, 0xf    // endp
+	la a3, rv003usb_internal_data
+	li s0, ENDPOINTS
+	bgeu a2, s0, done_usb_message // Make sure < ENDPOINTS
+	c.beqz a0,  yes_check_tokens
+	// Otherwise, we might have our assigned address.
+	lbu s0, 1(a3) //my_address
+	bne s0, a0, done_usb_message // addr != 0 && addr != ours.
+yes_check_tokens:
 	addi a5, a5, (0b01001011-0b10010110)
 	c.beqz a5, usb_pid_handle_in
 	c.addi a5, (0b10010110-0b10110100)
 	c.beqz a5, usb_pid_handle_setup
-	c.addi a5, (0b10110100-0b11000011)
+	addi a5, a5, (0b10110100-0b11100001)
+	c.beqz a5, usb_pid_handle_out
+
+	c.j done_usb_message_in
+
+	// CRC is nonzero. (Good for Data packets)
+crc_for_tokens_would_be_bad_maybe_data:
+	li s0, 0xb001  // UGH: You can't use the CRC16 in reverse :(
+	c.sub a3, s0
+	c.bnez a3, done_usb_message_in
+	// Good CRC!!
+	sub a4, t2, a1 //A4 = # of bytes read..
+	addi a5, a5, (0b01001011-0b11000011)
 	c.li a2, 0
 	c.beqz a5, usb_pid_handle_data
 	c.addi a5, (0b11000011-0b11010010)
 	c.li a2, 1
 	c.beqz a5, usb_pid_handle_data
-	c.addi a5, (0b11010010-0b11100001)
-	c.beqz a5, usb_pid_handle_out
 
 done_usb_message:
 done_usb_message_in:
+
 
 	lw	a2, 8(sp)
 	lw	a3, 12(sp)

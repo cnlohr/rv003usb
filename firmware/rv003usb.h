@@ -18,6 +18,9 @@
 
 #define USB_DMASK ((1<<(USB_DM)) | 1<<(USB_DP))
 
+//Defines the number of endpoints for this device. (Always add one for EP0). For two EPs, this should be 3.
+#define ENDPOINTS 3
+
 #ifndef __ASSEMBLER__
 
 #include "usb_config.h"
@@ -25,6 +28,7 @@
 #define EMPTY_SEND_BUFFER (uint8_t*)1
 
 // These definitions are from espusb.
+
 
 struct usb_endpoint
 {
@@ -43,7 +47,7 @@ struct rv003usb_internal
 	uint16_t control_max_len;
 	uint8_t setup_request;
 
-	// 4 bytes + 4 * ENDPOINTS
+	// 5 bytes + 6 * ENDPOINTS
 
 	struct usb_endpoint eps[ENDPOINTS];
 };
@@ -62,11 +66,13 @@ struct usb_urb
 } __attribute__((packed));
 
 
-void usb_pid_handle_setup( uint32_t this_token, uint8_t * data );
-void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bit, int crc_ok );
-void usb_pid_handle_out( uint32_t this_token, uint8_t * data );
+// Note: This checks addr & endp to make sure they are valid.
+void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, struct rv003usb_internal * ist );
+void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, struct rv003usb_internal * ist );
+void usb_pid_handle_out( uint32_t addr, uint8_t * data, uint32_t endp, struct rv003usb_internal * ist );
+
 void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, int32_t crc_ok, uint32_t length );
-void usb_pid_handle_ack( uint32_t this_token, uint8_t * data );
+void usb_pid_handle_ack( uint32_t dummy, uint8_t * data );
 
 //poly_function = 0 to include CRC.
 //poly_function = 2 to exclude CRC.
