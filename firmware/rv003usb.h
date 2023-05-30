@@ -31,17 +31,17 @@ struct usb_endpoint
 	uint8_t count_in;	// ack count
 	uint8_t count_out;	// For future: When receiving data.
 	uint8_t opaque;     // For user.
-	uint8_t toggle_in:1;   // DATA0 or DATA1?
-	uint8_t toggle_out:1;  //Out PC->US
-	uint8_t is_descriptor:1;
+	uint8_t toggle_in;   // DATA0 or DATA1?
+	uint8_t toggle_out;  //Out PC->US
+	uint8_t is_descriptor;
 };
 
 struct rv003usb_internal
 {
 	uint8_t current_endpoint;
-	uint8_t my_address : 7; // Will be 0 until set up.
-	uint8_t setup_request : 1;
+	uint8_t my_address; // Will be 0 until set up.
 	uint16_t control_max_len;
+	uint8_t setup_request;
 
 	// 4 bytes + 4 * ENDPOINTS
 
@@ -56,11 +56,8 @@ struct rv003usb_internal
 
 struct usb_urb
 {
-	uint8_t pktp;
-	uint8_t bmRequestType;
-	uint8_t bRequest;
-	uint16_t wValue;
-	uint16_t wIndex;
+	uint16_t wRequestTypeLSBRequestMSB;
+	uint32_t lValueLSBIndexMSB;
 	uint16_t wLength;
 } __attribute__((packed));
 
@@ -68,7 +65,7 @@ struct usb_urb
 void usb_pid_handle_setup( uint32_t this_token, uint8_t * data );
 void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bit, int crc_ok );
 void usb_pid_handle_out( uint32_t this_token, uint8_t * data );
-void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, uint32_t length );
+void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, int32_t crc_ok, uint32_t length );
 void usb_pid_handle_ack( uint32_t this_token, uint8_t * data );
 
 //poly_function = 0 to include CRC.

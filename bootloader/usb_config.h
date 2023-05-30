@@ -3,7 +3,7 @@
 
 // This is a freebie from ESPUSB
 
-#include "tinyusb_hid.h"
+#include <tinyusb_hid.h>
 
 //Defines the number of endpoints for this device. (Always add one for EP0). For two EPs, this should be 3.
 #define ENDPOINTS 2
@@ -95,22 +95,22 @@ struct usb_string_descriptor_struct {
 	uint8_t bDescriptorType;
 	const uint16_t wString[];
 };
-const static struct usb_string_descriptor_struct string0 __attribute__((section(".text"))) = {
+const static struct usb_string_descriptor_struct string0 __attribute__((section(".rodata"))) = {
 	4,
 	3,
 	{0x0409}
 };
-const static struct usb_string_descriptor_struct string1 __attribute__((section(".text")))  = {
+const static struct usb_string_descriptor_struct string1 __attribute__((section(".rodata")))  = {
 	sizeof(STR_MANUFACTURER),
 	3,
 	STR_MANUFACTURER
 };
-const static struct usb_string_descriptor_struct string2 __attribute__((section(".text")))  = {
+const static struct usb_string_descriptor_struct string2 __attribute__((section(".rodata")))  = {
 	sizeof(STR_PRODUCT),
 	3,
 	STR_PRODUCT
 };
-const static struct usb_string_descriptor_struct string3 __attribute__((section(".text")))  = {
+const static struct usb_string_descriptor_struct string3 __attribute__((section(".rodata")))  = {
 	sizeof(STR_SERIAL),
 	3,
 	STR_SERIAL

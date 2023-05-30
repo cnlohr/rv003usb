@@ -174,6 +174,54 @@ int main()
 
 
 
+	// Regular CRC-16
+	{
+		// Another CRC16 test.
+		uint32_t crc16 = CRC16START;
+		uint8_t bitstream[] = { 
+			0, 0, 0, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 0, 0, 0,
+		};
+		for( i = 0; i < sizeof( bitstream ); i++ )
+		{
+			uint32_t bv = bitstream[i];
+		    if ( (bv ^ crc16) & 1 )
+		    {
+		        crc16 >>= 1;
+		        crc16 ^= CRC16POLY;
+		    }
+		    else
+			{
+		        crc16 >>= 1;
+			}
+		}
+		printf( "Generic CRC16 Empty: %04x ?= %04x\n", crc16, CRC16GOOD );
+
+		int crccheck;
+		int j;
+		for( j = 0; j < 65536; j++ )
+		{
+			uint32_t crc16 = CRC16START;
+			for( i = 0; i < 16; i++ )
+			{
+				uint32_t bv = (j>>i)&1;
+				if ( (bv ^ crc16) & 1 )
+				{
+				    crc16 >>= 1;
+				    crc16 ^= CRC16POLY;
+				}
+				else
+				{
+				    crc16 >>= 1;
+				}
+			}
+			if( crc16 == 0 ) printf( "If CRC was %04x, it would pass.\n", j );
+		}
+
+	}
+
+
+
 	// Cursed, test CRC-16
 	{
 		// Another CRC16 test.
@@ -286,10 +334,32 @@ int main()
 			if( crc16 == 0xffff ) break;
 		}
 		printf( "Preload Poly for DATA0: %04x\n", startpoly );
+
+
+
+		for( startpoly = 0; startpoly != 0x10000; startpoly++ )
+		{
+			// Another CRC16 test.
+			uint32_t crc16 = startpoly;
+			uint8_t bitstream[] = { 
+				0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0,
+			};
+			for( i = 0; i < sizeof( bitstream ); i++ )
+			{
+				uint32_t bv = bitstream[i];
+
+				// This is like the code we have in the USB stack.
+				bv = bv?0:1;
+				uint32_t polyxor = (((uint32_t)((bv ^ crc16))) & 1)-1;
+				polyxor &= CRC16POLY;
+			    crc16 >>= 1;
+				crc16 ^= polyxor;
+			}
+			if( crc16 == 0x0000 ) break;
+		}
+		printf( "Preload Poly for NO DATA: %04x\n", startpoly );
 	}
-
-
-return 0;
 
 	// Now, test CRC-16
 	{
@@ -320,7 +390,7 @@ return 0;
 		        crc16 >>= 1;
 			}
 		}
-		printf( "%04x ?= %04x\n", crc16, CRC16GOOD );
+		printf( "CRC16: %04x ?= %04x\n", crc16, CRC16GOOD );
 	}
 
 

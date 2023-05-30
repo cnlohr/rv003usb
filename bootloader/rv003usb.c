@@ -205,7 +205,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 	{
 		struct usb_urb * s = __builtin_assume_aligned( (struct usb_urb *)(data+1), 4 );
 
-		uint32_t wvi = s->lIndexValue;
+		uint32_t wvi = s->lValueLSBIndexMSB;
 		//Send just a data packet.
 		e->count_in = 0;
 		e->count_out = 0;
@@ -214,7 +214,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 		ist->setup_request = 0;
 		ist->control_max_len = 0;
 
-		if( s->bmRequestTypeLSBRequestMSB == 0x01a1 )
+		if( s->wRequestTypeLSBRequestMSB == 0x01a1 )
 		{
 			uint32_t wlen = s->wLength;
 			if( wlen > sizeof(scratchpad) ) wlen = sizeof(scratchpad);
@@ -222,13 +222,13 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			ist->control_max_len = wlen;
 			e->opaque = 1;
 		}
-		if( s->bmRequestTypeLSBRequestMSB == 0x0921 )
+		if( s->wRequestTypeLSBRequestMSB == 0x0921 )
 		{
 			// Class request (Will be writing)
 			ist->control_max_len = sizeof( scratchpad );
 			e->opaque = 0xff;
 		}
-		else if( (s->bmRequestTypeLSBRequestMSB & 0xff80) == 0x0680 )
+		else if( (s->wRequestTypeLSBRequestMSB & 0xff80) == 0x0680 )
 		{
 			int i;
 			const struct descriptor_list_struct * dl;
@@ -252,7 +252,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			uint16_t elLen = dl->length;
 			ist->control_max_len = (swLen < elLen)?swLen:elLen;
 		}
-		else if( s->bmRequestTypeLSBRequestMSB == 0x0500 )
+		else if( s->wRequestTypeLSBRequestMSB == 0x0500 )
 		{
 			//Set address.
 			ist->my_address = wvi;

@@ -13,17 +13,17 @@
 #define nx6p3delay( n, freereg ) li freereg, ((n)+1); 1: c.addi freereg, -1; c.bnez freereg, 1b
 
 //See DEBUG_TIMING note in .c file.
-//#define DEBUG_TIMING
+#define DEBUG_TIMING
 #ifdef DEBUG_TIMING
 #define DEBUG_TICK_SETUP la x4, (TIM1_BASE + 0x24) 	// for debug
-#define DEBUG_TICK_MARK sw x0, 0(x4)
+#define DEBUG_TICK_MARK .balign 4; sw x0, 0(x4)
 #define	RESTORE_DEBUG_MARKER(x) lw	x4, x(sp)
 #define SAVE_DEBUG_MARKER(x)	sw	x4, x(sp)
 #else
-#define DEBUG_TICK_SETUP nop 	// for debug
-#define DEBUG_TICK_MARK c.nop; c.nop
-#define	RESTORE_DEBUG_MARKER(x)
-#define SAVE_DEBUG_MARKER(x)
+#define DEBUG_TICK_SETUP la x4, (TIM1_BASE + 0x44) 	// for debug (Go nowhere)
+#define DEBUG_TICK_MARK .balign 4; sw x0, 0(x4)
+#define	RESTORE_DEBUG_MARKER(x) lw	x4, x(sp)
+#define SAVE_DEBUG_MARKER(x)	sw	x4, x(sp)
 #endif
 
 
@@ -38,10 +38,11 @@ Compressed:
 	s0, s1,	a0, a1, a2, a3, a4, a5
 */
 
+.section .text.vector_handler
 .global EXTI7_0_IRQHandler
 .balign 4
 EXTI7_0_IRQHandler:
-	addi	sp,sp,-72
+	addi	sp,sp,-76
 	sw	a0, 0(sp)
 	sw	a5, 20(sp)
 	sw	a1, 4(sp)
@@ -86,12 +87,15 @@ syncdone:
 	// a5 points to our port's input.
 	la  t0, SYSTICK_CNT
 
-	addi  t2, sp, 56 //rv003usb_internal_data
+	// A little weird, but this way, the USB packet is always aligned.
+#define DATA_PTR_OFFSET 59
+	addi  t2, sp, DATA_PTR_OFFSET //rv003usb_internal_data
 
 	DEBUG_TICK_SETUP
 
 	c.xor a1, a0 // Recover a1
 
+	DEBUG_TICK_MARK
 	DEBUG_TICK_MARK
 
 preamble_loop:
@@ -113,11 +117,11 @@ done_preamble:
 	li a3, 0xf0eb // so that if the CRC is correct, it will be 0.
 
 	// This is the first bit that matters.
-	li s0, 7 // 1 runs.
+	li s0, 6 // 1 runs.
 
 	c.nop; c.nop; c.nop;
-	c.nop; c.nop; c.nop; c.nop;
-	//XXX TODO: Tune?
+	c.nop; c.nop; c.nop;
+	//XXX TODO: Tune? 
 
 	/* register meanings:
 		* T0 = temp
@@ -139,10 +143,9 @@ done_preamble:
 
 ///////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////
-
+.balign 4
 packet_type_loop:
-	nx6p3delay(1, s0);
-	c.nop
+	nx6p3delay(1, a0);
 	DEBUG_TICK_MARK
 
 	c.lw a0, INDR_OFFSET(a5);
@@ -164,8 +167,8 @@ packet_type_loop:
 	// Handle bit stuffing rules.
 	c.addi a0, -1 // 0->0xffffffff 1->0
 	c.or s0, a0
-	c.addi s0, -1
 	c.andi s0, 7
+	c.addi s0, -1
 
 	c.addi s1, -1
 	c.bnez s1, packet_type_loop
@@ -184,7 +187,7 @@ packet_type_loop:
 	// If packet type is 0xXX01 or 0xXX11
 	// the LSBs are the inverted packet type.
 	// we can branch off of bit 2.
-	andi a0, a2, 2
+	andi a0, a2, 0x0c
 
 	// if a0 is 1 then it's DATA (full CRC) otheriwse,
 	// (0) for setup or PARTIAL CRC.
@@ -193,8 +196,8 @@ packet_type_loop:
 	c.beqz a0, data_crc // XXX TODO REV'd (I guess it's backwards?)
 	li a4, 0x14	
 	li a3, 0x1e
-data_crc:
 	DEBUG_TICK_MARK
+data_crc:
 
 
 #define HANDLE_EOB_YES \
@@ -203,11 +206,12 @@ data_crc:
 
 ///////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////	
-
+.balign 4
 is_end_of_byte:
 	HANDLE_EOB_YES
 
 	// end-of-byte.
+.balign 4
 bit_process:
 	// Debug blip
 	DEBUG_TICK_MARK
@@ -216,15 +220,8 @@ bit_process:
 	c.beqz a0, se0_complete
 	c.xor a0, a1;
 	c.xor a1, a0; // Recover a1, for next cycle
-/*
-#define HANDLE_CRC \
-	c.xor a0, a3; \
-	c.andi a0, 1; \
-	c.addi a0, -1; \
-	and a0, a0, t0; \
-	c.srli a3, 1; \
-	c.xor a3, a0
-*/
+
+
 #define HANDLE_NEXT_BYTE(is_end_of_byte)  \
 	c.addi s1, -1; \
 	andi a0, s1, 7; /* s1 could be really really big */ \
@@ -257,7 +254,7 @@ handle_one_bit:
 	c.j done_usb_message
 
 handle_zero_bit:
-	c.li s0, 7      // reset runs-of-one.
+	c.li s0, 6      // reset runs-of-one.
 	c.srli a2, 1;   // shift a2 down by 1
 
 	// Handle CRC (0 bit)
@@ -288,7 +285,6 @@ is_end_of_byte_and_bit_stuffed:
 is_not_end_of_byte:
 
 	DEBUG_TICK_MARK
-	DEBUG_TICK_MARK
 
 	c.lw a0, INDR_OFFSET(a5);
 	c.andi a0, USB_DMASK;
@@ -301,33 +297,29 @@ is_not_end_of_byte:
 	// If a0 is a 1 then that's bad.
 	c.bnez a0, done_usb_message
 
-	c.andi s0, 7  // if 0 set it to 7, if 
-	c.addi s0, -1 // Count # of runs of 1 (subtract 1)
+	c.li s0, 6  // reset bit stuffing.
 
 	// debug blip chain.
-	DEBUG_TICK_MARK
-	DEBUG_TICK_MARK
-	DEBUG_TICK_MARK
-	DEBUG_TICK_MARK
-	DEBUG_TICK_MARK
-	DEBUG_TICK_MARK
-	DEBUG_TICK_MARK
-	DEBUG_TICK_MARK
+	nx6p3delay( 2, a0 )
 
 	c.bnez s1, bit_process // + 4 cycles
 
+.balign 4
 se0_complete:
 	DEBUG_TICK_MARK
 
 	// Special: handle ACKs?
 	// Now we have to decide what we're doing based on the
 	// packet type.
-	addi  a1, sp, 56
-	lw  a0, 0(a1)
-	sub a4, a1, t2      //A4 = # of bytes read..
+	addi  a1, sp, DATA_PTR_OFFSET
+	lbu  a0, 0(a1)
 
-	// If bad CRC, skip ahead.
-//	c.bnez a3, done_usb_message
+	// 0010 => 01001011 => ACK
+	// 0011 => 11000011 => DATA0
+	// 1011 => 11010010 => DATA1
+	// 1001 => 10010110 => PID IN
+	// 0111 => 11100001 => PID_OUT
+	// 1101 => 10110100 => SETUP    (OK)
 
 	// Good CRC!
 	RESTORE_DEBUG_MARKER(48) // restore x4 for whatever in C land.
@@ -335,33 +327,53 @@ se0_complete:
 	// a0 contains first 4 bytes.
 	la ra, done_usb_message_in // Common return address for all function calls.
 
-	// s0 now contains the bitwise flip of the PID 
-	//  SETUP: 0100
-	//  IN   : 0110
-	//  OUT  : 0111
+	// For ACK don't worry about CRC.
+	addi a5, a0, -0b01001011
+
+	lhu  a4, 1(a1)
+	c.slli a4, 8
+	c.or  a0, a4
+	sub a4, t2, a1      //A4 = # of bytes read..
+
+	// ACK doesn't need good CRC.
+	c.beqz a5, usb_pid_handle_ack
+
+	// XXX TODO: SPECIAL: What about DATA + No payload? 
+	// If bad CRC, skip ahead.
+	c.beqz a3, crc_is_ok
+
+	// Ok, because some moron in 1994 decided that CRCs of empty packets would
+	// look "prettier" you need a stupid exception to the CRC rules. This is
+	// the dumbest extra aesthetic I've ever seen.  Why in the world did they
+	// they let Jim, the underwater basket weaver decide "oh, yeah, your empty
+	// packet's CRC being 0xf0eb is just ugly and hard for me to remember,
+	// because I make artesan USB packets and I just can't remember that
+	// number."  And everyone just kinda went along with it and said sure. 
+	// Let's just make every implemetatnion, until the end of time need this
+	// janky exception. Gosh I wish people would let things be just a little
+	// ugly.
 	//
-	//  DATA0: 0011
-	//  DATA1: 0010
-	//  ACK  : 1011
-	andi a5, a0, 4
-	c.beqz a5, tokencheck
-		// Not a token check (SETUP/SOF/IN/OUT)
-		andi a5, a0, 8
-		c.bnez a5, done_usb_message_in  // Make sure it's not a "Special" packet.
-		andi a5, a0, 2
-		c.beqz a5, usb_pid_handle_setup
-		andi a5, a0, 1
-		c.beqz a5, usb_pid_handle_in
-		c.j usb_pid_handle_out
-	tokencheck:
-		// DATA0, DATA1, ACK
-		andi a5, a0, 2
-		c.beqz a5, done_usb_message_in // DATA2, MDATA, STALL, NYET
-		andi a5, a0, 8
-		c.bnez a5, usb_pid_handle_ack // May also trigger with NAK but host doesn't send those.
-		addi a2, a0, -1 // invert
-		c.andi a2, 1
-		c.j usb_pid_handle_data
+	// Oh, yeah and because it works out to 0xb44e here, we can't even just xor
+	// or addi it out.  Thanks, Jim.
+	li t0, 0xb44e
+	xor a3, a3, t0
+	c.bnez a3, done_usb_message_in
+	addi a3, a4, -3
+	c.bnez a3, done_usb_message_in
+
+crc_is_ok:
+	addi a5, a5, (0b01001011-0b10010110)
+	c.beqz a5, usb_pid_handle_in
+	c.addi a5, (0b10010110-0b10110100)
+	c.beqz a5, usb_pid_handle_setup
+	c.addi a5, (0b10110100-0b11000011)
+	c.li a2, 0
+	c.beqz a5, usb_pid_handle_data
+	c.addi a5, (0b11000011-0b11010010)
+	c.li a2, 1
+	c.beqz a5, usb_pid_handle_data
+	c.addi a5, (0b11010010-0b11100001)
+	c.beqz a5, usb_pid_handle_out
 
 done_usb_message:
 done_usb_message_in:
@@ -388,7 +400,7 @@ interrupt_complete:
 	lw	a0, 0(sp)
 	lw	a5, 20(sp)
 	lw	a1, 4(sp)
-	addi	sp,sp,72
+	addi	sp,sp,76
 	mret
 
 handle_se0_keepalive:
