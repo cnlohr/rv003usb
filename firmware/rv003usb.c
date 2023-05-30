@@ -130,6 +130,11 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, struct rv0
 	uint8_t * sendnow = data-1;
 	uint8_t * sendnowo = data-1;
 	uint8_t sendtok = e->toggle_in?0b01001011:0b11000011;
+
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
 	
 	// Handle IN (sending data back to PC)
 	// Do this down here.
@@ -137,10 +142,6 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, struct rv0
 	// have to do anything with it, though.
 	if( endp )
 	{
-		TIM1->CNT = 0;
-		TIM1->CNT = 0;
-		TIM1->CNT = 0;
-		TIM1->CNT = 0;
 		TIM1->CNT = 0;
 		goto send_nada;
 	}
@@ -189,6 +190,9 @@ void usb_pid_handle_out( uint32_t addr, uint8_t * data, uint32_t endp, struct rv
 
 void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, int32_t crc_ok, uint32_t length )
 {
+	TIM1->CNT = 0;
+	TIM1->CNT = 0;
+	TIM1->CNT = 0;
 	//Received data from host.
 	struct rv003usb_internal * ist = &rv003usb_internal_data;
 	int cep = ist->current_endpoint;
@@ -197,9 +201,6 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 	// Alrady received this packet.
 	if( e->toggle_out != which_data )
 	{
-		TIM1->CNT = 0;
-		TIM1->CNT = 0;
-		TIM1->CNT = 0;
 		TIM1->CNT = 0;
 		TIM1->CNT = 0;
 		TIM1->CNT = 0;
@@ -272,9 +273,12 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 		}
 		else
 		{
+
+		TIM1->CNT = 0;
 			// Continuing data.
 			if( e->opaque == 0xff  )
 			{
+		TIM1->CNT = 0;
 				uint8_t * start = &scratchpad[e->count_out];
 				int l = length-3;
 				int i;
