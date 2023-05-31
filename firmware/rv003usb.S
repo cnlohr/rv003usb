@@ -95,9 +95,12 @@ syncdone:
 
 	c.xor a1, a0 // Recover a1
 
-	DEBUG_TICK_MARK
-	DEBUG_TICK_MARK
+	//XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+	//For now, we are trimming the clock by adding stuff here...
+	c.nop;	c.nop;	c.nop;	c.nop; c.nop; c.nop;
 
+	DEBUG_TICK_MARK
+.balign 4
 preamble_loop:
 	lw a0, INDR_OFFSET(a5);
 	c.andi a0, USB_DMASK;
@@ -108,6 +111,7 @@ preamble_loop:
 	nx6p3delay( 3, s0 ); // 21 cycles
 	c.nop
 	j preamble_loop // 4 cycles
+.balign 4
 done_preamble:
 
 	// Need to delay about 24 cycles
@@ -119,9 +123,8 @@ done_preamble:
 	// This is the first bit that matters.
 	li s0, 6 // 1 runs.
 
-	c.nop; c.nop; c.nop;
-	c.nop; c.nop; c.nop;
-	//XXX TODO: Tune? 
+	// Two free instructions here if you want them.
+	c.nop; c.nop;
 
 	/* register meanings:
 		* T0 = temp
@@ -299,7 +302,7 @@ is_not_end_of_byte:
 
 	c.li s0, 6  // reset bit stuffing.
 
-	// debug blip chain.
+	//Delay
 	nx6p3delay( 2, a0 )
 
 	c.bnez s1, bit_process // + 4 cycles
@@ -317,7 +320,7 @@ se0_complete:
 	// 0011 => 11000011 => DATA0
 	// 1011 => 11010010 => DATA1
 	// 1001 => 10010110 => PID IN
-	// 0111 => 11100001 => PID_OUT
+	// 0001 => 10000111 => PID_OUT
 	// 1101 => 10110100 => SETUP    (OK)
 
 	// a0 contains first 4 bytes.
@@ -348,12 +351,12 @@ may_be_a_token:
 	lbu s0, 1(a3) //my_address
 	bne s0, a0, done_usb_message // addr != 0 && addr != ours.
 yes_check_tokens:
-	addi a5, a5, (0b01001011-0b10010110)
+	addi a5, a5, (0b01001011-0b10000111)
+	c.beqz a5, usb_pid_handle_out
+	c.addi a5, (0b10000111-0b10010110)
 	c.beqz a5, usb_pid_handle_in
 	c.addi a5, (0b10010110-0b10110100)
 	c.beqz a5, usb_pid_handle_setup
-	addi a5, a5, (0b10110100-0b11100001)
-	c.beqz a5, usb_pid_handle_out
 
 	c.j done_usb_message_in
 

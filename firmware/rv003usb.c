@@ -75,6 +75,12 @@ int main()
 	}
 #endif
 
+	const uint32_t trim = 16;
+	uint32_t regtemp;
+	regtemp = RCC->CTLR & ~RCC_HSITRIM;
+	regtemp |= (trim<<3);
+	RCC->CTLR = regtemp;
+
 	// GPIO D3 for input pin change.
 	GPIOD->CFGLR =
 		(GPIO_CNF_IN_PUPD)<<(4*1) |  // Keep SWIO enabled.
@@ -146,14 +152,14 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, struct rv0
 		goto send_nada;
 	}
 
-	uint8_t * tsend;
+	uint8_t * tsend = 0;
 
 	if( e->is_descriptor )
 	{
 		const struct descriptor_list_struct * dl = &descriptor_list[e->opaque];
 		tsend = ((uint8_t*)dl->addr);
 	}
-	else if( e->opaque )
+	else if( e->opaque == 1 )
 	{
 		// Yes, it's a 0xAA
 		tsend = scratchpad;
@@ -165,7 +171,7 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, struct rv0
 	if( tosend < 0 ) tosend = 0;
 	sendnow = tsend + offset;
 
-	if( !tosend )
+	if( !tosend || !tsend )
 	{
 		goto send_nada;
 	}
@@ -184,6 +190,13 @@ void usb_pid_handle_out( uint32_t addr, uint8_t * data, uint32_t endp, struct rv
 {
 	ist->current_endpoint = endp;
 
+
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
+	asm volatile( "nop; nop; nop; nop;" );
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
+	
 	//We need to handle this here because we could have an interrupt in the middle of a control or big transfer.
 	//This will correctly swap back the endpoint.
 }
@@ -206,15 +219,37 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 		TIM1->CNT = 0;
 		TIM1->CNT = 0;
 		TIM1->CNT = 0;
+		if( cep == 0 )
+		{
+			TIM1->CNT = 0;
+			TIM1->CNT = 0;
+		}	
 		goto just_ack;
 	}
 
 	e->toggle_out = !e->toggle_out;
 
+	int i;
+	for( i = -8; i < cep; i++ )
+	{
+		TIM1->CNT = 0;
+	}
+
 	if( cep == 0 )
 	{
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
+
 		if( ist->setup_request )
 		{
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
+		TIM1->CNT = 0;
 			struct usb_urb * s = __builtin_assume_aligned( (struct usb_urb *)(data+1), 4 );
 
 			uint32_t wvi = s->lValueLSBIndexMSB;
@@ -237,7 +272,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			}
 			if( s->wRequestTypeLSBRequestMSB == 0x0921 )
 			{
-				// Class request (Will be writing)
+				// Class request (Will be writing)  This is hid_send_feature_report
 				ist->control_max_len = sizeof( scratchpad );
 				e->opaque = 0xff;
 			}

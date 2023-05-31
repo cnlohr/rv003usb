@@ -11,8 +11,8 @@ int main()
 	printf( "HD: %p\n", hd );
 	if( !hd ) return -4;
 
-	uint8_t buffer0[32] = { 0 };
-	uint8_t buffer1[32] = { 0 };
+	uint8_t buffer0[8] = { 0 };
+	uint8_t buffer1[8] = { 0 };
 	int r;
 
 	int i;
@@ -23,7 +23,13 @@ int main()
 		int i;
 		for( i = 1; i < sizeof( buffer0 ); i ++ )
 			buffer0[i] = rand(); 
-		r = hid_send_feature_report( hd, buffer0, sizeof(buffer0)+1 );
+retrysend:
+		r = hid_send_feature_report( hd, buffer0, sizeof(buffer0) );
+		if( r != sizeof(buffer0) )
+		{
+			fprintf( stderr, "Warning: HID Send fault. Retrying\n" );
+			goto retrysend;
+		}
 	/*	printf( "%d: ", r );
 		for( i = 0; i < r; i++ )
 			printf( "%02x ", buffer[i] );
