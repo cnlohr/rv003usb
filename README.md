@@ -10,7 +10,7 @@ Project is not ready for prime time.  Proof of concept works, we are on track fo
 :white_check_mark: Sending USB Frames  
 :white_check_mark: High Level USB Stack in C  
 :white_check_mark: Make USB timing more precise.  
-:white_check_mark: Rework sending code to send tokens/data separately.
+:white_check_mark: Rework sending code to send tokens/data separately.  
 :white_check_mark: Fix CRC Code  
 :white_square_button: Further optimize Send/Receive PHY code.  
 :white_square_button: Enable systick-based retiming to correct timing mid-frame.  
