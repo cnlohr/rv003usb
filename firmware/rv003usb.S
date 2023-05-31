@@ -243,7 +243,7 @@ handle_zero_bit:
 //slowwww:
 	// If they are different, we need to sloowwww dowwwnnn
 	
-
+	// There is some free time.
 	c.nop; c.nop; c.nop; c.nop;
 
 
@@ -339,6 +339,8 @@ se0_complete:
 	RESTORE_DEBUG_MARKER(48) // restore x4 for whatever in C land.
 	lw  x3, 56(sp)
 
+	la a4, rv003usb_internal_data
+
 	// ACK doesn't need good CRC.
 	c.beqz a5, usb_pid_handle_ack
 
@@ -352,12 +354,11 @@ may_be_a_token:
 	andi a0, a2, 0x7f // addr
 	c.srli a2, 7
 	c.andi a2, 0xf    // endp
-	la a3, rv003usb_internal_data
 	li s0, ENDPOINTS
 	bgeu a2, s0, done_usb_message // Make sure < ENDPOINTS
 	c.beqz a0,  yes_check_tokens
 	// Otherwise, we might have our assigned address.
-	lbu s0, 1(a3) //my_address
+	lbu s0, 1(a4) //my_address
 	bne s0, a0, done_usb_message // addr != 0 && addr != ours.
 yes_check_tokens:
 	addi a5, a5, (0b01001011-0b10000111)
@@ -375,7 +376,7 @@ crc_for_tokens_would_be_bad_maybe_data:
 	c.sub a3, s0
 	c.bnez a3, done_usb_message_in
 	// Good CRC!!
-	sub a4, t2, a1 //A4 = # of bytes read..
+	sub a3, t2, a1 //a3 = # of bytes read..
 	addi a5, a5, (0b01001011-0b11000011)
 	c.li a2, 0
 	c.beqz a5, usb_pid_handle_data

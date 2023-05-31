@@ -67,12 +67,12 @@ struct usb_urb
 
 
 // Note: This checks addr & endp to make sure they are valid.
-void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, struct rv003usb_internal * ist );
-void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, struct rv003usb_internal * ist );
-void usb_pid_handle_out( uint32_t addr, uint8_t * data, uint32_t endp, struct rv003usb_internal * ist );
+void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist );
+void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist );
+void usb_pid_handle_out( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist );
 
-void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, int32_t crc_ok, uint32_t length );
-void usb_pid_handle_ack( uint32_t dummy, uint8_t * data );
+void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, uint32_t length, struct rv003usb_internal * ist );
+void usb_pid_handle_ack( uint32_t dummy, uint8_t * data, uint32_t dummy2, uint32_t dummy3, struct rv003usb_internal * ist  );
 
 //poly_function = 0 to include CRC.
 //poly_function = 2 to exclude CRC.

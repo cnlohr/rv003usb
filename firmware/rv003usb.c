@@ -108,7 +108,7 @@ int main()
 
 
 //Received a setup for a specific endpoint.
-void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, struct rv003usb_internal * ist )
+void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
 {
 	ist->current_endpoint = endp;
 	struct usb_endpoint * e = &ist->eps[endp];
@@ -127,7 +127,7 @@ void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, struct 
 	TIM1->CNT = 0;
 }
 
-void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, struct rv003usb_internal * ist )
+void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
 {
 	ist->current_endpoint = endp;
 	struct usb_endpoint * e = &ist->eps[endp];
@@ -186,7 +186,7 @@ send_nada:
 	usb_send_data( sendnowo, 2, 2, sendtok );  //DATA = 0, 0 CRC.
 }
 
-void usb_pid_handle_out( uint32_t addr, uint8_t * data, uint32_t endp, struct rv003usb_internal * ist )
+void usb_pid_handle_out( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
 {
 	ist->current_endpoint = endp;
 
@@ -201,13 +201,12 @@ void usb_pid_handle_out( uint32_t addr, uint8_t * data, uint32_t endp, struct rv
 	//This will correctly swap back the endpoint.
 }
 
-void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, int32_t crc_ok, uint32_t length )
+void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, uint32_t length, struct rv003usb_internal * ist )
 {
 	TIM1->CNT = 0;
 	TIM1->CNT = 0;
 	TIM1->CNT = 0;
 	//Received data from host.
-	struct rv003usb_internal * ist = &rv003usb_internal_data;
 	int cep = ist->current_endpoint;
 	struct usb_endpoint * e = &ist->eps[cep];
 
@@ -332,9 +331,8 @@ just_ack:
 	return;
 }
 
-void usb_pid_handle_ack( uint32_t dummy, uint8_t * data )
+void usb_pid_handle_ack( uint32_t dummy, uint8_t * data, uint32_t dummy1, uint32_t dummy2, struct rv003usb_internal * ist  )
 {
-	struct rv003usb_internal * ist = &rv003usb_internal_data;
 	struct usb_endpoint * e = &ist->eps[ist->current_endpoint];
 	e->toggle_in = !e->toggle_in;
 	e->count_in++;
