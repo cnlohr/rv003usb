@@ -45,8 +45,10 @@ struct rv003usb_internal
 	uint8_t current_endpoint;
 	uint8_t my_address; // Will be 0 until set up.
 	uint16_t control_max_len;
+	uint32_t last_se0_cyccount;
+	int32_t delta_se0_cyccount;
+	uint32_t se0_windup;
 	uint8_t setup_request;
-
 	// 5 bytes + 6 * ENDPOINTS
 
 	struct usb_endpoint eps[ENDPOINTS];

@@ -24,8 +24,10 @@ void usb_handle_custom_control( uint8_t bmRequestType, uint8_t bRequest, uint16_
 int main()
 {
 	SystemInit48HSI();
-//	SetupDebugPrintf();
+	SetupDebugPrintf();
 	SETUP_SYSTICK_HCLK
+
+	rv003usb_internal_data.se0_windup = 0;
 
 	// Enable GPIOs, TIMERs
 	RCC->APB2PCENR = RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOC | RCC_APB2Periph_TIM1 | RCC_APB2Periph_GPIOA  | RCC_APB2Periph_AFIO | RCC_APB2Periph_TIM1;
@@ -75,7 +77,7 @@ int main()
 	}
 #endif
 
-	const uint32_t trim = 14;
+	const uint32_t trim = 15;
 	uint32_t regtemp;
 	regtemp = RCC->CTLR & ~RCC_HSITRIM;
 	regtemp |= (trim<<3);
@@ -100,7 +102,10 @@ int main()
 	// enable interrupt
 	NVIC_EnableIRQ( EXTI7_0_IRQn );
 
-	while(1);
+	while(1)
+	{
+		printf( "%u %u %d %08x\n", rv003usb_internal_data.delta_se0_cyccount, rv003usb_internal_data.last_se0_cyccount, rv003usb_internal_data.se0_windup, RCC->CTLR );
+	}
 }
 
 

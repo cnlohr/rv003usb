@@ -417,6 +417,51 @@ interrupt_complete:
 handle_se0_keepalive:
 	// In here, we want to do smart stuff with the
 	// 1ms tick.
+	la  a0, SYSTICK_CNT
+	la a4, rv003usb_internal_data
+	lw a1, 4(a4) //last cycle count   last_se0_cyccount
+	lw a2, 0(a0) //this cycle count
+	sw a2, 4(a4) //store it back to last_se0_cyccount
+	sub a2, a2, a1
+	sw a2, 8(a4) //record delta_se0_cyccount
+
+	li a1, 48000
+	sub a2, a2, a1
+	// This is our deviance from 48MHz.
+
+	li a5, 4000
+	bge a2, a5, interrupt_complete
+	li a5, -4000
+	blt a2, a5, interrupt_complete
+
+	lw a1, 12(a4) // load windup se0_windup
+	add a1, a2, a1
+	sw a1, 12(a4) // save windup
+
+
+	// No further adjustments
+	beqz a1, interrupt_complete
+
+	// 0x40021000 = RCC.CTLR
+	la a4, 0x40021000
+	lw a0, 0(a4)
+	srli a3, a0, 3 // Extract HSI Trim.
+	andi a3, a3, 0b11111
+	li a5, 0xffffff07  
+	and a0, a0, a5	// Mask off non-HSI
+
+
+	// Decimate windup - use as HSIrim.
+	neg a1, a1
+	srai a3, a1, 9
+	addi a3, a3, 16  // add hsi offset.
+
+	// Put trim in place in register.
+	slli a3, a3, 3
+	or a0, a0, a3
+	sw a0, 0(a4)
+
+
 	j interrupt_complete
 
 
