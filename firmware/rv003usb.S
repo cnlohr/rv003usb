@@ -42,7 +42,7 @@ Compressed:
 .global EXTI7_0_IRQHandler
 .balign 4
 EXTI7_0_IRQHandler:
-	addi	sp,sp,-76
+	addi	sp,sp,-80
 	sw	a0, 0(sp)
 	sw	a5, 20(sp)
 	sw	a1, 4(sp)
@@ -81,14 +81,14 @@ syncdone:
 	sw  t2, 40(sp) // 16 cycles
 	SAVE_DEBUG_MARKER( 48 );
 	sw  ra, 52(sp)
+	sw  x3, 56(sp)
 	// 16-byte temporary buffer at 56+sp
 
-	// r0 points to SYSTICK 
 	// a5 points to our port's input.
-	la  t0, SYSTICK_CNT
+	la  t0, 0x80
 
 	// A little weird, but this way, the USB packet is always aligned.
-#define DATA_PTR_OFFSET 59
+#define DATA_PTR_OFFSET (59+4)
 	addi  t2, sp, DATA_PTR_OFFSET //rv003usb_internal_data
 
 	DEBUG_TICK_SETUP
@@ -97,7 +97,10 @@ syncdone:
 
 	//XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 	//For now, we are trimming the clock by adding stuff here...
-	c.nop;	c.nop;	c.nop;	c.nop; c.nop; c.nop;
+	c.nop;	c.nop;	c.nop;	c.nop;	c.nop;	c.nop;	c.nop; c.nop; c.nop; c.nop;
+
+
+	//TUNE TUNE TUNE TUNE TUNE
 
 	DEBUG_TICK_MARK
 .balign 4
@@ -117,7 +120,7 @@ done_preamble:
 	// Need to delay about 24 cycles
 	li a2, 0
 
-	li a4, 0xa001
+	li x3, 0xa001
 	li a3, 0xffff // Starting CRC of 0.   Because USB doesn't respect reverse CRCing.
 
 	// This is the first bit that matters.
@@ -134,7 +137,7 @@ done_preamble:
 		* A1 = last-frame's GPIO values.
 		* A2 = The running word 
 		* A3 = Running CRC
-		* A4 = Polynomial
+		* x3 = Polynomial
 		* A5 = GPIO Offset
 
 		* S0 = Bit Stuff Place
@@ -194,10 +197,10 @@ packet_type_loop:
 
 	// if a0 is 1 then it's DATA (full CRC) otheriwse,
 	// (0) for setup or PARTIAL CRC.
-	// a4 is preloaded with 0xa001 up above, SO we only
+	// x3 is preloaded with 0xa001 up above, SO we only
 	// need to do something IF it's 0!
 	c.beqz a0, data_crc // XXX TODO REV'd (I guess it's backwards?)
-	li a4, 0x14	
+	li x3, 0x14	
 	li a3, 0x1e
 	DEBUG_TICK_MARK
 data_crc:
@@ -217,62 +220,68 @@ is_end_of_byte:
 .balign 4
 bit_process:
 	// Debug blip
+//	c.lw a4, INDR_OFFSET(a5);
 	DEBUG_TICK_MARK
 	c.lw a0, INDR_OFFSET(a5);
 	c.andi a0, USB_DMASK;
-	c.beqz a0, se0_complete
 	c.xor a0, a1;
-	c.xor a1, a0; // Recover a1, for next cycle
 
-
+//XXX GOOD
 #define HANDLE_NEXT_BYTE(is_end_of_byte)  \
 	c.addi s1, -1; \
 	andi a0, s1, 7; /* s1 could be really really big */ \
 	c.beqz a0, is_end_of_byte /* 4 cycles for this section. (Checked) (Sometimes 5)? */ 
 
-	c.bnez a0, handle_zero_bit
+	c.beqz a0, handle_one_bit
+handle_zero_bit:
+	c.xor a1, a0; // Recover a1, for next cycle
 
-handle_one_bit:
-	c.addi s0, -1; // Count # of runs of 1 (subtract 1)
+	// Fixup clock...
+//	c.andi a4, USB_DMASK;
+//	c.xor a0, a4
+//	c.beqz a0, slowwww
+//slowwww:
+	// If they are different, we need to sloowwww dowwwnnn
+	
+
+	c.nop; c.nop; c.nop; c.nop;
+
+
+	c.li s0, 6      // reset runs-of-one.
+	c.beqz a1, se0_complete
+
+	// Handle CRC (0 bit)  (From @Domkeykong)
+	slli a0,a3,31 // Put a3s LSB into a0s MSB
+	c.srai a0,31    // Copy MSB into all other bits
+	c.srli a3,1
+	and  a0, a0, x3
+	c.xor  a3, a0
+
 	c.srli a2, 1;  // shift a2 down by 1
-	//c.li a0, 0
-
-	//HANDLE_CRC (1 bit)
-	andi a0, a3, 1
-	c.addi a0, -1
-	c.and a0, a4
-	c.srli a3, 1
-	c.xor a3, a0
-
-	c.li a0, 1
-	c.slli a0, 7
-	or a2,a2, a0;   // It's a 1, or it in.
-	c.beqz s0, handle_bit_stuff;
 	HANDLE_NEXT_BYTE(is_end_of_byte)
-
-	c.nop
 	c.nop
 	c.nop
 	c.bnez s1, bit_process // + 4 cycles
 	c.j done_usb_message
 
-handle_zero_bit:
-	c.li s0, 6      // reset runs-of-one.
-	c.srli a2, 1;   // shift a2 down by 1
 
-	// Handle CRC (0 bit)
+.balign 4
+handle_one_bit:
+	c.addi s0, -1; // Count # of runs of 1 (subtract 1)
+	//HANDLE_CRC (1 bit)
 	andi a0, a3, 1
-	neg a0, a0
-	c.and a0, a4
+	c.addi a0, -1
+	and a0, a0, x3
 	c.srli a3, 1
 	c.xor a3, a0
 
-	//c.li a0, 1
-	//HANDLE_CRC
-	HANDLE_NEXT_BYTE(is_end_of_byte)
+	c.srli a2, 1;  // shift a2 down by 1
+	or a2,a2, t0;  // It's a 1, or it in.
+	c.beqz s0, handle_bit_stuff;
 
+	HANDLE_NEXT_BYTE(is_end_of_byte)
 	c.nop
-	c.nop
+	c.nop //??? Why different from 0?
 	c.bnez s1, bit_process // + 4 cycles
 	c.j done_usb_message
 
@@ -286,10 +295,8 @@ is_end_of_byte_and_bit_stuffed:
 	HANDLE_EOB_YES
 
 is_not_end_of_byte:
-
-	DEBUG_TICK_MARK
-
 	c.lw a0, INDR_OFFSET(a5);
+	DEBUG_TICK_MARK // Note: Out of order.
 	c.andi a0, USB_DMASK;
 	c.beqz a0, se0_complete
 	c.xor a0, a1;
@@ -330,6 +337,8 @@ se0_complete:
 	addi a5, a0, -0b01001011
 
 	RESTORE_DEBUG_MARKER(48) // restore x4 for whatever in C land.
+	lw  x3, 56(sp)
+
 	// ACK doesn't need good CRC.
 	c.beqz a5, usb_pid_handle_ack
 
@@ -388,6 +397,7 @@ done_usb_message_in:
 	lw	t2, 40(sp)
 	RESTORE_DEBUG_MARKER(48)
 	lw  ra, 52(sp)
+	lw  x3, 56(sp)
 
 interrupt_complete:
 	// Acknowledge interrupt.
@@ -400,7 +410,7 @@ interrupt_complete:
 	lw	a0, 0(sp)
 	lw	a5, 20(sp)
 	lw	a1, 4(sp)
-	addi	sp,sp,76
+	addi	sp,sp,80
 	mret
 
 handle_se0_keepalive:

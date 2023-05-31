@@ -75,7 +75,7 @@ int main()
 	}
 #endif
 
-	const uint32_t trim = 16;
+	const uint32_t trim = 15;
 	uint32_t regtemp;
 	regtemp = RCC->CTLR & ~RCC_HSITRIM;
 	regtemp |= (trim<<3);
