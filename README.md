@@ -13,11 +13,11 @@ Project is not ready for prime time.  Proof of concept works, we are on track fo
 :white_check_mark: Use SE0 1ms ticks to tune HSItrim  
 :white_check_mark: Rework sending code to send tokens/data separately.  
 :white_check_mark: Fix CRC Code  
-:white_square_button: Further optimize Send/Receive PHY code.  
+:black_square_button: Further optimize Send/Receive PHY code. (Please help)  
 :negative_squared_cross_mark: Enable systick-based retiming to correct timing mid-frame.  
 :white_check_mark: Optimize high-level stack.  
 :white_square_button: Fit in bootloader  
-:white_square_button: Use HID custom messages.  
+:white_check_mark: Use HID custom messages.  
 :white_square_button: Make demos  
 :white_square_button: API For self-flashing + printf from bootloader  
 :large_orange_diamond: Enable retiming (Requires a few more cycles, will be major effort)  
