@@ -6,7 +6,7 @@ Project is not ready for prime time.  Proof of concept works, we are on track fo
 
 :white_check_mark: Able to go on-bus and receive USB frames  
 :white_check_mark: Compute CRC in-line while receiving data  
-:white_check_mark: Bit Stuffing (Works, needs more testing)  
+:white_check_mark: Bit Stuffing (Works, tested)  
 :white_check_mark: Sending USB Frames  
 :white_check_mark: High Level USB Stack in C  
 :white_check_mark: Make USB timing more precise.  
