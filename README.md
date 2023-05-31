@@ -13,7 +13,7 @@ Project is not ready for prime time.  Proof of concept works, we are on track fo
 :white_check_mark: Use SE0 1ms ticks to tune HSItrim  
 :white_check_mark: Rework sending code to send tokens/data separately.  
 :white_check_mark: Fix CRC Code  
-:black_square_button: Further optimize Send/Receive PHY code. (Please help)  
+:large_yellow_diamond: Further optimize Send/Receive PHY code. (Please help)  
 :negative_squared_cross_mark: Enable systick-based retiming to correct timing mid-frame.  
 :white_check_mark: Optimize high-level stack.  
 :white_square_button: Fit in bootloader  
