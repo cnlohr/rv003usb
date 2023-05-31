@@ -97,7 +97,7 @@ syncdone:
 
 	//XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 	//For now, we are trimming the clock by adding stuff here...
-	c.nop;	c.nop;	c.nop;	c.nop;	c.nop;	c.nop;	c.nop; c.nop; c.nop; c.nop;
+	c.nop;	c.nop;	c.nop;	c.nop;	c.nop;	c.nop;
 
 
 	//TUNE TUNE TUNE TUNE TUNE
@@ -120,7 +120,7 @@ done_preamble:
 	// Need to delay about 24 cycles
 	li a2, 0
 
-	li x3, 0xa001
+	li a4, 0xa001
 	li a3, 0xffff // Starting CRC of 0.   Because USB doesn't respect reverse CRCing.
 
 	// This is the first bit that matters.
@@ -137,7 +137,7 @@ done_preamble:
 		* A1 = last-frame's GPIO values.
 		* A2 = The running word 
 		* A3 = Running CRC
-		* x3 = Polynomial
+		* a4 = Polynomial
 		* A5 = GPIO Offset
 
 		* S0 = Bit Stuff Place
@@ -200,7 +200,7 @@ packet_type_loop:
 	// x3 is preloaded with 0xa001 up above, SO we only
 	// need to do something IF it's 0!
 	c.beqz a0, data_crc // XXX TODO REV'd (I guess it's backwards?)
-	li x3, 0x14	
+	li a4, 0x14	
 	li a3, 0x1e
 	DEBUG_TICK_MARK
 data_crc:
@@ -227,10 +227,10 @@ bit_process:
 	c.xor a0, a1;
 
 //XXX GOOD
-#define HANDLE_NEXT_BYTE(is_end_of_byte)  \
+#define HANDLE_NEXT_BYTE(is_end_of_byte, jumptype)  \
 	c.addi s1, -1; \
 	andi a0, s1, 7; /* s1 could be really really big */ \
-	c.beqz a0, is_end_of_byte /* 4 cycles for this section. (Checked) (Sometimes 5)? */ 
+	c.jumptype a0, is_end_of_byte /* 4 cycles for this section. (Checked) (Sometimes 5)? */ 
 
 	c.beqz a0, handle_one_bit
 handle_zero_bit:
@@ -254,11 +254,12 @@ handle_zero_bit:
 	slli a0,a3,31 // Put a3s LSB into a0s MSB
 	c.srai a0,31    // Copy MSB into all other bits
 	c.srli a3,1
-	and  a0, a0, x3
+	c.and  a0, a4
 	c.xor  a3, a0
 
 	c.srli a2, 1;  // shift a2 down by 1
-	HANDLE_NEXT_BYTE(is_end_of_byte)
+	HANDLE_NEXT_BYTE(is_end_of_byte, beqz)
+	c.nop
 	c.nop
 	c.nop
 	c.bnez s1, bit_process // + 4 cycles
@@ -271,7 +272,7 @@ handle_one_bit:
 	//HANDLE_CRC (1 bit)
 	andi a0, a3, 1
 	c.addi a0, -1
-	and a0, a0, x3
+	c.and a0, a4
 	c.srli a3, 1
 	c.xor a3, a0
 
@@ -279,9 +280,10 @@ handle_one_bit:
 	or a2,a2, t0;  // It's a 1, or it in.
 	c.beqz s0, handle_bit_stuff;
 
-	HANDLE_NEXT_BYTE(is_end_of_byte)
+	HANDLE_NEXT_BYTE(is_end_of_byte, beqz)
 	c.nop
 	c.nop //??? Why different from 0?
+	c.nop
 	c.bnez s1, bit_process // + 4 cycles
 	c.j done_usb_message
 
@@ -289,12 +291,10 @@ handle_bit_stuff:
 	// We want to wait a little bit, then read another byte, and make
 	// sure everything is well, before heading back into the main loop
 	// Debug blip
-	HANDLE_NEXT_BYTE(is_end_of_byte_and_bit_stuffed)
-	c.j is_not_end_of_byte
-is_end_of_byte_and_bit_stuffed:
+	HANDLE_NEXT_BYTE(not_is_end_of_byte_and_bit_stuffed, bnez)
 	HANDLE_EOB_YES
 
-is_not_end_of_byte:
+not_is_end_of_byte_and_bit_stuffed:
 	c.lw a0, INDR_OFFSET(a5);
 	DEBUG_TICK_MARK // Note: Out of order.
 	c.andi a0, USB_DMASK;
