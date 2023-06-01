@@ -784,7 +784,6 @@ insert_stuffed_bit:
 
 #ifdef USE_TINY_BOOT
 
-
 // TINY BOOT!!!
 
 //void EXTI7_0_IRQHandler( void )          __attribute__((section(".text.vector_handler"))) __attribute((weak,alias("DefaultIRQHandler"))) __attribute__((used));
@@ -813,13 +812,15 @@ handle_reset:
 	c.li a0, 3
 	csrw mtvec, a0
 	la a0, _sbss
-	la a1, _ebss
+	la a1, _ebss	// Initialize RAM to 0.
 	c.li a2, 0
 	bge a0, a1, 2f
 1:	c.sw a2, 0(a0)
 	c.addi a0, 4
 	blt a0, a1, 1b
 2:
+	//XXX WARNING: NO .DATA SECTION IS AVAILABLE HERE!
+
 	/* SystemInit48HSI */
 	la a2, RCC_BASE
 	la a3, FLASH_R_BASE
@@ -840,5 +841,16 @@ after_irq:
 	la a0, main
 	csrw mepc, a0
 	mret
+
+/*
+.option push
+.section bss
+.org 0x100
+.global scratchpad
+	scratchpad:
+	.word 0x00000000
+.option pop
+*/
+
 #endif
 

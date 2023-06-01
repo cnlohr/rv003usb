@@ -18,8 +18,7 @@
 
 #define EMPTY_SEND_BUFFER (uint8_t*)1
 
-// These definitions are from espusb.
-
+// This can be undone once support for fast-c.lbu / c.sbu is made available.
 #ifdef  REALLY_TINY_COMP_FLASH
 #define TURBO8TYPE uint32_t
 #else

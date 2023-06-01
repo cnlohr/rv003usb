@@ -11,8 +11,8 @@ int main()
 	printf( "HD: %p\n", hd );
 	if( !hd ) return -4;
 
-	uint8_t buffer0[72] = { 0 };
-	uint8_t buffer1[72] = { 0 };
+	uint8_t buffer0[128] = { 0 };
+	uint8_t buffer1[128] = { 0 };
 	int r;
 
 	int i;
@@ -23,6 +23,9 @@ int main()
 		int i;
 		for( i = 1; i < sizeof( buffer0 ); i ++ )
 			buffer0[i] = rand(); 
+
+		// Make sure we don't trigger the execute.
+		if( buffer0[0] == 0x55 ) buffer0[0] = 0x56;
 retrysend:
 		r = hid_send_feature_report( hd, buffer0, sizeof(buffer0) );
 		if( r != sizeof(buffer0) )

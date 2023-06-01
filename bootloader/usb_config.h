@@ -46,7 +46,7 @@ static const uint8_t special_hid_desc[] = {
     HID_REPORT_ID    ( 0xaa                                   )
     HID_USAGE        ( 0xff              ) ,
     HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE    ) ,
-    HID_REPORT_COUNT ( 8 ) ,
+    HID_REPORT_COUNT ( 128 ) ,
   HID_COLLECTION_END
 };
 
@@ -98,7 +98,7 @@ static const uint8_t config_descriptor[] = {  //Mostly stolen from a USB mouse I
 
 #define STR_MANUFACTURER u"cn"
 #define STR_PRODUCT      u"rv003usb"
-#define STR_SERIAL       u"BOOT"
+#define STR_SERIAL       u"NBTT" // Need to change to BOOT when we finally decide on a flashing mechanism.
 
 struct usb_string_descriptor_struct {
 	uint8_t bLength;

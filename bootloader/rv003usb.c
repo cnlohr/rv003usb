@@ -13,7 +13,8 @@
 // You must update in tandem
 //#define DEBUG_TIMING
 
-uint8_t scratchpad[128];
+#define SCRATCHPAD_SIZE 128
+uint8_t * scratchpad = (uint8_t*)0x20000400;//[128];
 uint32_t always0;
 
 struct rv003usb_internal rv003usb_internal_data;
@@ -32,13 +33,13 @@ int main()
 	// Enable GPIOs, TIMERs
 	RCC->APB2PCENR = RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOC | RCC_APB2Periph_TIM1 | RCC_APB2Periph_GPIOA  | RCC_APB2Periph_AFIO | RCC_APB2Periph_TIM1;
 
+#ifdef DEBUG_TIMING
 	// GPIO C0 Push-Pull
 	GPIOC->CFGLR = (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*0) |
 	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF)<<(4*3) | // PC3 = T1C3
-#ifdef DEBUG_TIMING
 	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF)<<(4*4) | // PC4 = T1C4
-#endif
 	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*2);
+#endif
 
 #ifdef DEBUG_TIMING
 	{
@@ -196,25 +197,15 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			{
 				// Class read request.
 				uint32_t wlen = s->wLength;
-				if( wlen > sizeof(scratchpad) ) wlen = sizeof(scratchpad);
+				if( wlen > sizeof(scratchpad) ) wlen = SCRATCHPAD_SIZE;
 				// The host wants to read back from us.
 				ist->control_max_len = wlen;
 				e->opaque = 1;
 			}
 			else if( s->wRequestTypeLSBRequestMSB == 0x0921 )
 			{
-				// Class request (Will be writing)  This is hid_send_feature_report
-				if( s->wLength == 0 )
-				{
-					// Execute Scratchpad.
-					void (*scratchexec)() = (void (*)()) scratchpad;
-					scratchexec();
-				}
-				else
-				{
-					ist->control_max_len = sizeof( scratchpad );
-					e->opaque = 2;
-				}
+				ist->control_max_len = SCRATCHPAD_SIZE;
+				e->opaque = 2;
 			}
 			else if( (s->wRequestTypeLSBRequestMSB & 0xff80) == 0x0680 )
 			{
@@ -259,6 +250,19 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 				for( i = 0; i < l; i++ )
 					start[i] = data[i+1];//((intptr_t)data)>>(i*8);
 				e->count_out += l;
+
+				if( e->count_out >= SCRATCHPAD_SIZE )
+				{
+					if( *((uint32_t*)(start+4)) == 0x1234abcd )
+					{
+						// Execute Scratchpad. XXX NEEDS TO CHANGE XXX WRONG
+						*((uint32_t*)start) = 0;
+						void (*scratchexec)( uint8_t *) = (void (*)(uint8_t *))(scratchpad+4);
+						usb_send_data( 0, 0, 2, 0xD2 ); // Send ACK
+						scratchexec(scratchpad);
+					}
+					e->opaque = 0;
+				}
 			}
 			// Allow user code to receive data.
 		}
