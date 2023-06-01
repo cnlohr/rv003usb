@@ -22,6 +22,7 @@ Bit banged USB stack for the RISC-V WCH CH32V003, using [ch32v003fun](https://gi
 :white_check_mark: Use HID custom messages.  
 :grey_exclamation: Improve sync sled.  
 :white_square_button: Make minichlink able to use bootloader.  
+:warning: Arduino support (someone else will have to take this on)  
 :white_square_button: Make demos  
 :white_square_button: API For self-flashing + printf from bootloader  
 :warning: Enable retiming (Requires a few more cycles, will be major effort)  
