@@ -1,9 +1,9 @@
 # Using USB on the CH32V003
 (No, that's not a typo)
 
-Bit banged USB stack for the RISC-V WCH CH32V003.
+Bit banged USB stack for the RISC-V WCH CH32V003, using [ch32v003fun](https://github.com/cnlohr/ch32v003fun).
 
-Project is not ready for prime time.  Proof of concept works, we are on track for proper releases soon.  See the list below.  Can you help out?
+### WARNING: Project is not ready for prime time.  Proof of concept works, we are on track for proper releases soon.  Maybe you can help out!
 
 :white_check_mark: Able to go on-bus and receive USB frames  
 :white_check_mark: Compute CRC in-line while receiving data  
