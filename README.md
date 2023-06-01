@@ -17,7 +17,7 @@ Project is not ready for prime time.  Proof of concept works, we are on track fo
 :negative_squared_cross_mark: Enable systick-based retiming to correct timing mid-frame.  
 :white_check_mark: Optimize high-level stack.  
 :white_square_button: Fit in bootloader  
-:grey_exclamation: Use hardware CRC??  
+:grey_exclamation: Use hardware CRC to save space??  
 :white_check_mark: Use HID custom messages.  
 :grey_exclamation: Improve sync sled.  
 :white_square_button: Make demos  
