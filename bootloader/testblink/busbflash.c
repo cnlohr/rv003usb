@@ -45,7 +45,7 @@ int main()
 	printf( "Read: %d\n", r ); fflush( stdout);
 
 	if( r != sizeof( buffer1 ) ) { printf( "Got %d\n", r ); }
-	if( memcmp( buffer0, buffer1+1, sizeof( buffer0 ) - 4 ) != 0 ) 
+	if( memcmp( buffer0, buffer1+1, sizeof( buffer0 ) - 4) != 0 ) 
 	{
 		int i;
 		printf( "%d: ", r );

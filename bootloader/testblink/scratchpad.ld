@@ -3,6 +3,7 @@ ENTRY( Scratchpad )
 MEMORY
 {
 	SCRATCHPAD (rwx) : ORIGIN = 0x20000400, LENGTH = 128
+	MEMORY (rwx) : ORIGIN = 0x20000480, LENGTH = 512
 }
 
 SECTIONS
@@ -49,6 +50,10 @@ SECTIONS
 		PROVIDE( _edata = .);
 
 
+	} >SCRATCHPAD AT>SCRATCHPAD
+
+	.memory :
+	{
 		. = ALIGN(4);
 		PROVIDE( _sbss = .);
 		*(.sbss*)
@@ -58,7 +63,9 @@ SECTIONS
 		*(COMMON*)
 		. = ALIGN(4);
 		PROVIDE( _ebss = .);
-	} >SCRATCHPAD AT>SCRATCHPAD
+
+	} > MEMORY AT>MEMORY
+	
 
     PROVIDE( _end = _ebss);
 	PROVIDE( end = . );

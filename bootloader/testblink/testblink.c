@@ -5,8 +5,15 @@ void Scratchpad( uint8_t * buffer, uint32_t * keeprunning )
 {
 	GPIOC->CFGLR = (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*0);
 	int i;
-for( i = 0; i < 8; i++ )
+
+	if( SysTick->CNT & 0x1000000 )
+	{
 		GPIOC->BSHR = 1<<0;
-	GPIOC->BSHR = 1<<16;
+	}
+	else
+	{
+		GPIOC->BSHR = 1<<16;
+	}
+
 }
 

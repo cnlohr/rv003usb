@@ -14,8 +14,8 @@
 //#define DEBUG_TIMING
 
 #define SCRATCHPAD_SIZE 128
-volatile uint32_t * runword  = (uint32_t*)0x200003fc;
-uint8_t * scratchpad = (uint8_t*)0x20000400;//[128];
+extern volatile uint32_t runword;
+extern uint8_t scratchpad[128];
 uint32_t always0;
 
 struct rv003usb_internal rv003usb_internal_data;
@@ -94,14 +94,13 @@ int main()
 	// enable interrupt
 	NVIC_EnableIRQ( EXTI7_0_IRQn );
 
-	*runword = 0;
-
+	runword = 0;
 	while(1)
 	{
-		if( *runword )
+		if( runword )
 		{
-			void (*scratchexec)() = (void (*)())(scratchpad+4);
-			scratchexec();
+			void (*scratchexec)( uint32_t *, uint32_t ) = (void (*)( uint32_t *, uint32_t ))(scratchpad+4);
+			scratchexec((uint32_t*)&scratchpad[0], runword);
 		}
 	}
 }
@@ -212,7 +211,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			else if( s->wRequestTypeLSBRequestMSB == 0x0921 )
 			{
 				ist->control_max_len = SCRATCHPAD_SIZE;
-				*runword = 0; //request stoppage.
+				runword = 0; //request stoppage.
 				e->opaque = 2;
 			}
 			else if( (s->wRequestTypeLSBRequestMSB & 0xff80) == 0x0680 )
@@ -264,7 +263,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 					if( *((uint32_t*)(start+4)) == 0x1234abcd )
 					{
 						*((uint32_t*)(start+4)) = 0;
-						*runword = 1;						
+						runword = 1;						
 					}
 					e->opaque = 0;
 				}
