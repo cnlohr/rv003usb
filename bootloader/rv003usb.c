@@ -9,21 +9,28 @@
 #define INSTANCE_DESCRIPTORS
 #include "rv003usb.h"
 
-struct rv003usb_internal rv003usb_internal_data;
+// To use time debugging, enable thsi here, and DEBUG_TIMING in the .S
+// You must update in tandem
+//#define DEBUG_TIMING
+
 uint8_t scratchpad[128];
+uint32_t always0;
+
+struct rv003usb_internal rv003usb_internal_data;
+
+// This is the data actually required for USB.
+uint8_t data_receptive;
+
 void SystemInit48HSIUNSAFE( void );
 
 int main()
 {
-	SystemInit48HSIUNSAFE();
-	// This comes in hot.  Reasonable chance clocks won't be settled.
+	SETUP_SYSTICK_HCLK
+
+//	rv003usb_internal_data.se0_windup = 0;
 
 	// Enable GPIOs, TIMERs
 	RCC->APB2PCENR = RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOC | RCC_APB2Periph_TIM1 | RCC_APB2Periph_GPIOA  | RCC_APB2Periph_AFIO | RCC_APB2Periph_TIM1;
-
-// To use time debugging, enable thsi here, and DEBUG_TIMING in the .S
-// You must update in tandem
-//#define DEBUG_TIMING
 
 	// GPIO C0 Push-Pull
 	GPIOC->CFGLR = (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*0) |
@@ -85,47 +92,36 @@ int main()
 	// enable interrupt
 	NVIC_EnableIRQ( EXTI7_0_IRQn );
 
-	while(1);
+	while(1)
+	{
+		//printf( "%u %u %d %08x\n", rv003usb_internal_data.delta_se0_cyccount, rv003usb_internal_data.last_se0_cyccount, rv003usb_internal_data.se0_windup, RCC->CTLR );
+	}
 }
+
 
 #define ENDPOINT0_SIZE 8 //Fixed for USB 1.1, Low Speed.
 
 
 //Received a setup for a specific endpoint.
-void usb_pid_handle_setup( uint32_t this_token, uint8_t * data )
+void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
 {
-	struct rv003usb_internal * ist = &rv003usb_internal_data;
-	uint8_t addr = (this_token>>8) & 0x7f;
-	uint8_t endp = (this_token>>15) & 0xf;
-
-	if( endp >= ENDPOINTS ) goto end;
-	if( addr != 0 && addr != ist->my_address ) goto end;
-
 	ist->current_endpoint = endp;
 	struct usb_endpoint * e = &ist->eps[endp];
+
 	e->toggle_out = 0;
 	e->toggle_in = 1;
 	e->count_in = 0;
 	ist->setup_request = 1;
-end:
-	return;
 }
 
-void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bit, int crc_out )
+void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
 {
-	struct rv003usb_internal * ist = &rv003usb_internal_data;
-	uint8_t addr = (this_token>>8) & 0x7f;
-	uint8_t endp = (this_token>>15) & 0xf;
+	ist->current_endpoint = endp;
+	struct usb_endpoint * e = &ist->eps[endp];
 
-
-	//If we get an "in" token, we have to strike any accept buffers.
-	if( addr != 0 && addr != ist->my_address ) return;
-	struct usb_endpoint * e = &ist->eps[0];
 	int tosend = 0;
 	uint8_t * sendnow = data-1;
-	uint8_t * sendnowo = data-1;
 	uint8_t sendtok = e->toggle_in?0b01001011:0b11000011;
-	ist->current_endpoint = endp;
 	
 	// Handle IN (sending data back to PC)
 	// Do this down here.
@@ -136,16 +132,15 @@ void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bi
 		goto send_nada;
 	}
 
-	uint8_t * tsend;
+	uint8_t * tsend = 0;
 
 	if( e->is_descriptor )
 	{
 		const struct descriptor_list_struct * dl = &descriptor_list[e->opaque];
 		tsend = ((uint8_t*)dl->addr);
 	}
-	else if( e->opaque )
+	else if( e->opaque == 1 )
 	{
-		// Yes, it's a 0xAA
 		tsend = scratchpad;
 	}
 
@@ -155,7 +150,7 @@ void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bi
 	if( tosend < 0 ) tosend = 0;
 	sendnow = tsend + offset;
 
-	if( !tosend )
+	if( !tosend || !tsend )
 	{
 		goto send_nada;
 	}
@@ -165,113 +160,109 @@ void usb_pid_handle_in( uint32_t this_token, uint8_t * data, uint32_t last_32_bi
 	}
 	return;
 send_nada:
-	sendnowo[0] = 0;
-	sendnowo[1] = 0; //CRC = 0
-	usb_send_data( sendnowo, 2, 2, sendtok );  //DATA = 0, 0 CRC.
+
+	//always0 -> //CRC = 0
+	usb_send_data( (uint8_t*)&always0, 2, 2, sendtok );  //DATA = 0, 0 CRC.
 }
 
-void usb_pid_handle_out( uint32_t this_token, uint8_t * data )
-{
-	struct rv003usb_internal * ist = &rv003usb_internal_data;
-
-	//We need to handle this here because we could have an interrupt in the middle of a control or big transfer.
-	//This will correctly swap back the endpoint.
-
-	//XXX NOTE: Acutally just not doing that.  Only support OUT on CP0
-	uint8_t addr = (this_token>>8) & 0x7f;
-//	uint8_t endp = (this_token>>15) & 0xf;
-//	if( endp >= ENDPOINTS ) return;
-	if( addr != 0 && addr != ist->my_address ) return;
-//	ist->current_endpoint = endp;
-	struct usb_endpoint * e = &ist->eps[0];
-	e->count_in = 0;  //Cancel any in transaction
-}
-
-void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, int32_t crc_ok, uint32_t length )
+void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, uint32_t length, struct rv003usb_internal * ist )
 {
 	//Received data from host.
-	struct rv003usb_internal * ist = &rv003usb_internal_data;
-	struct usb_endpoint * e = &ist->eps[ist->current_endpoint];
+	int cep = ist->current_endpoint;
+	struct usb_endpoint * e = &ist->eps[cep];
+
+	// Alrady received this packet.
 	if( e->toggle_out != which_data )
 	{
 		goto just_ack;
 	}
-
-	e->toggle_out = !e->toggle_out;
-
-	ist->control_max_len = 0;
-
-	if( ist->setup_request )
+	// XXX NOTE:  		e->toggle_out = !e->toggle_out; should be here.
+	if( cep == 0 )
 	{
-		struct usb_urb * s = __builtin_assume_aligned( (struct usb_urb *)(data+1), 4 );
+		e->toggle_out = !e->toggle_out;
+		if( ist->setup_request )
+		{
+			struct usb_urb * s = __builtin_assume_aligned( (struct usb_urb *)(data+1), 4 );
 
-		uint32_t wvi = s->lValueLSBIndexMSB;
-		//Send just a data packet.
-		e->count_in = 0;
-		e->count_out = 0;
-		e->opaque = 0;
-		e->is_descriptor = 0;
-		ist->setup_request = 0;
-		ist->control_max_len = 0;
+			uint32_t wvi = s->lValueLSBIndexMSB;
+			//Send just a data packet.
+			e->count_in = 0;
+			e->count_out = 0;
+			e->is_descriptor = 0;
+			ist->setup_request = 0;
+			ist->control_max_len = 0;
 
-		if( s->wRequestTypeLSBRequestMSB == 0x01a1 )
-		{
-			uint32_t wlen = s->wLength;
-			if( wlen > sizeof(scratchpad) ) wlen = sizeof(scratchpad);
-			// The host wants to read back from us.
-			ist->control_max_len = wlen;
-			e->opaque = 1;
-		}
-		if( s->wRequestTypeLSBRequestMSB == 0x0921 )
-		{
-			// Class request (Will be writing)
-			ist->control_max_len = sizeof( scratchpad );
-			e->opaque = 0xff;
-		}
-		else if( (s->wRequestTypeLSBRequestMSB & 0xff80) == 0x0680 )
-		{
-			int i;
-			const struct descriptor_list_struct * dl;
-			for( i = 0; i < DESCRIPTOR_LIST_ENTRIES; i++ )
+			if( s->wRequestTypeLSBRequestMSB == 0x01a1 )
 			{
-				dl = &descriptor_list[i];
-				if( dl->lIndexValue == wvi )
-					break;
+				// Class read request.
+				uint32_t wlen = s->wLength;
+				if( wlen > sizeof(scratchpad) ) wlen = sizeof(scratchpad);
+				// The host wants to read back from us.
+				ist->control_max_len = wlen;
+				e->opaque = 1;
 			}
-
-			if( i == DESCRIPTOR_LIST_ENTRIES )
+			else if( s->wRequestTypeLSBRequestMSB == 0x0921 )
 			{
-				//??? Somehow fail?  Is 'nak' the right thing? I don't know what to do here.
+				// Class request (Will be writing)  This is hid_send_feature_report
+				if( s->wLength == 0 )
+				{
+					// Execute Scratchpad.
+					void (*scratchexec)() = (void (*)()) scratchpad;
+					scratchexec();
+				}
+				else
+				{
+					ist->control_max_len = sizeof( scratchpad );
+					e->opaque = 2;
+				}
+			}
+			else if( (s->wRequestTypeLSBRequestMSB & 0xff80) == 0x0680 )
+			{
+				int i;
+				const struct descriptor_list_struct * dl;
+				for( i = 0; i < DESCRIPTOR_LIST_ENTRIES; i++ )
+				{
+					dl = &descriptor_list[i];
+					if( dl->lIndexValue == wvi )
+					{
+						// Send back descriptor.
+						e->opaque = i;
+						e->is_descriptor = 1;
+						uint16_t swLen = s->wLength;
+						uint16_t elLen = dl->length;
+						ist->control_max_len = (swLen < elLen)?swLen:elLen;
+						break;
+					}
+				}
+
 				goto just_ack;
 			}
-
-			// Send back descriptor.
-			e->opaque = i;
-			e->is_descriptor = 1;
-			uint16_t swLen = s->wLength;
-			uint16_t elLen = dl->length;
-			ist->control_max_len = (swLen < elLen)?swLen:elLen;
+			else if( s->wRequestTypeLSBRequestMSB == 0x0500 )
+			{
+				//Set address.
+				ist->my_address = wvi;
+				e->opaque = 0;
+			}
+			else
+			{
+				e->opaque = 0;
+			}
 		}
-		else if( s->wRequestTypeLSBRequestMSB == 0x0500 )
+		else
 		{
-			//Set address.
-			ist->my_address = wvi;
+			// Continuing data.
+			if( e->opaque == 2 )
+			{
+				uint8_t * start = &scratchpad[e->count_out];
+				int l = length-3;
+				int i;
+				for( i = 0; i < l; i++ )
+					start[i] = data[i+1];//((intptr_t)data)>>(i*8);
+				e->count_out += l;
+			}
+			// Allow user code to receive data.
 		}
 	}
-	else
-	{
-		if( e->opaque == 0xff  )
-		{
-			uint8_t * start = &scratchpad[e->count_out];
-			int l = length-3;
-			int i;
-			for( i = 0; i < l; i++ )
-				start[i] = data[i+1];//((intptr_t)data)>>(i*8);
-			e->count_out += l;
-		}
-		// Allow user code to receive data.
-	}
-
 just_ack:
 	{
 		//Got the right data.  Acknowledge.
@@ -280,9 +271,8 @@ just_ack:
 	return;
 }
 
-void usb_pid_handle_ack( uint32_t this_token, uint8_t * data )
+void usb_pid_handle_ack( uint32_t dummy, uint8_t * data, uint32_t dummy1, uint32_t dummy2, struct rv003usb_internal * ist  )
 {
-	struct rv003usb_internal * ist = &rv003usb_internal_data;
 	struct usb_endpoint * e = &ist->eps[ist->current_endpoint];
 	e->toggle_in = !e->toggle_in;
 	e->count_in++;
@@ -290,64 +280,7 @@ void usb_pid_handle_ack( uint32_t this_token, uint8_t * data )
 }
 
 
-void InterruptVector()         __attribute__((naked)) __attribute((section(".init"))) __attribute((weak,alias("InterruptVectorDefault")));
-void InterruptVectorDefault()  __attribute__((naked)) __attribute((section(".init")));
-//void EXTI7_0_IRQHandler( void )          __attribute__((section(".text.vector_handler"))) __attribute((weak,alias("DefaultIRQHandler"))) __attribute__((used));
-
-void InterruptVectorDefault()
-{
-	asm volatile( "\n\
-	.align  2\n\
-	.option   push;\n\
-	.option   norvc;\n\
-	j handle_reset\n\
-.option push\n\
-.option norelax\n\
-handle_reset:\n\
-	la gp, __global_pointer$\n\
-.option pop\n\
-	la sp, _eusrstack\n"
-".option pop\n"
-#if __GNUC__ > 10
-".option arch, +zicsr\n"
-#endif
-"\n\
-	li a0, 0x80\n\
-	csrw mstatus, a0\n\
-	li a3, 0x0\n\
-	csrw 0x804, a3\n\
-	li a0, 3\n\
-	csrw mtvec, a0\n\
-	la a0, _sbss\n\
-	la a1, _ebss\n\
-	li a2, 0\n\
-	bge a0, a1, 2f\n\
-1:	sw a2, 0(a0)\n\
-	addi a0, a0, 4\n\
-	blt a0, a1, 1b\n\
-2:\n\
-");
-asm volatile( "\
-	csrw mepc, %[main]\n\
-	mret\n\
-	.balign 16\n\
-	.word   EXTI7_0_IRQHandler         /* EXTI Line 7..0 */                 \n\
-" : : [main]"r"(main) );
-}
 
 
-void SystemInit48HSIUNSAFE( void )
-{
-	// Values lifted from the EVT.  There is little to no documentation on what this does.
-	RCC->CFGR0 = RCC_HPRE_DIV1 | RCC_PLLSRC_HSI_Mul2;      // PLLCLK = HSI * 2 = 48 MHz; HCLK = SYSCLK = APB1
-	RCC->CTLR  = RCC_HSION | RCC_PLLON | ((HSITRIM) << 3); // Use HSI, but enable PLL.
-	FLASH->ACTLR = FLASH_ACTLR_LATENCY_1;                  // 1 Cycle Latency
-	RCC->INTR  = 0x009F0000;                               // Clear PLL, CSSC, HSE, HSI and LSI ready flags.
-
-	// From SetSysClockTo_48MHZ_HSI
-//	while((RCC->CTLR & RCC_PLLRDY) == 0);                                      // Wait till PLL is ready
-	RCC->CFGR0 = ( RCC->CFGR0 & ((uint32_t)~(RCC_SW))) | (uint32_t)RCC_SW_PLL; // Select PLL as system clock source
-//	while ((RCC->CFGR0 & (uint32_t)RCC_SWS) != (uint32_t)0x08);                // Wait till PLL is used as system clock source
-}
 
 

@@ -5,12 +5,6 @@
 // Port D.4 = D-
 // Port D.5 = DPU
 
-#define DEBUG_PIN 2
-#define USB_DM 3     //DM MUST be BEFORE DP
-#define USB_DP 4
-#define USB_DPU 5
-#define USB_PORT GPIOD
-		
 #define USB_GPIO_BASE GPIOD_BASE
 
 // Packet Type + 8 + CRC + Buffer
@@ -18,26 +12,31 @@
 
 #define USB_DMASK ((1<<(USB_DM)) | 1<<(USB_DP))
 
-//Defines the number of endpoints for this device. (Always add one for EP0). For two EPs, this should be 3.
-#define ENDPOINTS 3
+#include "usb_config.h"
 
 #ifndef __ASSEMBLER__
-
-#include "usb_config.h"
 
 #define EMPTY_SEND_BUFFER (uint8_t*)1
 
 // These definitions are from espusb.
 
+#ifdef  REALLY_TINY_COMP_FLASH
+#define TURBO8TYPE uint32_t
+#else
+#define TURBO8TYPE uint8_t
+#endif
 
 struct usb_endpoint
 {
-	uint8_t count_in;	// ack count
-	uint8_t count_out;	// For future: When receiving data.
-	uint8_t opaque;     // For user.
-	uint8_t toggle_in;   // DATA0 or DATA1?
-	uint8_t toggle_out;  //Out PC->US
-	uint8_t is_descriptor;
+	TURBO8TYPE count_in;	// ack count
+	TURBO8TYPE count_out;	// For future: When receiving data.
+	TURBO8TYPE opaque;     // For user.
+	TURBO8TYPE toggle_in;   // DATA0 or DATA1?
+	TURBO8TYPE toggle_out;  //Out PC->US
+	TURBO8TYPE is_descriptor;
+#ifdef REALLY_TINY_COMP_FLASH
+	TURBO8TYPE reserved1, reserved2;
+#endif
 };
 
 struct rv003usb_internal
@@ -50,6 +49,9 @@ struct rv003usb_internal
 	uint32_t se0_windup;
 	uint8_t setup_request;
 	// 5 bytes + 6 * ENDPOINTS
+#ifdef REALLY_TINY_COMP_FLASH
+	uint8_t reserved1, reserved2, reserved3;
+#endif
 
 	struct usb_endpoint eps[ENDPOINTS];
 };

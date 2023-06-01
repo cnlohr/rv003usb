@@ -3,10 +3,21 @@
 
 // This is a freebie from ESPUSB
 
-#include <tinyusb_hid.h>
-
 //Defines the number of endpoints for this device. (Always add one for EP0). For two EPs, this should be 3.
 #define ENDPOINTS 2
+
+
+#define DEBUG_PIN 2
+#define USB_DM 3     //DM MUST be BEFORE DP
+#define USB_DP 4
+#define USB_DPU 5
+#define USB_PORT GPIOD
+
+#define REALLY_TINY_COMP_FLASH
+
+#ifndef __ASSEMBLER__
+
+#include <tinyusb_hid.h>
 
 #ifdef INSTANCE_DESCRIPTORS
 //Taken from http://www.usbmadesimple.co.uk/ums_ms_desc_dev.htm
@@ -18,8 +29,8 @@ static const uint8_t device_descriptor[] = {
 	0x0, //Device Subclass
 	0x0, //Device Protocol  (000 = use config descriptor)
 	0x08, //Max packet size for EP0 (This has to be 8 because of the USB Low-Speed Standard)
-	0xcd, 0xcd, //ID Vendor   //TODO: register this in http://pid.codes/howto/ or somewhere.
-	0x63, 0x15, //ID Product
+	0x09, 0x12, //ID Vendor   //TODO: register this in http://pid.codes/howto/ or somewhere.
+	0x03, 0xb0, //ID Product
 	0x02, 0x00, //ID Rev
 	1, //Manufacturer string
 	2, //Product string
@@ -55,7 +66,7 @@ static const uint8_t config_descriptor[] = {  //Mostly stolen from a USB mouse I
 	0x64,					// bMaxPower (200mA)
 
 
-	//Mouse
+	//HID THING
 	9,					// bLength
 	4,					// bDescriptorType
 	0,			// bInterfaceNumber (unused, would normally be used for HID)
@@ -85,10 +96,9 @@ static const uint8_t config_descriptor[] = {  //Mostly stolen from a USB mouse I
 
 //Ever wonder how you have more than 6 keys down at the same time on a USB keyboard?  It's easy. Enumerate two keyboards!
 
-
-#define STR_MANUFACTURER u"c"
-#define STR_PRODUCT      u"b"
-#define STR_SERIAL       u"💾"
+#define STR_MANUFACTURER u"cn"
+#define STR_PRODUCT      u"rv003usb"
+#define STR_SERIAL       u"BOOT"
 
 struct usb_string_descriptor_struct {
 	uint8_t bLength;
@@ -136,4 +146,5 @@ const static struct descriptor_list_struct {
 
 #endif // INSTANCE_DESCRIPTORS
 
+#endif // __ASSEMBLER__
 #endif 

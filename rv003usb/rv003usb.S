@@ -52,15 +52,15 @@ EXTI7_0_IRQHandler:
 	c.andi a0, USB_DMASK
 	c.beqz a0, handle_se0_keepalive
 
-	// If we've gotten here, it's a data packet.
-	lw a1, INDR_OFFSET(a5);c.andi a1, USB_DMASK;c.xor a1, a0;c.bnez a1, syncdone
-	lw a1, INDR_OFFSET(a5);c.andi a1, USB_DMASK;c.xor a1, a0;c.bnez a1, syncdone
-	lw a1, INDR_OFFSET(a5);c.andi a1, USB_DMASK;c.xor a1, a0;c.bnez a1, syncdone
-	lw a1, INDR_OFFSET(a5);c.andi a1, USB_DMASK;c.xor a1, a0;c.bnez a1, syncdone
-	lw a1, INDR_OFFSET(a5);c.andi a1, USB_DMASK;c.xor a1, a0;c.bnez a1, syncdone
+	/** TODO This can be significantly improved, so that we can quickly scan and compare/jump later. */
 
-	// OPTIMIZATION: I don't think we need this one.
-	lw a1, INDR_OFFSET(a5);c.andi a1, USB_DMASK;c.xor a1, a0;c.bnez a1, syncdone
+	// If we've gotten here, it's a data packet.
+	c.lw a1, INDR_OFFSET(a5);c.andi a1, USB_DMASK;c.xor a1, a0;c.bnez a1, syncdone
+	c.lw a1, INDR_OFFSET(a5);c.andi a1, USB_DMASK;c.xor a1, a0;c.bnez a1, syncdone
+	c.lw a1, INDR_OFFSET(a5);c.andi a1, USB_DMASK;c.xor a1, a0;c.bnez a1, syncdone
+	c.lw a1, INDR_OFFSET(a5);c.andi a1, USB_DMASK;c.xor a1, a0;c.bnez a1, syncdone
+	c.lw a1, INDR_OFFSET(a5);c.andi a1, USB_DMASK;c.xor a1, a0;c.bnez a1, syncdone
+	c.lw a1, INDR_OFFSET(a5);c.andi a1, USB_DMASK;c.xor a1, a0;c.bnez a1, syncdone
 
 	j interrupt_complete
 syncdone:
@@ -414,29 +414,72 @@ interrupt_complete:
 	addi	sp,sp,80
 	mret
 
+///////////////////////////////////////////////////////////////////////////////
+// High level functions.
+
+/*
+void usb_pid_handle_ack( uint32_t dummy, uint8_t * data, uint32_t dummy1, uint32_t dummy2, struct rv003usb_internal * ist  )
+{
+	struct usb_endpoint * e = &ist->eps[ist->current_endpoint];
+	e->toggle_in = !e->toggle_in;
+	e->count_in++;
+	return;
+}
+*/
+/*
+usb_pid_handle_ack:
+	lb a2, 0(a4) //ist->current_endpoint -> endp;
+	c.slli a2, 3
+	c.add a2, a4
+	c.addi a2, 16 // usb_endpoint eps[ENDPOINTS];
+
+	lb a0, 3(a2) // toggle_in=!toggle_in
+	c.li a1, 1
+	c.xor a0, a1
+	sb a0, 3(a2)
+
+	lb a0, 0(a2)
+	c.addi a0, 1
+	sb a0, 0(a2)
+
+	c.j done_usb_message_in
+*/
+//	uint8_t reserved1;
+
+
+
+//We need to handle this here because we could have an interrupt in the middle of a control or big transfer.
+//This will correctly swap back the endpoint.
+usb_pid_handle_out:
+	//void usb_pid_handle_out( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )	
+	sb a2, 0(a4) //ist->current_endpoint = endp;
+	c.j done_usb_message_in
+
+
 handle_se0_keepalive:
 	// In here, we want to do smart stuff with the
 	// 1ms tick.
 	la  a0, SYSTICK_CNT
 	la a4, rv003usb_internal_data
-	lw a1, 4(a4) //last cycle count   last_se0_cyccount
-	lw a2, 0(a0) //this cycle count
-	sw a2, 4(a4) //store it back to last_se0_cyccount
-	sub a2, a2, a1
-	sw a2, 8(a4) //record delta_se0_cyccount
+	c.lw a1, 4(a4) //last cycle count   last_se0_cyccount
+	c.lw a2, 0(a0) //this cycle count
+	c.sw a2, 4(a4) //store it back to last_se0_cyccount
+	c.sub a2, a1
+	c.sw a2, 8(a4) //record delta_se0_cyccount
 
 	li a1, 48000
-	sub a2, a2, a1
+	c.sub a2, a1
 	// This is our deviance from 48MHz.
 
+	// Make sure we aren't in left field.
 	li a5, 4000
 	bge a2, a5, interrupt_complete
 	li a5, -4000
 	blt a2, a5, interrupt_complete
 
-	lw a1, 12(a4) // load windup se0_windup
-	add a1, a2, a1
-	sw a1, 12(a4) // save windup
+	c.lw a1, 12(a4) // load windup se0_windup
+	c.add a1, a2
+	c.sw a1, 12(a4) // save windup
 
 
 	// No further adjustments
@@ -461,16 +504,7 @@ handle_se0_keepalive:
 	or a0, a0, a3
 	sw a0, 0(a4)
 
-
 	j interrupt_complete
-
-
-
-
-
-
-
-
 
 
 
@@ -745,4 +779,66 @@ insert_stuffed_bit:
 	c.nop
 	sw s1, BSHR_OFFSET(a5)
 	c.j send_end_bit_complete
+
+
+
+#ifdef USE_TINY_BOOT
+
+
+// TINY BOOT!!!
+
+//void EXTI7_0_IRQHandler( void )          __attribute__((section(".text.vector_handler"))) __attribute((weak,alias("DefaultIRQHandler"))) __attribute__((used));
+
+#define NUMPASTE( x ) #x
+
+.section .init
+.global InterruptVector
+InterruptVector:
+	.align  2
+	.option   push;
+	.option   norvc;
+	j handle_reset
+	.option push
+	.option norelax
+handle_reset:
+	la gp, __global_pointer$
+.option pop
+	la sp, _eusrstack
+.option pop
+#if __GNUC__ > 10
+.option arch, +zicsr
+#endif
+	li a0, 0x80
+	csrw mstatus, a0
+	c.li a0, 3
+	csrw mtvec, a0
+	la a0, _sbss
+	la a1, _ebss
+	c.li a2, 0
+	bge a0, a1, 2f
+1:	c.sw a2, 0(a0)
+	c.addi a0, 4
+	blt a0, a1, 1b
+2:
+	/* SystemInit48HSI */
+	la a2, RCC_BASE
+	la a3, FLASH_R_BASE
+	//sw x0, 4(a2)                          /* RCC->CFGR0 = RCC_HPRE_DIV1 | RCC_PLLSRC_HSI_Mul2*/
+	li a1, 0x00000001 | 0x01000000 | 0x80 /* RCC->CTLR RCC_HSION | RCC_PLLON | ((HSITRIM) << 3) */
+	c.sw a1, 0(a2)
+	c.li a1, 0x01       /* FLASH_ACTLR_LATENCY_1 */
+	c.j after_irq
+.balign 16
+	.word   EXTI7_0_IRQHandler            /* EXTI Line 7..0 */
+
+after_irq:
+	c.sw a1, 0(a3)      /* FLASH->ACTLR = FLASH_ACTLR_LATENCY_1 */
+//	li a1, 0x009F0000
+//	c.sw a1, 8(a2)      /* RCC->INTR  = 0x009F0000  I don't think this is needed. */
+	c.li a1, 0x00000002 /* RCC->CFGR0 |= RCC_SW_PLL */
+	c.sw a1, 4(a2)
+	la a0, main
+	csrw mepc, a0
+	mret
+#endif
 
