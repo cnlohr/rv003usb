@@ -18,7 +18,7 @@ Project is not ready for prime time.  Proof of concept works, we are on track fo
 :white_check_mark: Optimize high-level stack.  
 :white_square_button: Fit in bootloader  
 :white_check_mark: Use HID custom messages.  
-:white_check_mark: Improve sync sled.  
+:grey_exclamation: Improve sync sled.  
 :white_square_button: Make demos  
 :white_square_button: API For self-flashing + printf from bootloader  
 :warning: Enable retiming (Requires a few more cycles, will be major effort)  
