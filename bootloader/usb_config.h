@@ -96,7 +96,7 @@ static const uint8_t config_descriptor[] = {  //Mostly stolen from a USB mouse I
 
 //Ever wonder how you have more than 6 keys down at the same time on a USB keyboard?  It's easy. Enumerate two keyboards!
 
-#define STR_MANUFACTURER u"cn"
+#define STR_MANUFACTURER u""
 #define STR_PRODUCT      u"rv003usb"
 #define STR_SERIAL       u"NBTT" // Need to change to BOOT when we finally decide on a flashing mechanism.
 
