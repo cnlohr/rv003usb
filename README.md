@@ -1,4 +1,5 @@
 # Using USB on the CH32V003
+(No, that's not a typo)
 
 Bit banged USB stack for the RISC-V WCH CH32V003.
 
