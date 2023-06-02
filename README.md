@@ -1,9 +1,9 @@
 # Using USB on the CH32V003
 (No, that's not a typo)
 
-Bit banged USB stack for the RISC-V WCH CH32V003.
+Bit banged USB stack for the RISC-V WCH CH32V003, using [ch32v003fun](https://github.com/cnlohr/ch32v003fun).
 
-Project is not ready for prime time.  Proof of concept works, we are on track for proper releases soon.  See the list below.  Can you help out?
+### WARNING: Project is not ready for prime time.  Proof of concept works, we are on track for proper releases soon.  Maybe you can help out!
 
 :white_check_mark: Able to go on-bus and receive USB frames  
 :white_check_mark: Compute CRC in-line while receiving data  
@@ -22,6 +22,7 @@ Project is not ready for prime time.  Proof of concept works, we are on track fo
 :white_check_mark: Use HID custom messages.  
 :grey_exclamation: Improve sync sled.  
 :white_square_button: Make minichlink able to use bootloader.  
+:warning: Arduino support (someone else will have to take this on)  
 :white_square_button: Make demos  
 :white_square_button: API For self-flashing + printf from bootloader  
 :warning: Enable retiming (Requires a few more cycles, will be major effort)  
