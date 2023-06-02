@@ -104,7 +104,7 @@ int main()
 
 	while(1)
 	{
-		printf( "%u %u %d %08x\n", rv003usb_internal_data.delta_se0_cyccount, rv003usb_internal_data.last_se0_cyccount, rv003usb_internal_data.se0_windup, RCC->CTLR );
+		printf( "%lu %lu %lu %08lx\n", rv003usb_internal_data.delta_se0_cyccount, rv003usb_internal_data.last_se0_cyccount, rv003usb_internal_data.se0_windup, RCC->CTLR );
 	}
 }
 
@@ -151,32 +151,47 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	// Do this down here.
 	// We do this because we are required to have an in-endpoint.  We don't
 	// have to do anything with it, though.
-	if( endp )
-	{
-		TIM1->CNT = 0;
-		goto send_nada;
-	}
-
 	uint8_t * tsend = 0;
 
-	if( e->is_descriptor )
+	if( endp == 1 )
 	{
-		const struct descriptor_list_struct * dl = &descriptor_list[e->opaque];
-		tsend = ((uint8_t*)dl->addr);
+		static uint8_t tsamouse[8] = { 0x00, 0x10, 0x10, 0x00 };
+		//tsamouse[0] ^= 1;  // click
+		// Jiggle mouse diagonally.
+		tsamouse[1] = -tsamouse[1];
+		tsamouse[2] = -tsamouse[2];
+		sendnow = tsamouse;
+		tosend = 4;
 	}
-	else if( e->opaque == 1 )
+	else if( endp == 2 )
 	{
-		// Yes, it's a 0xAA
-		tsend = scratchpad;
+		static uint8_t tsakeyboard[8] = { 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00 };
+		tsakeyboard[2] ^= 0x08;  // Press/unpress, 0x02/0x0a => 'g' button
+		sendnow = tsakeyboard;
+		tosend = 8;
+	}
+	else
+	{
+		if( e->is_descriptor )
+		{
+			const struct descriptor_list_struct * dl = &descriptor_list[e->opaque];
+			tsend = ((uint8_t*)dl->addr);
+		}
+		else if( e->opaque == 1 )
+		{
+			// Yes, it's a 0xAA
+			tsend = scratchpad;
+		}
+
+		int offset = (e->count_in)<<3;
+		tosend = ist->control_max_len - offset;
+		if( tosend > ENDPOINT0_SIZE ) tosend = ENDPOINT0_SIZE;
+		sendnow = tsend + offset;
 	}
 
-	int offset = (e->count_in)<<3;
-	tosend = ist->control_max_len - offset;
-	if( tosend > ENDPOINT0_SIZE ) tosend = ENDPOINT0_SIZE;
 	if( tosend < 0 ) tosend = 0;
-	sendnow = tsend + offset;
 
-	if( !tosend || !tsend )
+	if( !tosend || !sendnow )
 	{
 		goto send_nada;
 	}

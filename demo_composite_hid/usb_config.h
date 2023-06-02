@@ -1,7 +1,18 @@
 #ifndef _USB_CONFIG_H
 #define _USB_CONFIG_H
 
-// This is a freebie from ESPUSB
+//Defines the number of endpoints for this device. (Always add one for EP0). For two EPs, this should be 3.
+#define ENDPOINTS 3
+
+#define DEBUG_PIN 2
+#define USB_DM 3     //DM MUST be BEFORE DP
+#define USB_DP 4
+#define USB_DPU 5
+#define USB_PORT GPIOD
+
+#define REALLY_TINY_COMP_FLASH
+
+#ifndef __ASSEMBLER__
 
 #include <tinyusb_hid.h>
 
@@ -218,5 +229,7 @@ const static struct descriptor_list_struct {
 #define DESCRIPTOR_LIST_ENTRIES ((sizeof(descriptor_list))/(sizeof(struct descriptor_list_struct)) )
 
 #endif // INSTANCE_DESCRIPTORS
+
+#endif
 
 #endif 

@@ -3,7 +3,7 @@
 
 // This is a freebie from ESPUSB
 
-//Defines the number of endpoints for this device. (Always add one for EP0). For two EPs, this should be 3.
+//Defines the number of endpoints for this device. (Always add one for EP0). For two EPs, this should be 3.  For one, 2.
 #define ENDPOINTS 2
 
 
