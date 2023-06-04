@@ -35,6 +35,11 @@
  extern "C" {
 #endif
 
+#define TU_U16_HIGH(u16)      ((uint8_t) (((u16) >> 8) & 0x00ff))
+#define TU_U16_LOW(u16)       ((uint8_t) ((u16)       & 0x00ff))
+#define U16_TO_U8S_BE(u16)    TU_U16_HIGH(u16), TU_U16_LOW(u16)
+#define U16_TO_U8S_LE(u16)    TU_U16_LOW(u16), TU_U16_HIGH(u16)
+
 #define TU_ATTR_PACKED __attribute__((packed))
 #define TU_BIT( x ) (1<<(x))
 //--------------------------------------------------------------------+

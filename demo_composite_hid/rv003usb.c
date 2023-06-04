@@ -104,7 +104,10 @@ int main()
 
 	while(1)
 	{
-		printf( "%lu %lu %lu %08lx\n", rv003usb_internal_data.delta_se0_cyccount, rv003usb_internal_data.last_se0_cyccount, rv003usb_internal_data.se0_windup, RCC->CTLR );
+		__disable_irq();
+		asm volatile( "c.nop; c.nop;c.nop; c.nop;c.nop; c.nop;c.nop; c.nop;c.nop; c.nop;c.nop; c.nop;c.nop; c.nop;c.nop; c.nop;c.nop; c.nop;c.nop; c.nop;c.nop; c.nop;c.nop; c.nop;c.nop; c.nop;" );
+		__enable_irq();
+		//printf( "%lu %lu %lu %08lx\n", rv003usb_internal_data.delta_se0_cyccount, rv003usb_internal_data.last_se0_cyccount, rv003usb_internal_data.se0_windup, RCC->CTLR );
 	}
 }
 
@@ -155,18 +158,18 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 
 	if( endp == 1 )
 	{
-		static uint8_t tsamouse[8] = { 0x00, 0x10, 0x10, 0x00 };
+		static uint8_t tsamouse[8] = { 0x00, 0x00, 0x00, 0x00 };
 		//tsamouse[0] ^= 1;  // click
 		// Jiggle mouse diagonally.
-		tsamouse[1] = -tsamouse[1];
-		tsamouse[2] = -tsamouse[2];
+		//tsamouse[1] = -tsamouse[1];
+		//tsamouse[2] = -tsamouse[2];
 		sendnow = tsamouse;
 		tosend = 4;
 	}
 	else if( endp == 2 )
 	{
 		static uint8_t tsakeyboard[8] = { 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00 };
-		tsakeyboard[2] ^= 0x08;  // Press/unpress, 0x02/0x0a => 'g' button
+		//tsakeyboard[2] ^= 0x08;  // Press/unpress, 0x02/0x0a => 'g' button
 		sendnow = tsakeyboard;
 		tosend = 8;
 	}

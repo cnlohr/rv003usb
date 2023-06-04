@@ -45,89 +45,88 @@ EXTI7_0_IRQHandler:
 	addi	sp,sp,-80
 	sw	a0, 0(sp)
 	sw	a5, 20(sp)
-	sw	a1, 4(sp)
-
 	la a5, USB_GPIO_BASE
-	lw a0, INDR_OFFSET(a5)
+	c.lw a0, INDR_OFFSET(a5) // MUST check SE0 immediately.
 	c.andi a0, USB_DMASK
+
+	sw	a1, 4(sp)
+	sw	a2, 8(sp)
+	sw	a3, 12(sp)
+	sw	a4, 16(sp)
+	sw	s1, 28(sp)
+
+	SAVE_DEBUG_MARKER( 48 );
+	DEBUG_TICK_SETUP
+	c.lw a2, INDR_OFFSET(a5)
+	c.andi a2, USB_DMASK;
+
+	// Finish jump to se0
 	c.beqz a0, handle_se0_keepalive
 
-	/** TODO This can be significantly improved, so that we can quickly scan and compare/jump later. */
+	c.lw a1, INDR_OFFSET(a5); c.andi a1, USB_DMASK; bne a1, a2, syncout
+	c.lw a1, INDR_OFFSET(a5); c.andi a1, USB_DMASK; bne a1, a2, syncout
+	c.lw a1, INDR_OFFSET(a5); c.andi a1, USB_DMASK; bne a1, a2, syncout
+	c.lw a1, INDR_OFFSET(a5); c.andi a1, USB_DMASK; bne a1, a2, syncout
+	c.lw a1, INDR_OFFSET(a5); c.andi a1, USB_DMASK; bne a1, a2, syncout
+	c.lw a1, INDR_OFFSET(a5); c.andi a1, USB_DMASK; bne a1, a2, syncout
+	c.lw a1, INDR_OFFSET(a5); c.andi a1, USB_DMASK; bne a1, a2, syncout
+syncout:
+	sw	s0, 24(sp)
+	li a2, 0
+	sw	t0, 32(sp)
+	sw	t1, 36(sp)
 
-	// If we've gotten here, it's a data packet.
-	c.lw a1, INDR_OFFSET(a5);c.andi a1, USB_DMASK;c.xor a1, a0;c.bnez a1, syncdone
-	c.lw a1, INDR_OFFSET(a5);c.andi a1, USB_DMASK;c.xor a1, a0;c.bnez a1, syncdone
-	c.lw a1, INDR_OFFSET(a5);c.andi a1, USB_DMASK;c.xor a1, a0;c.bnez a1, syncdone
-	c.lw a1, INDR_OFFSET(a5);c.andi a1, USB_DMASK;c.xor a1, a0;c.bnez a1, syncdone
-	c.lw a1, INDR_OFFSET(a5);c.andi a1, USB_DMASK;c.xor a1, a0;c.bnez a1, syncdone
-	c.lw a1, INDR_OFFSET(a5);c.andi a1, USB_DMASK;c.xor a1, a0;c.bnez a1, syncdone
 
-	j interrupt_complete
-syncdone:
+	// We are coarsely sync'd here.
 
 	// This will be called when we have synchronized our USB.  We can put our
 	// preamble detect code here.  But we have a whole free USB bit cycle to
 	// do whatever we feel like.
 
-	// NOTE NOTE TODO: This can be abused to shift the time when we are
-	// sampling in our phase.
-	sw	a2, 8(sp)
-	sw	a3, 12(sp)
-	sw	a4, 16(sp)
-	sw	s0, 24(sp)
-	sw	s1, 28(sp)
-	sw	t0, 32(sp)
-	sw	t1, 36(sp)
-	sw  t2, 40(sp) // 16 cycles
-	SAVE_DEBUG_MARKER( 48 );
-	sw  ra, 52(sp)
+	// A little weird, but this way, the USB packet is always aligned.
+#define DATA_PTR_OFFSET (59+4)
+	
+	// This is actually somewhat late.
+	// The preamble loop should try to make it earlier.
+.balign 4
+preamble_loop:
+	DEBUG_TICK_MARK
+	c.lw a0, INDR_OFFSET(a5);
+	c.andi a0, USB_DMASK;
+	c.beqz a0, done_usb_message // SE0 here?
+	c.xor a0, a1;
+	c.xor a1, a0; // Recover a1.
+	c.beqz a0, done_preamble
+	j 1f; 1: // 4 cycles?
+	j 1f; 1: // 4 cycles?
+	c.lw s0, INDR_OFFSET(a5);
+	c.andi s0, USB_DMASK;
+	c.xor s0, a1
+	// If s0 is nonzero, then it's changed (we're going too slow)
+	c.bnez s0, 2f;
+	c.j 1f; 1:
+	2:
+	j preamble_loop // 4 cycles
+.balign 4
+done_preamble:
+	DEBUG_TICK_MARK
+	DEBUG_TICK_MARK
 	sw  x3, 56(sp)
+	sw  t2, 40(sp)
+	sw  ra, 52(sp)
 	// 16-byte temporary buffer at 56+sp
 
 	// a5 points to our port's input.
 	la  t0, 0x80
 
-	// A little weird, but this way, the USB packet is always aligned.
-#define DATA_PTR_OFFSET (59+4)
 	addi  t2, sp, DATA_PTR_OFFSET //rv003usb_internal_data
 
-	DEBUG_TICK_SETUP
-
-	c.xor a1, a0 // Recover a1
-
-	//XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-	//For now, we are trimming the clock by adding stuff here...
-	c.nop;	c.nop;	c.nop;	c.nop;	c.nop;	c.nop;
-
-
-	//TUNE TUNE TUNE TUNE TUNE
-
-	DEBUG_TICK_MARK
-.balign 4
-preamble_loop:
-	lw a0, INDR_OFFSET(a5);
-	c.andi a0, USB_DMASK;
-	c.xor a0, a1;
-	c.xor a1, a0; // Recover a1.
-	c.beqz a0, done_preamble
-	// 6 cycles
-	nx6p3delay( 3, s0 ); // 21 cycles
-	c.nop
-	j preamble_loop // 4 cycles
-.balign 4
-done_preamble:
-
 	// Need to delay about 24 cycles
-	li a2, 0
-
 	li a4, 0xa001
 	li a3, 0xffff // Starting CRC of 0.   Because USB doesn't respect reverse CRCing.
 
 	// This is the first bit that matters.
 	li s0, 6 // 1 runs.
-
-	// Two free instructions here if you want them.
-	c.nop; c.nop;
 
 	/* register meanings:
 		* T0 = temp
@@ -145,15 +144,12 @@ done_preamble:
 */
 	// XXX TODO: Do one byte here to determine the header byte and from that set the CRC.
 	li s1, 8
-	li a2, 0
 
 ///////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////
 .balign 4
 packet_type_loop:
-	nx6p3delay(1, a0);
 	DEBUG_TICK_MARK
-
 	c.lw a0, INDR_OFFSET(a5);
 	c.andi a0, USB_DMASK;
 	c.beqz a0, done_usb_message // Not se0 complete, that can't happen here and be valid.
@@ -177,8 +173,12 @@ packet_type_loop:
 	c.addi s0, -1
 
 	c.addi s1, -1
-	c.bnez s1, packet_type_loop
-
+	c.beqz s1, packet_type_loop_done
+	c.j 1f; 1:
+	c.j 1f; 1:
+	c.j packet_type_loop
+.balign 4
+packet_type_loop_done:
 ///////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////	
 
@@ -202,7 +202,6 @@ packet_type_loop:
 	c.beqz a0, data_crc // XXX TODO REV'd (I guess it's backwards?)
 	li a4, 0x14	
 	li a3, 0x1e
-	DEBUG_TICK_MARK
 data_crc:
 
 
@@ -388,17 +387,21 @@ done_usb_message:
 done_usb_message_in:
 
 
-	lw	a2, 8(sp)
-	lw	a3, 12(sp)
-	lw	a4, 16(sp)
 	lw	s0, 24(sp)
 	lw	s1, 28(sp)
 	lw	t0, 32(sp)
 	lw	t1, 36(sp)
 	lw	t2, 40(sp)
-	RESTORE_DEBUG_MARKER(48)
 	lw  ra, 52(sp)
 	lw  x3, 56(sp)
+
+ret_from_se0:
+	lw	s1, 28(sp)
+	RESTORE_DEBUG_MARKER(48)
+	lw	a2, 8(sp)
+	lw	a3, 12(sp)
+	lw	a4, 16(sp)
+	lw	a1, 4(sp)
 
 interrupt_complete:
 	// Acknowledge interrupt.
@@ -410,7 +413,6 @@ interrupt_complete:
 	// Restore stack.
 	lw	a0, 0(sp)
 	lw	a5, 20(sp)
-	lw	a1, 4(sp)
 	addi	sp,sp,80
 	mret
 
@@ -446,8 +448,6 @@ usb_pid_handle_ack:
 */
 //	uint8_t reserved1;
 
-
-
 //We need to handle this here because we could have an interrupt in the middle of a control or big transfer.
 //This will correctly swap back the endpoint.
 usb_pid_handle_out:
@@ -459,6 +459,7 @@ usb_pid_handle_out:
 handle_se0_keepalive:
 	// In here, we want to do smart stuff with the
 	// 1ms tick.
+
 	la  a0, SYSTICK_CNT
 	la a4, rv003usb_internal_data
 	c.lw a1, 4(a4) //last cycle count   last_se0_cyccount
@@ -473,9 +474,9 @@ handle_se0_keepalive:
 
 	// Make sure we aren't in left field.
 	li a5, 4000
-	bge a2, a5, interrupt_complete
+	bge a2, a5, ret_from_se0
 	li a5, -4000
-	blt a2, a5, interrupt_complete
+	blt a2, a5, ret_from_se0
 
 	c.lw a1, 12(a4) // load windup se0_windup
 	c.add a1, a2
@@ -483,28 +484,28 @@ handle_se0_keepalive:
 
 
 	// No further adjustments
-	beqz a1, interrupt_complete
+	beqz a1, ret_from_se0
 
 	// 0x40021000 = RCC.CTLR
 	la a4, 0x40021000
 	lw a0, 0(a4)
-	srli a3, a0, 3 // Extract HSI Trim.
-	andi a3, a3, 0b11111
+	srli a2, a0, 3 // Extract HSI Trim.
+	andi a2, a2, 0b11111
 	li a5, 0xffffff07  
 	and a0, a0, a5	// Mask off non-HSI
 
 
 	// Decimate windup - use as HSIrim.
 	neg a1, a1
-	srai a3, a1, 9
-	addi a3, a3, 16  // add hsi offset.
+	srai a2, a1, 9
+	addi a2, a2, 16  // add hsi offset.
 
 	// Put trim in place in register.
-	slli a3, a3, 3
-	or a0, a0, a3
+	slli a2, a2, 3
+	or a0, a0, a2
 	sw a0, 0(a4)
 
-	j interrupt_complete
+	j ret_from_se0
 
 
 
