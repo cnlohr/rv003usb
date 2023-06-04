@@ -20,7 +20,7 @@ Bit banged USB stack for the RISC-V WCH CH32V003, using [ch32v003fun](https://gi
 :white_check_mark: Fit in bootloader (NOTE: Need to tighten more)  
 :grey_exclamation: Use hardware CRC to save space/time??  
 :white_check_mark: Use HID custom messages.  
-:grey_exclamation: Improve sync sled.  I.e. coarse and fine sledding.  
+:white_check_mark: Improve sync sled.  I.e. coarse and fine sledding.  
 :white_square_button: Abort on non-8-bit-aligned-frames.  
 :white_square_button: Make minichlink able to use bootloader.  
 :warning: Arduino support (someone else will have to take this on)  
