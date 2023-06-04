@@ -4,6 +4,8 @@
 //Defines the number of endpoints for this device. (Always add one for EP0). For two EPs, this should be 3.
 #define ENDPOINTS 2
 
+#define DEBUG_TIMING
+
 #define DEBUG_PIN 2
 #define USB_DM 3     //DM MUST be BEFORE DP
 #define USB_DP 4

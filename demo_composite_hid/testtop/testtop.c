@@ -11,8 +11,8 @@ int main()
 	printf( "HD: %p\n", hd );
 	if( !hd ) return -4;
 
-	uint8_t buffer0[8] = { 0 };
-	uint8_t buffer1[8] = { 0 };
+	uint8_t buffer0[128] = { 0 };
+	uint8_t buffer1[128] = { 0 };
 	int r;
 
 	int i;

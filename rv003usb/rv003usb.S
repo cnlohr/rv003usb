@@ -13,7 +13,6 @@
 #define nx6p3delay( n, freereg ) li freereg, ((n)+1); 1: c.addi freereg, -1; c.bnez freereg, 1b
 
 //See DEBUG_TIMING note in .c file.
-#define DEBUG_TIMING
 #ifdef DEBUG_TIMING
 #define DEBUG_TICK_SETUP la x4, (TIM1_BASE + 0x24) 	// for debug
 #define DEBUG_TICK_MARK .balign 4; sw x0, 0(x4)
@@ -61,7 +60,7 @@ EXTI7_0_IRQHandler:
 	c.andi a1, USB_DMASK;
 
 	// Finish jump to se0
-	c.beqz a1, handle_se0_keepalive
+	c.beqz a0, handle_se0_keepalive
 
 	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
 	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
@@ -70,12 +69,12 @@ EXTI7_0_IRQHandler:
 	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
 	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
 	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
+	c.j syncout
 syncout:
 	sw	s0, 24(sp)
 	li a2, 0
 	sw	t0, 32(sp)
 	sw	t1, 36(sp)
-
 
 	// We are coarsely sync'd here.
 
@@ -96,8 +95,8 @@ preamble_loop:
 	c.beqz a0, done_usb_message // SE0 here?
 	c.xor a0, a1;
 	c.xor a1, a0; // Recover a1.
-	c.beqz a0, done_preamble
 	j 1f; 1: // 4 cycles?
+	c.beqz a0, done_preamble
 	j 1f; 1: // 4 cycles?
 	c.lw s0, INDR_OFFSET(a5);
 	c.andi s0, USB_DMASK;
@@ -109,7 +108,6 @@ preamble_loop:
 	j preamble_loop // 4 cycles
 .balign 4
 done_preamble:
-	sw  x3, 56(sp)
 	sw  t2, 40(sp)
 	sw  ra, 52(sp)
 	// 16-byte temporary buffer at 56+sp
@@ -121,6 +119,13 @@ done_preamble:
 	c.li s0, 6 // 1 runs.
 
 	c.nop; 
+
+	// 8 extra cycles here cause errors.
+	// -5 cycles is too much.
+	// -4 to +6 cycles is OK
+
+	//XXX NOTE: It actuall wouldn't be too bad to inser an *extra* cycle here.
+
 
 	/* register meanings:
 		* T0 = temp
@@ -143,6 +148,8 @@ done_preamble:
 packet_type_loop:
 	// Up here to delay loop a tad, and we need to execute them anyway.
 	// TODO: Maybe we could further sync bits here instead of take up time?
+	// I.e. can we do what we're doing above, here, and take less time, but sync
+	// up when possible.
 	li a3, 0xffff // Starting CRC of 0.   Because USB doesn't respect reverse CRCing.
 	li a4, 0xa001
 	addi  t2, sp, DATA_PTR_OFFSET //rv003usb_internal_data
@@ -192,8 +199,6 @@ packet_type_loop:
 
 	// if a0 is 1 then it's DATA (full CRC) otheriwse,
 	// (0) for setup or PARTIAL CRC.
-	// x3 is preloaded with 0xa001 up above, SO we only
-	// need to do something IF it's 0!
 	// Careful:  This has to take a constant amount of time either way the branch goes.
 	c.beqz a0, data_crc
 	c.li a4, 0x14	
@@ -292,7 +297,7 @@ handle_bit_stuff:
 
 not_is_end_of_byte_and_bit_stuffed:
 	c.lw a0, INDR_OFFSET(a5);
-	DEBUG_TICK_MARK // Note: Out of order.
+	DEBUG_TICK_MARK // Note: Out of order.  Not sure why we need to.  But otherwise things go caddywompus.
 	c.andi a0, USB_DMASK;
 	c.beqz a0, se0_complete
 	c.xor a0, a1;
@@ -333,7 +338,6 @@ se0_complete:
 	addi a5, a0, -0b01001011
 
 	RESTORE_DEBUG_MARKER(48) // restore x4 for whatever in C land.
-	lw  x3, 56(sp)
 
 	la a4, rv003usb_internal_data
 
@@ -390,7 +394,6 @@ done_usb_message_in:
 	lw	t1, 36(sp)
 	lw	t2, 40(sp)
 	lw  ra, 52(sp)
-	lw  x3, 56(sp)
 
 ret_from_se0:
 	lw	s1, 28(sp)
