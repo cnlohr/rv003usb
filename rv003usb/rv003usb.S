@@ -57,19 +57,19 @@ EXTI7_0_IRQHandler:
 
 	SAVE_DEBUG_MARKER( 48 );
 	DEBUG_TICK_SETUP
-	c.lw a2, INDR_OFFSET(a5)
-	c.andi a2, USB_DMASK;
+	c.lw a1, INDR_OFFSET(a5)
+	c.andi a1, USB_DMASK;
 
 	// Finish jump to se0
-	c.beqz a0, handle_se0_keepalive
+	c.beqz a1, handle_se0_keepalive
 
-	c.lw a1, INDR_OFFSET(a5); c.andi a1, USB_DMASK; bne a1, a2, syncout
-	c.lw a1, INDR_OFFSET(a5); c.andi a1, USB_DMASK; bne a1, a2, syncout
-	c.lw a1, INDR_OFFSET(a5); c.andi a1, USB_DMASK; bne a1, a2, syncout
-	c.lw a1, INDR_OFFSET(a5); c.andi a1, USB_DMASK; bne a1, a2, syncout
-	c.lw a1, INDR_OFFSET(a5); c.andi a1, USB_DMASK; bne a1, a2, syncout
-	c.lw a1, INDR_OFFSET(a5); c.andi a1, USB_DMASK; bne a1, a2, syncout
-	c.lw a1, INDR_OFFSET(a5); c.andi a1, USB_DMASK; bne a1, a2, syncout
+	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
+	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
+	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
+	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
+	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
+	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
+	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
 syncout:
 	sw	s0, 24(sp)
 	li a2, 0
@@ -109,24 +109,18 @@ preamble_loop:
 	j preamble_loop // 4 cycles
 .balign 4
 done_preamble:
-	DEBUG_TICK_MARK
-	DEBUG_TICK_MARK
 	sw  x3, 56(sp)
 	sw  t2, 40(sp)
 	sw  ra, 52(sp)
 	// 16-byte temporary buffer at 56+sp
 
-	// a5 points to our port's input.
-	la  t0, 0x80
-
-	addi  t2, sp, DATA_PTR_OFFSET //rv003usb_internal_data
-
-	// Need to delay about 24 cycles
-	li a4, 0xa001
-	li a3, 0xffff // Starting CRC of 0.   Because USB doesn't respect reverse CRCing.
+	// XXX TODO: Do one byte here to determine the header byte and from that set the CRC.
+	c.li s1, 8
 
 	// This is the first bit that matters.
-	li s0, 6 // 1 runs.
+	c.li s0, 6 // 1 runs.
+
+	c.nop; 
 
 	/* register meanings:
 		* T0 = temp
@@ -142,13 +136,19 @@ done_preamble:
 		* S0 = Bit Stuff Place
 		* S1 = # output bits remaining.
 */
-	// XXX TODO: Do one byte here to determine the header byte and from that set the CRC.
-	li s1, 8
 
 ///////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////
 .balign 4
 packet_type_loop:
+	// Up here to delay loop a tad, and we need to execute them anyway.
+	// TODO: Maybe we could further sync bits here instead of take up time?
+	li a3, 0xffff // Starting CRC of 0.   Because USB doesn't respect reverse CRCing.
+	li a4, 0xa001
+	addi  t2, sp, DATA_PTR_OFFSET //rv003usb_internal_data
+	la  t0, 0x80
+	c.nop
+
 	DEBUG_TICK_MARK
 	c.lw a0, INDR_OFFSET(a5);
 	c.andi a0, USB_DMASK;
@@ -171,14 +171,9 @@ packet_type_loop:
 	c.or s0, a0
 	c.andi s0, 7
 	c.addi s0, -1
-
 	c.addi s1, -1
-	c.beqz s1, packet_type_loop_done
-	c.j 1f; 1:
-	c.j 1f; 1:
-	c.j packet_type_loop
-.balign 4
-packet_type_loop_done:
+	c.bnez s1, packet_type_loop
+
 ///////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////	
 
@@ -199,9 +194,11 @@ packet_type_loop_done:
 	// (0) for setup or PARTIAL CRC.
 	// x3 is preloaded with 0xa001 up above, SO we only
 	// need to do something IF it's 0!
-	c.beqz a0, data_crc // XXX TODO REV'd (I guess it's backwards?)
-	li a4, 0x14	
-	li a3, 0x1e
+	// Careful:  This has to take a constant amount of time either way the branch goes.
+	c.beqz a0, data_crc
+	c.li a4, 0x14	
+	c.li a3, 0x1e
+	.word 0x00000013 // nop, for alignment of data_crc.
 data_crc:
 
 
@@ -241,8 +238,8 @@ handle_zero_bit:
 //	c.beqz a0, slowwww
 //slowwww:
 	// If they are different, we need to sloowwww dowwwnnn
-	
-	// There is some free time.
+	// There is some free time.  Could do something interesting here!!!
+	// I was thinking we could put the resync code here.
 	c.nop; c.nop; c.nop; c.nop;
 
 
@@ -406,6 +403,8 @@ ret_from_se0:
 interrupt_complete:
 	// Acknowledge interrupt.
 	// EXTI->INTFR = 1<<4
+	c.j 1f; 1: // Extra little bit of delay to make sure we don't accidentally false fire.
+
 	la a5, EXTI_BASE + 20
 	li a0, (1<<USB_DP)
 	sw a0, 0(a5)
