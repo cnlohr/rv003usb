@@ -521,7 +521,7 @@ handle_se0_keepalive:
 .balign 4
 usb_send_data:
 	addi	sp,sp,-16
-//	sw	s0, 0(sp) // SEe sw s0, 0(sp) below.
+	sw	s0, 0(sp)
 	sw	s1, 4(sp)
 
 	la a5, USB_GPIO_BASE
@@ -541,9 +541,6 @@ usb_send_data:
 
 	//00: Universal push-pull output mode
 	c.sw a4, CFGLR_OFFSET(a5)
-
-	// We have quite some time now.
-	sw	s0, 0(sp)
 
 	li t1, (1<<USB_DM) | (1<<(USB_DP+16)) | (1<<USB_DP) | (1<<(USB_DM+16));
 
@@ -570,7 +567,8 @@ done_poly_check:
 	c.li a4, 6 // reset bit stuffing.
 	c.li a1, 15 // 15 bits.
 
-	c.nop; c.nop; c.nop;
+	//c.nop; c.nop; c.nop;
+	c.j pre_and_tok_send_inner_loop
 
 ////////////////////////////////////////////////////////////////////////////
 // Send preamble + token
@@ -723,9 +721,7 @@ send_end_bit_complete:
 	c.addi a1, -1
 	c.beqz a3, load_next_byte
 	// Wait an extra few cycles.
-	c.nop
-	c.nop
-	c.nop
+	c.j 1f; 1:
 	c.j send_inner_loop
 
 .balign 4
