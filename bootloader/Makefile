@@ -6,7 +6,7 @@ MINICHLINK?=../ch32v003fun/minichlink
 
 ADDITIONAL_C_FILES+=../rv003usb/rv003usb.S
 SYSTEM_C:=
-EXTRA_CFLAGS:=-I. -I../lib -DUSE_TINY_BOOT
+EXTRA_CFLAGS:=-I. -I../lib -DUSE_TINY_BOOT -I../rv003usb
 
 # Uncomment if you actually want to write to bootloader,
 # Otherwise just a test.

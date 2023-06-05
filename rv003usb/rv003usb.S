@@ -361,7 +361,7 @@ may_be_a_token:
 	bgeu a2, s0, done_usb_message // Make sure < ENDPOINTS
 	c.beqz a0,  yes_check_tokens
 	// Otherwise, we might have our assigned address.
-	lbu s0, 1(a4) //my_address
+	lbu s0, MY_ADDRESS_OFFSET_BYTES(a4)
 	bne s0, a0, done_usb_message // addr != 0 && addr != ours.
 yes_check_tokens:
 	addi a5, a5, (0b01001011-0b10000111)
@@ -424,6 +424,7 @@ interrupt_complete:
 ///////////////////////////////////////////////////////////////////////////////
 // High level functions.
 
+#ifdef REALLY_TINY_COMP_FLASH
 /*
 void usb_pid_handle_ack( uint32_t dummy, uint8_t * data, uint32_t dummy1, uint32_t dummy2, struct rv003usb_internal * ist  )
 {
@@ -433,25 +434,23 @@ void usb_pid_handle_ack( uint32_t dummy, uint8_t * data, uint32_t dummy1, uint32
 	return;
 }
 */
-/*
 usb_pid_handle_ack:
-	lb a2, 0(a4) //ist->current_endpoint -> endp;
-	c.slli a2, 3
+	c.lw a2, 0(a4) //ist->current_endpoint -> endp;
+	c.slli a2, 5
 	c.add a2, a4
-	c.addi a2, 16 // usb_endpoint eps[ENDPOINTS];
+	c.addi a2, ENDP_OFFSET // usb_endpoint eps[ENDPOINTS];
 
-	lb a0, 3(a2) // toggle_in=!toggle_in
+	c.lw a0, (3*4)(a2) // toggle_in=!toggle_in
 	c.li a1, 1
 	c.xor a0, a1
-	sb a0, 3(a2)
+	c.sw a0, (3*4)(a2)
 
-	lb a0, 0(a2)
+	c.lw a0, 0(a2)
 	c.addi a0, 1
-	sb a0, 0(a2)
+	c.sw a0, 0(a2)
 
 	c.j done_usb_message_in
-*/
-//	uint8_t reserved1;
+#endif
 
 //We need to handle this here because we could have an interrupt in the middle of a control or big transfer.
 //This will correctly swap back the endpoint.
@@ -467,11 +466,11 @@ handle_se0_keepalive:
 
 	la  a0, SYSTICK_CNT
 	la a4, rv003usb_internal_data
-	c.lw a1, 4(a4) //last cycle count   last_se0_cyccount
+	c.lw a1, LAST_SE0_OFFSET(a4) //last cycle count   last_se0_cyccount
 	c.lw a2, 0(a0) //this cycle count
-	c.sw a2, 4(a4) //store it back to last_se0_cyccount
+	c.sw a2, LAST_SE0_OFFSET(a4) //store it back to last_se0_cyccount
 	c.sub a2, a1
-	c.sw a2, 8(a4) //record delta_se0_cyccount
+	c.sw a2, DELTA_SE0_OFFSET(a4) //record delta_se0_cyccount
 
 	li a1, 48000
 	c.sub a2, a1
@@ -483,10 +482,9 @@ handle_se0_keepalive:
 	li a5, -4000
 	blt a2, a5, ret_from_se0
 
-	c.lw a1, 12(a4) // load windup se0_windup
+	c.lw a1, SE0_WINDUP_OFFSET(a4) // load windup se0_windup
 	c.add a1, a2
-	c.sw a1, 12(a4) // save windup
-
+	c.sw a1, SE0_WINDUP_OFFSET(a4) // save windup
 
 	// No further adjustments
 	beqz a1, ret_from_se0

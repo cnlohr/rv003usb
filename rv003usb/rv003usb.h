@@ -14,6 +14,20 @@
 
 #include "usb_config.h"
 
+
+#ifdef  REALLY_TINY_COMP_FLASH
+#define MY_ADDRESS_OFFSET_BYTES 4
+#define LAST_SE0_OFFSET         12
+#define DELTA_SE0_OFFSET        16
+#define SE0_WINDUP_OFFSET       20
+#define ENDP_OFFSET             28
+#else
+#define MY_ADDRESS_OFFSET_BYTES 1
+#define LAST_SE0_OFFSET         4
+#define DELTA_SE0_OFFSET        8
+#define SE0_WINDUP_OFFSET       12
+#endif
+
 #ifndef __ASSEMBLER__
 
 #define EMPTY_SEND_BUFFER (uint8_t*)1
@@ -21,9 +35,12 @@
 // This can be undone once support for fast-c.lbu / c.sbu is made available.
 #ifdef  REALLY_TINY_COMP_FLASH
 #define TURBO8TYPE uint32_t
+#define TURBO16TYPE uint32_t
 #else
 #define TURBO8TYPE uint8_t
+#define TURBO16TYPE uint16_t
 #endif
+
 
 struct usb_endpoint
 {
@@ -38,19 +55,17 @@ struct usb_endpoint
 #endif
 };
 
+
 struct rv003usb_internal
 {
-	uint8_t current_endpoint;
-	uint8_t my_address; // Will be 0 until set up.
-	uint16_t control_max_len;
+	TURBO8TYPE current_endpoint;
+	TURBO8TYPE my_address; // Will be 0 until set up.
+	TURBO16TYPE control_max_len;
 	uint32_t last_se0_cyccount;
 	int32_t delta_se0_cyccount;
 	uint32_t se0_windup;
-	uint8_t setup_request;
+	TURBO8TYPE setup_request;
 	// 5 bytes + 6 * ENDPOINTS
-#ifdef REALLY_TINY_COMP_FLASH
-	uint8_t reserved1, reserved2, reserved3;
-#endif
 
 	struct usb_endpoint eps[ENDPOINTS];
 };
