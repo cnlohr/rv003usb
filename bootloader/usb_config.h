@@ -41,13 +41,13 @@ static const uint8_t device_descriptor[] = {
 
 static const uint8_t special_hid_desc[] = { 
   HID_USAGE_PAGE ( HID_USAGE_PAGE_DESKTOP      )                 ,
-//  HID_USAGE      ( 0xff  )                 , // Needed?
-//  HID_COLLECTION ( HID_COLLECTION_APPLICATION )                 ,
-//    HID_REPORT_ID    ( 0xaa                                   )
-//    HID_USAGE        ( 0xff              ) ,
-//    HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE    ) ,
-//    HID_REPORT_COUNT ( 128 ) ,
-//  HID_COLLECTION_END
+  HID_USAGE      ( 0xff  )                 , // Needed?
+  HID_COLLECTION ( HID_COLLECTION_APPLICATION )                 ,
+    HID_REPORT_ID    ( 0xaa                                   )
+    HID_USAGE        ( 0xff              ) ,
+    HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE    ) ,
+    HID_REPORT_COUNT ( 128 ) ,
+  HID_COLLECTION_END
 };
 
 
@@ -105,12 +105,12 @@ struct usb_string_descriptor_struct {
 	uint8_t bDescriptorType;
 	const uint16_t wString[];
 };
+/*
 const static struct usb_string_descriptor_struct string0 __attribute__((section(".rodata"))) = {
 	4,
 	3,
 	{0x0409}
 };
-/*
 const static struct usb_string_descriptor_struct string1 __attribute__((section(".rodata")))  = {
 	sizeof(STR_MANUFACTURER),
 	3,
@@ -138,7 +138,7 @@ const static struct descriptor_list_struct {
 	{0x00000100, device_descriptor, sizeof(device_descriptor)},
 	{0x00000200, config_descriptor, sizeof(config_descriptor)},
 	{0x00002200, special_hid_desc, sizeof(special_hid_desc)},
-	{0x00000300, (const uint8_t *)&string0, 4},
+//	{0x00000300, (const uint8_t *)&string0, 4},
 //	{0x04090301, (const uint8_t *)&string1, sizeof(STR_MANUFACTURER)},
 	{0x04090302, (const uint8_t *)&string2, sizeof(STR_PRODUCT)},	
 	{0x04090303, (const uint8_t *)&string3, sizeof(STR_SERIAL)}

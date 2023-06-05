@@ -103,19 +103,21 @@ int main()
 			runword++;
 			if( runword == 0 )
 			{
-				FLASH->KEYR = FLASH_KEY1;
-				FLASH->KEYR = FLASH_KEY2;
+				// Boot to user program.
+#define DISABLE_BOOTLOAD
+#ifndef DISABLE_BOOTLOAD
 				FLASH->BOOT_MODEKEYR = FLASH_KEY1;
 				FLASH->BOOT_MODEKEYR = FLASH_KEY2;
 				FLASH->STATR = 0; // 1<<14 is zero, so, boot user code.
 				FLASH->CTLR = CR_LOCK_Set;
 				PFIC->SCTLR = 1<<31;
+#endif
 			}
 		}
 		else if( runword )
 		{
 			void (*scratchexec)( uint32_t *, uint32_t ) = (void (*)( uint32_t *, uint32_t ))(scratchpad+4);
-			scratchexec((uint32_t*)&scratchpad[0], runword);
+			scratchexec((uint32_t*)&scratchpad[0], &runword);
 		}
 	}
 }
@@ -281,7 +283,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 					if( *((uint32_t*)(start+4)) == 0x1234abcd )
 					{
 						*((uint32_t*)(start+4)) = 0;
-						runword = 1;						
+						runword = 1;
 					}
 					e->opaque = 0;
 				}
