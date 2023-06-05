@@ -103,7 +103,12 @@ int main()
 			runword++;
 			if( runword == 0 )
 			{
+				FLASH->KEYR = FLASH_KEY1;
+				FLASH->KEYR = FLASH_KEY2;
+				FLASH->BOOT_MODEKEYR = FLASH_KEY1;
+				FLASH->BOOT_MODEKEYR = FLASH_KEY2;
 				FLASH->STATR = 0; // 1<<14 is zero, so, boot user code.
+				FLASH->CTLR = CR_LOCK_Set;
 				PFIC->SCTLR = 1<<31;
 			}
 		}
