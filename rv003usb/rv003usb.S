@@ -450,6 +450,33 @@ usb_pid_handle_ack:
 	c.sw a0, 0(a2)
 
 	c.j done_usb_message_in
+
+/*
+//Received a setup for a specific endpoint.
+void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
+{
+	ist->current_endpoint = endp;
+	struct usb_endpoint * e = &ist->eps[endp];
+
+	e->toggle_out = 0;
+	e->count_in = 0;
+	e->toggle_in = 1;
+	ist->setup_request = 1;
+}*/
+usb_pid_handle_setup:
+	c.sw a2, 0(a4) // ist->current_endpoint = endp
+	c.li a1, 1
+	c.sw a1, SETUP_REQUEST_OFFSET(a4) //ist->setup_request = 1;
+	c.slli a2, 3+2
+	c.add a2, a4
+	c.sw a1, (28+12)(a2) //e->toggle_in = 1;
+	c.li a1, 0
+	c.sw a1, (28+0)(a2)
+	c.sw a1, (28+16)(a2)
+	c.j done_usb_message_in	
+
+
+
 #endif
 
 //We need to handle this here because we could have an interrupt in the middle of a control or big transfer.

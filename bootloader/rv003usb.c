@@ -14,7 +14,7 @@
 //#define DEBUG_TIMING
 
 #define SCRATCHPAD_SIZE 128
-extern volatile uint32_t runword;
+extern volatile int32_t runword;
 extern uint8_t scratchpad[128];
 uint32_t always0;
 
@@ -94,10 +94,20 @@ int main()
 	// enable interrupt
 	NVIC_EnableIRQ( EXTI7_0_IRQn );
 
-	runword = 0;
+	// Wait 5 seconds.
+	runword = 4278190080;
 	while(1)
 	{
-		if( runword )
+		if( runword < 0 )
+		{
+			runword++;
+			if( runword == 0 )
+			{
+				FLASH->STATR = 0; // 1<<14 is zero, so, boot user code.
+				PFIC->SCTLR = 1<<31;
+			}
+		}
+		else if( runword )
 		{
 			void (*scratchexec)( uint32_t *, uint32_t ) = (void (*)( uint32_t *, uint32_t ))(scratchpad+4);
 			scratchexec((uint32_t*)&scratchpad[0], runword);
@@ -108,6 +118,7 @@ int main()
 
 #define ENDPOINT0_SIZE 8 //Fixed for USB 1.1, Low Speed.
 
+#ifndef REALLY_TINY_COMP_FLASH
 
 //Received a setup for a specific endpoint.
 void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
@@ -116,10 +127,12 @@ void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, uint32_
 	struct usb_endpoint * e = &ist->eps[endp];
 
 	e->toggle_out = 0;
-	e->toggle_in = 1;
 	e->count_in = 0;
+	e->toggle_in = 1;
 	ist->setup_request = 1;
 }
+
+#endif
 
 void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
 {

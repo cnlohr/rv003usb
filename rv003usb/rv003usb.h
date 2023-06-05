@@ -21,6 +21,7 @@
 #define DELTA_SE0_OFFSET        16
 #define SE0_WINDUP_OFFSET       20
 #define ENDP_OFFSET             28
+#define SETUP_REQUEST_OFFSET    24
 #else
 #define MY_ADDRESS_OFFSET_BYTES 1
 #define LAST_SE0_OFFSET         4
