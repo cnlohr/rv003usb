@@ -73,7 +73,7 @@ EXTI7_0_IRQHandler:
 syncout:
 	sw	s0, 24(sp)
 	li a2, 0
-	sw	t0, 32(sp)
+	sw	t0, 32(sp)  // XXX NOTE: This is actually unused register - remove some day?
 	sw	t1, 36(sp)
 
 	// We are coarsely sync'd here.
@@ -101,8 +101,10 @@ preamble_loop:
 	c.lw s0, INDR_OFFSET(a5);
 	c.andi s0, USB_DMASK;
 	c.xor s0, a1
+
+	// TRICKY: This helps retime the USB sync.
 	// If s0 is nonzero, then it's changed (we're going too slow)
-	c.bnez s0, 2f;
+	c.bnez s0, 2f;  // This code takes 6 cycles or 8 cycles, depending.
 	c.j 1f; 1:
 	2:
 	j preamble_loop // 4 cycles
@@ -126,10 +128,12 @@ done_preamble:
 
 	//XXX NOTE: It actuall wouldn't be too bad to inser an *extra* cycle here.
 
-
 	/* register meanings:
-		* T0 = temp
+		* x4 = TP = used for triggering debug.
+
+		* T0 = Totally unushed.
 		* T1 = TEMPORARY
+		* T2 = Pointer to the memory address we are writing to.
 
 		* A0 = temp / current bit value.
 		* A1 = last-frame's GPIO values.
@@ -142,8 +146,6 @@ done_preamble:
 		* S1 = # output bits remaining.
 */
 
-///////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////
 .balign 4
 packet_type_loop:
 	// Up here to delay loop a tad, and we need to execute them anyway.
@@ -186,7 +188,7 @@ packet_type_loop:
 
 	// XXX Here, figure out CRC polynomial.
 
-	li s1, (USB_BUFFER_SIZE*8) // # of bits
+	li s1, (USB_BUFFER_SIZE*8) // # of bits we culd read.
 
 	// WARNING: a0 is bit-wise backwards here.
 	// 0xb4 for instance is a setup packet.
@@ -237,16 +239,12 @@ bit_process:
 handle_zero_bit:
 	c.xor a1, a0; // Recover a1, for next cycle
 
-	// Fixup clock...
-//	c.andi a4, USB_DMASK;
-//	c.xor a0, a4
-//	c.beqz a0, slowwww
-//slowwww:
+	// TODO: Do we have time to do time fixup here?
+	// Can we resync time here?
 	// If they are different, we need to sloowwww dowwwnnn
 	// There is some free time.  Could do something interesting here!!!
 	// I was thinking we could put the resync code here.
-	c.nop; c.nop; c.nop; c.nop;
-
+	c.j 1f; 1:  //Delay 4 cycles.
 
 	c.li s0, 6      // reset runs-of-one.
 	c.beqz a1, se0_complete
@@ -278,12 +276,12 @@ handle_one_bit:
 	c.xor a3, a0
 
 	c.srli a2, 1;  // shift a2 down by 1
-	or a2,a2, t0;  // It's a 1, or it in.
+	ori a2, a2, 0x80
 	c.beqz s0, handle_bit_stuff;
 
 	HANDLE_NEXT_BYTE(is_end_of_byte, beqz)
+	c.nop // Need extra delay here because we need more time if it's end-of-byte.
 	c.nop
-	c.nop //??? Why different from 0?
 	c.nop
 	c.bnez s1, bit_process // + 4 cycles
 	c.j done_usb_message
@@ -317,6 +315,11 @@ not_is_end_of_byte_and_bit_stuffed:
 
 .balign 4
 se0_complete:
+	// This is triggered when we finished getting a packet.
+	andi a0, s1, 7; // Make sure we received an even number of bytes.
+	c.bnez a0, done_usb_message
+
+
 
 	// Special: handle ACKs?
 	// Now we have to decide what we're doing based on the
@@ -509,13 +512,16 @@ handle_se0_keepalive:
 
 	j ret_from_se0
 
-
+//////////////////////////////////////////////////////////////////////////////
+// SEND DATA /////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
 
 
 //void usb_send_data( uint8_t * data, uint32_t length, uint32_t poly_function, uint32_t token );
 .balign 4
 usb_send_data:
 	addi	sp,sp,-16
+//	sw	s0, 0(sp) // SEe sw s0, 0(sp) below.
 	sw	s1, 4(sp)
 
 	la a5, USB_GPIO_BASE
@@ -547,10 +553,14 @@ usb_send_data:
 	c.slli a3, 7     //Put token further up so it gets sent later.
 	ori s0, a3, 0x40  
 
+	li t0, 0x0000
+	c.bnez a2, done_poly_check
+	li t0, 0xa001
+	li a2, 0xffff
+done_poly_check:
 
 	c.slli a1, 3 // bump up one extra to be # of bits
-	sw  a1, 12(sp)
-	//sw  s2, 8(sp) // backup if we want the CRC or not.
+	mv t2, a1
 
 	// t0 is our polynomial
 	// a2 is our running CRC.
@@ -609,19 +619,19 @@ pre_and_tok_done_sending_data:
 	// We have very little time here.  Just enough to do this.
 
 	//Restore size.
-	lw  a1, 12(sp)
+	mv a1, t2//lw  a1, 12(sp)
 	c.beqz a1, no_really_done_sending_data  //No actual payload?  Bail!
+	c.addi a1, -1
+//	beqz t2, no_really_done_sending_data 
 
-	li t0, 0x0000
-	c.bnez a2, done_poly_check
-	li t0, 0xa001
+	bnez t0, done_poly_check2
 	li a2, 0xffff
-done_poly_check:
+done_poly_check2:
 
 
 	// t0 is used for CRC
 	// t1 is free
-	// t2 is totally free.
+	// t2 is a backup of size.
 
 	// s1 is our last "state"
 	//    bit 0 is last "physical" state,
@@ -644,9 +654,10 @@ done_poly_check:
 
 //	c.j send_inner_loop
 .balign 4
-load_next_word:
+load_next_byte:
 	lb s0, 0(a0) //replace me with the QingKe v2 "special" opcode for this.
 	//c.addi a0, 2
+send_inner_loopp:
 	.long 0x00150513 // addi a0, a0, 1  (For alignment's sake)
 send_inner_loop:
 	/* High-level:
@@ -664,7 +675,6 @@ send_inner_loop:
 	c.andi a3, 1
 	// If a3 is 0, we should FLIP
 	// if a3 is 1, we should NOT flip.
-
 	c.beqz a3, send_zero_bit
 //send_one_bit:
 	//HANDLE_CRC (1 bit)
@@ -690,7 +700,6 @@ send_zero_bit:
 	// TODO Check me!
 	slli a3,a2,31 // Put a3s LSB into a0s MSB
 	c.srai a3,31    // Copy MSB into all other bits
-	c.srli a2,1
 
 	// Flip s1 (our bshr setting) by xoring it.
 	// 10.....01
@@ -699,20 +708,20 @@ send_zero_bit:
 	xor s1, s1, t1
 	sw s1, BSHR_OFFSET(a5)
 
+	c.li a4, 6 // reset bit stuffing.
+
 	// XXX XXX CRC down here to make bit stuffing timings line up.
+	c.srli a2,1
 	and a3,a3,t0
 	c.xor  a2,a3 
 
-	c.li a4, 6 // reset bit stuffing.
-	// DO NOT flip.  Allow a4 to increment.
-cont_after_jump:
-
 .balign 4
+cont_after_jump:
 send_end_bit_complete:
-	c.addi a1, -1
 	c.beqz a1, done_sending_data
 	andi a3, a1, 7
-	c.beqz a3, load_next_word
+	c.addi a1, -1
+	c.beqz a3, load_next_byte
 	// Wait an extra few cycles.
 	c.nop
 	c.nop
@@ -724,13 +733,10 @@ done_sending_data:
 	// BUT WAIT!! MAYBE WE NEED TO CRC!
 	beqz t0, no_really_done_sending_data
 	srli t0, t0, 8 // reset poly - we don't want it anymore.
-	beqz t0, second_crc_byte
-	li a1, 8 // Load 16 more bits out
+	li a1, 7 // Load 8 more bits out
+	beqz t0, send_inner_loopp  //Second CRC byte
 	// First CRC byte
 	not s0, a2 // get read to send out the CRC.
-	c.j send_inner_loop
-second_crc_byte:
-	li a1, 8 // Load 16 more bits out
 	c.j send_inner_loop
 
 
@@ -783,6 +789,9 @@ insert_stuffed_bit:
 	sw s1, BSHR_OFFSET(a5)
 	c.j send_end_bit_complete
 
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
 
 
 #ifdef USE_TINY_BOOT
