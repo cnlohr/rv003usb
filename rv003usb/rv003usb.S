@@ -325,7 +325,7 @@ se0_complete:
 	// Now we have to decide what we're doing based on the
 	// packet type.
 	addi  a1, sp, DATA_PTR_OFFSET
-	lbu  a0, 0(a1)
+	XW_C_LBU(a0, a1, 0);	//lbu  a0, 0(a1)
 
 	// 0010 => 01001011 => ACK
 	// 0011 => 11000011 => DATA0
@@ -361,7 +361,7 @@ may_be_a_token:
 	bgeu a2, s0, done_usb_message // Make sure < ENDPOINTS
 	c.beqz a0,  yes_check_tokens
 	// Otherwise, we might have our assigned address.
-	lbu s0, MY_ADDRESS_OFFSET_BYTES(a4)
+	XW_C_LBU(s0, a4, MY_ADDRESS_OFFSET_BYTES);	//	lbu s0, MY_ADDRESS_OFFSET_BYTES(a4)
 	bne s0, a0, done_usb_message // addr != 0 && addr != ours.
 yes_check_tokens:
 	addi a5, a5, (0b01001011-0b10000111)
@@ -475,15 +475,14 @@ usb_pid_handle_setup:
 	c.sw a1, (28+16)(a2)
 	c.j done_usb_message_in	
 
-
-
 #endif
 
 //We need to handle this here because we could have an interrupt in the middle of a control or big transfer.
 //This will correctly swap back the endpoint.
 usb_pid_handle_out:
 	//void usb_pid_handle_out( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )	
-	sb a2, 0(a4) //ist->current_endpoint = endp;
+	//sb a2, 0(a4) //ist->current_endpoint = endp;
+	XW_C_SB( a2, a4, 0 );
 	c.j done_usb_message_in
 
 
@@ -678,10 +677,12 @@ done_poly_check2:
 //	c.j send_inner_loop
 .balign 4
 load_next_byte:
-	lb s0, 0(a0) //replace me with the QingKe v2 "special" opcode for this.
-	//c.addi a0, 2
-send_inner_loopp:
-	.long 0x00150513 // addi a0, a0, 1  (For alignment's sake)
+	// CH32v003 has the XW extension.
+	// this replaces: lb s0, 0(a0)
+	XW_C_LBU(s0, a0, 0);
+	//lb s0, 0(a0)
+	//	.long 0x00150513 // addi a0, a0, 1  (For alignment's sake)
+	c.addi a0, 1
 send_inner_loop:
 	/* High-level:
 		* extract the LSB from s0
@@ -694,11 +695,11 @@ send_inner_loop:
 
 	// a3 is now the lsb of s0 (the 'next bit' to read out)
 	c.mv a3, s0
-	c.srli s0, 1 // Shift down into the next bit.
 	c.andi a3, 1
 	// If a3 is 0, we should FLIP
 	// if a3 is 1, we should NOT flip.
 	c.beqz a3, send_zero_bit
+	c.srli s0, 1 // Shift down into the next bit.
 //send_one_bit:
 	//HANDLE_CRC (1 bit)
 	andi a3, a2, 1
@@ -713,6 +714,7 @@ send_inner_loop:
 //Send 0 bit. (Flip)
 .balign 4
 send_zero_bit:
+	c.srli s0, 1 // Shift down into the next bit.
 
 	// Handle CRC (0 bit)
 	// a2 is our running CRC
@@ -755,7 +757,7 @@ done_sending_data:
 	beqz t0, no_really_done_sending_data
 	srli t0, t0, 8 // reset poly - we don't want it anymore.
 	li a1, 7 // Load 8 more bits out
-	beqz t0, send_inner_loopp  //Second CRC byte
+	beqz t0, send_inner_loop  //Second CRC byte
 	// First CRC byte
 	not s0, a2 // get read to send out the CRC.
 	c.j send_inner_loop
@@ -793,12 +795,6 @@ no_really_done_sending_data:
 	ret
 
 .balign 4
-poly_function:
-	mv s0, a3
-	c.li a1, 5
-	c.j send_inner_loop
-
-.balign 4
 // TODO: This seems to be either 222 or 226 (not 224) in cases.
 // It's off by 2 clock cycles.  Probably OK, but, hmm.
 insert_stuffed_bit:
@@ -818,10 +814,7 @@ insert_stuffed_bit:
 #ifdef USE_TINY_BOOT
 
 // TINY BOOT!!!
-
 //void EXTI7_0_IRQHandler( void )          __attribute__((section(".text.vector_handler"))) __attribute((weak,alias("DefaultIRQHandler"))) __attribute__((used));
-
-#define NUMPASTE( x ) #x
 
 .section .init
 .global InterruptVector
@@ -829,7 +822,7 @@ InterruptVector:
 	.align  2
 	.option   push;
 	.option   norvc;
-	j handle_reset
+//	j handle_reset  //No need!
 	.option push
 	.option norelax
 handle_reset:
@@ -861,29 +854,19 @@ handle_reset:
 	li a1, 0x00000001 | 0x01000000 | 0x80 /* RCC->CTLR RCC_HSION | RCC_PLLON | ((HSITRIM) << 3) */
 	c.sw a1, 0(a2)
 	c.li a1, 0x01       /* FLASH_ACTLR_LATENCY_1 */
+	c.sw a1, 0(a3)      /* FLASH->ACTLR = FLASH_ACTLR_LATENCY_1 */
+	c.li a1, 0x00000002 /* RCC->CFGR0 |= RCC_SW_PLL */
+	c.sw a1, 4(a2)
 	c.j after_irq
 .balign 16
 	.word   EXTI7_0_IRQHandler            /* EXTI Line 7..0 */
-
 after_irq:
-	c.sw a1, 0(a3)      /* FLASH->ACTLR = FLASH_ACTLR_LATENCY_1 */
 //	li a1, 0x009F0000
 //	c.sw a1, 8(a2)      /* RCC->INTR  = 0x009F0000  I don't think this is needed. */
-	c.li a1, 0x00000002 /* RCC->CFGR0 |= RCC_SW_PLL */
-	c.sw a1, 4(a2)
 	la a0, main
 	csrw mepc, a0
 	mret
 
-/*
-.option push
-.section bss
-.org 0x100
-.global scratchpad
-	scratchpad:
-	.word 0x00000000
-.option pop
-*/
 
 #endif
 

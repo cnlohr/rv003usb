@@ -95,7 +95,7 @@ int main()
 	NVIC_EnableIRQ( EXTI7_0_IRQn );
 
 	// Wait 5 seconds.
-	runword = 4278190080;
+	runword = -0x1000000; // Careful: Constant works out to a single lbu instruction.
 	while(1)
 	{
 		if( runword < 0 )
@@ -104,7 +104,7 @@ int main()
 			if( runword == 0 )
 			{
 				// Boot to user program.
-#define DISABLE_BOOTLOAD
+//#define DISABLE_BOOTLOAD
 #ifndef DISABLE_BOOTLOAD
 				FLASH->BOOT_MODEKEYR = FLASH_KEY1;
 				FLASH->BOOT_MODEKEYR = FLASH_KEY2;
@@ -116,8 +116,13 @@ int main()
 		}
 		else if( runword )
 		{
-			void (*scratchexec)( uint32_t *, uint32_t ) = (void (*)( uint32_t *, uint32_t ))(scratchpad+4);
-			scratchexec((uint32_t*)&scratchpad[0], &runword);
+			/* Scratchpad strucure:
+				4-bytes:		LONG( 0x000000aa )
+					... code (this is executed)
+			*/
+			typedef void (*setype)( uint32_t *, volatile int32_t * );
+			setype scratchexec = (setype)(scratchpad+4);
+			scratchexec( (uint32_t*)&scratchpad[0], &runword );
 		}
 	}
 }
@@ -230,6 +235,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			}
 			else if( s->wRequestTypeLSBRequestMSB == 0x0921 )
 			{
+				// Class write request.
 				ist->control_max_len = SCRATCHPAD_SIZE;
 				runword = 0; //request stoppage.
 				e->opaque = 2;
