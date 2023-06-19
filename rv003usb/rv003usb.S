@@ -30,6 +30,7 @@
 .global rv003usb_internal_data
 .global rv003usb_handle_packet
 .global usb_send_data
+.global main
 
 /* Register map
 	zero, ra, sp, gp, tp, t0, t1, t2
@@ -813,23 +814,18 @@ insert_stuffed_bit:
 
 #ifdef USE_TINY_BOOT
 
-// TINY BOOT!!!
-//void EXTI7_0_IRQHandler( void )          __attribute__((section(".text.vector_handler"))) __attribute((weak,alias("DefaultIRQHandler"))) __attribute__((used));
+// Absolutey bare-bones hardware initialization for bringing the chip up,
+// setting up the envrionment for C, switching to 48MHz clock, and booting
+// into main... as well as providing EXTI7_0_IRQHandler jump at interrupt
 
 .section .init
 .global InterruptVector
 InterruptVector:
 	.align  2
-	.option   push;
-	.option   norvc;
-//	j handle_reset  //No need!
-	.option push
-	.option norelax
-handle_reset:
+.option push
+.option norelax
 	la gp, __global_pointer$
-.option pop
-	la sp, _eusrstack
-.option pop
+	mv sp, gp //_eusrstack
 #if __GNUC__ > 10
 .option arch, +zicsr
 #endif
@@ -837,35 +833,37 @@ handle_reset:
 	csrw mstatus, a0
 	c.li a0, 3
 	csrw mtvec, a0
-	la a0, _sbss
-	la a1, _ebss	// Initialize RAM to 0.
-	c.li a2, 0
-	bge a0, a1, 2f
-1:	c.sw a2, 0(a0)
+	addi a0, gp, -2048 // will be 0x20000000
+	c.li a4, 0
+1:	c.sw a4, 0(a0)	// Clear RAM
 	c.addi a0, 4
-	blt a0, a1, 1b
+	blt a0, gp, 1b  // Iterate over RAM until it's cleared.
 2:
 	//XXX WARNING: NO .DATA SECTION IS AVAILABLE HERE!
-
 	/* SystemInit48HSI */
 	la a2, RCC_BASE
 	la a3, FLASH_R_BASE
-	//sw x0, 4(a2)                          /* RCC->CFGR0 = RCC_HPRE_DIV1 | RCC_PLLSRC_HSI_Mul2*/
 	li a1, 0x00000001 | 0x01000000 | 0x80 /* RCC->CTLR RCC_HSION | RCC_PLLON | ((HSITRIM) << 3) */
 	c.sw a1, 0(a2)
 	c.li a1, 0x01       /* FLASH_ACTLR_LATENCY_1 */
 	c.sw a1, 0(a3)      /* FLASH->ACTLR = FLASH_ACTLR_LATENCY_1 */
-	c.li a1, 0x00000002 /* RCC->CFGR0 |= RCC_SW_PLL */
+	c.li a1, 0x00000002 /* RCC->CFGR0 = RCC_SW_PLL */
 	c.sw a1, 4(a2)
-	c.j after_irq
-.balign 16
-	.word   EXTI7_0_IRQHandler            /* EXTI Line 7..0 */
-after_irq:
+	la a1, main
+	csrw mepc, a1
+.option pop
+	mret
+
+// CAREFUL THIS MUST BE EXACTLY AT 0x50
+. = 0x52 // Weird...  I don't know why this has to be 0x52, for it to be at 0x50.
+	.word EXTI7_0_IRQHandler            /* EXTI Line 7..0 */
+
 //	li a1, 0x009F0000
 //	c.sw a1, 8(a2)      /* RCC->INTR  = 0x009F0000  I don't think this is needed. */
-	la a0, main
-	csrw mepc, a0
-	mret
+
+
+.align 0
+.balign 0
 
 
 #endif

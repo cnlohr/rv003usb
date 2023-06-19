@@ -139,7 +139,7 @@ const static struct descriptor_list_struct {
 	{0x00000200, config_descriptor, sizeof(config_descriptor)},
 	{0x00002200, special_hid_desc, sizeof(special_hid_desc)},
 	{0x00000300, (const uint8_t *)&string0, 4},
-//	{0x04090301, (const uint8_t *)&string1, sizeof(STR_MANUFACTURER)},
+	//{0x04090301, (const uint8_t *)&string1, sizeof(STR_MANUFACTURER)},
 	{0x04090302, (const uint8_t *)&string2, sizeof(STR_PRODUCT)},	
 	{0x04090303, (const uint8_t *)&string3, sizeof(STR_SERIAL)}
 };

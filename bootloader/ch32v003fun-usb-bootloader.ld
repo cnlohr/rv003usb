@@ -110,12 +110,12 @@ SECTIONS
 		*(.gnu.linkonce.r.*)
 		*(.data .data.*)
 		*(.gnu.linkonce.d.*)
-		. = ALIGN(8);
+		. = ALIGN(4);
 		PROVIDE( __global_pointer$ = . + 0x800 );
 		*(.sdata .sdata.*)
 		*(.sdata2*)
 		*(.gnu.linkonce.s.*)
-		. = ALIGN(8);
+		. = ALIGN(4);
 		*(.srodata.cst16)
 		*(.srodata.cst8)
 		*(.srodata.cst4)
@@ -138,8 +138,8 @@ SECTIONS
 		PROVIDE( _ebss = .);
 	} >RAM AT>FLASH
 
-	PROVIDE( runword = 0x200003fc );
-	PROVIDE( scratchpad = 0x20000400 );
+	PROVIDE( runwordpad = 0x20000180 ); /* Size >= 1kb */
+	PROVIDE( scratchpad = 0x20000100 );
 
 	PROVIDE( _end = _ebss);
 	PROVIDE( end = . );

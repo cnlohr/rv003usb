@@ -13,9 +13,13 @@
 // You must update in tandem
 //#define DEBUG_TIMING
 
+// If you don't want to automatically boot into the application, set
+// this flag:
+//#define DISABLE_BOOTLOAD
+
 #define SCRATCHPAD_SIZE 128
-extern volatile int32_t runword;
-extern uint8_t scratchpad[128];
+extern volatile int32_t runwordpad;
+extern uint8_t scratchpad[SCRATCHPAD_SIZE];
 uint32_t always0;
 
 struct rv003usb_internal rv003usb_internal_data;
@@ -28,8 +32,6 @@ void SystemInit48HSIUNSAFE( void );
 int main()
 {
 	SETUP_SYSTICK_HCLK
-
-//	rv003usb_internal_data.se0_windup = 0;
 
 	// Enable GPIOs, TIMERs
 	RCC->APB2PCENR = RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOC | RCC_APB2Periph_TIM1 | RCC_APB2Periph_GPIOA  | RCC_APB2Periph_AFIO | RCC_APB2Periph_TIM1;
@@ -95,16 +97,15 @@ int main()
 	NVIC_EnableIRQ( EXTI7_0_IRQn );
 
 	// Wait 5 seconds.
-	runword = -0x1000000; // Careful: Constant works out to a single lbu instruction.
+	runwordpad = -0x1000000; // Careful: Constant works out to a single lbu instruction.
 	while(1)
 	{
-		if( runword < 0 )
+		if( runwordpad < 0 )
 		{
-			runword++;
-			if( runword == 0 )
+			runwordpad++;
+			if( runwordpad == 0 )
 			{
 				// Boot to user program.
-//#define DISABLE_BOOTLOAD
 #ifndef DISABLE_BOOTLOAD
 				FLASH->BOOT_MODEKEYR = FLASH_KEY1;
 				FLASH->BOOT_MODEKEYR = FLASH_KEY2;
@@ -114,37 +115,32 @@ int main()
 #endif
 			}
 		}
-		else if( runword )
+		else if( runwordpad )
 		{
-			/* Scratchpad strucure:
-				4-bytes:		LONG( 0x000000aa )
-					... code (this is executed)
-			*/
-			typedef void (*setype)( uint32_t *, volatile int32_t * );
-			setype scratchexec = (setype)(scratchpad+4);
-			scratchexec( (uint32_t*)&scratchpad[0], &runword );
+			if( runwordpad > 1 )
+			{
+				runwordpad--;
+			}
+			else
+			{
+				/* Scratchpad strucure:
+					4-bytes:		LONG( 0x000000aa )
+						... code (this is executed) (120 bytes)
+					4-bytes:        LONG( 0x1234abcd )
+
+					After the scratchpad is the runpad, its structure is:
+					4-bytes:   int32_t  if negative, how long to go before bootloading.  If 0, do nothing.  If positive, execute.
+						... 1kB of totally free space.
+				*/
+				typedef void (*setype)( uint32_t *, volatile int32_t * );
+				setype scratchexec = (setype)(scratchpad+4);
+				scratchexec( (uint32_t*)&scratchpad[0], &runwordpad );
+			}
 		}
 	}
 }
 
-
 #define ENDPOINT0_SIZE 8 //Fixed for USB 1.1, Low Speed.
-
-#ifndef REALLY_TINY_COMP_FLASH
-
-//Received a setup for a specific endpoint.
-void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
-{
-	ist->current_endpoint = endp;
-	struct usb_endpoint * e = &ist->eps[endp];
-
-	e->toggle_out = 0;
-	e->count_in = 0;
-	e->toggle_in = 1;
-	ist->setup_request = 1;
-}
-
-#endif
 
 void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
 {
@@ -237,7 +233,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			{
 				// Class write request.
 				ist->control_max_len = SCRATCHPAD_SIZE;
-				runword = 0; //request stoppage.
+				runwordpad = 0; //request stoppage.
 				e->opaque = 2;
 			}
 			else if( (s->wRequestTypeLSBRequestMSB & 0xff80) == 0x0680 )
@@ -286,10 +282,12 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 
 				if( e->count_out >= SCRATCHPAD_SIZE )
 				{
-					if( *((uint32_t*)(start+4)) == 0x1234abcd )
+					// If the last 4 bytes are 0x1234abcd, then we can go!
+					uint32_t * last4 = (uint32_t*)(start + 4);					
+					if( *last4 == 0x1234abcd )
 					{
-						*((uint32_t*)(start+4)) = 0;
-						runword = 1;
+						*last4 = 0;
+						runwordpad = 0x100;
 					}
 					e->opaque = 0;
 				}
@@ -313,6 +311,18 @@ void usb_pid_handle_ack( uint32_t dummy, uint8_t * data, uint32_t dummy1, uint32
 	e->toggle_in = !e->toggle_in;
 	e->count_in++;
 	return;
+}
+
+//Received a setup for a specific endpoint.
+void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
+{
+	ist->current_endpoint = endp;
+	struct usb_endpoint * e = &ist->eps[endp];
+
+	e->toggle_out = 0;
+	e->count_in = 0;
+	e->toggle_in = 1;
+	ist->setup_request = 1;
 }
 
 #endif
