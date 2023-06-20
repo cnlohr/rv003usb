@@ -15,7 +15,7 @@
 
 // If you don't want to automatically boot into the application, set
 // this flag:
-//#define DISABLE_BOOTLOAD
+#define DISABLE_BOOTLOAD
 
 #define SCRATCHPAD_SIZE 128
 extern volatile int32_t runwordpad;
@@ -96,14 +96,13 @@ int main()
 	// enable interrupt
 	NVIC_EnableIRQ( EXTI7_0_IRQn );
 
-	// Wait 5 seconds.
-	runwordpad = -0x1000000; // Careful: Constant works out to a single lbu instruction.
+	// Wait ~5 seconds.
+	uint32_t localpad = -0x1000000; // Careful: Constant works out to a single lbu instruction.
 	while(1)
 	{
-		if( runwordpad < 0 )
+		if( localpad < 0 )
 		{
-			runwordpad++;
-			if( runwordpad == 0 )
+			if( ++localpad == 0 )
 			{
 				// Boot to user program.
 #ifndef DISABLE_BOOTLOAD
@@ -115,13 +114,9 @@ int main()
 #endif
 			}
 		}
-		else if( runwordpad )
+		if( localpad > 0 )
 		{
-			if( runwordpad > 1 )
-			{
-				runwordpad--;
-			}
-			else
+			if( --localpad == 0 )
 			{
 				/* Scratchpad strucure:
 					4-bytes:		LONG( 0x000000aa )
@@ -136,6 +131,13 @@ int main()
 				setype scratchexec = (setype)(scratchpad+4);
 				scratchexec( (uint32_t*)&scratchpad[0], &runwordpad );
 			}
+		}
+
+		uint32_t commandpad = runwordpad;
+		if( commandpad )
+		{
+			localpad = commandpad-1;
+			runwordpad = 0;
 		}
 	}
 }
@@ -233,7 +235,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			{
 				// Class write request.
 				ist->control_max_len = SCRATCHPAD_SIZE;
-				runwordpad = 0; //request stoppage.
+				runwordpad = 1; //request stoppage.
 				e->opaque = 2;
 			}
 			else if( (s->wRequestTypeLSBRequestMSB & 0xff80) == 0x0680 )
@@ -287,7 +289,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 					if( *last4 == 0x1234abcd )
 					{
 						*last4 = 0;
-						runwordpad = 0x100;
+						runwordpad = 0xff; // Request exectution
 					}
 					e->opaque = 0;
 				}
