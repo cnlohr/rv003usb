@@ -15,7 +15,7 @@
 
 // If you don't want to automatically boot into the application, set
 // this flag:
-#define DISABLE_BOOTLOAD
+//#define DISABLE_BOOTLOAD
 
 #define SCRATCHPAD_SIZE 128
 extern volatile int32_t runwordpad;
@@ -97,7 +97,7 @@ int main()
 	NVIC_EnableIRQ( EXTI7_0_IRQn );
 
 	// Wait ~5 seconds.
-	uint32_t localpad = -0x1000000; // Careful: Constant works out to a single lbu instruction.
+	int32_t localpad = -0xf00000; // Careful: Constant works out to a single lbu instruction.
 	while(1)
 	{
 		if( localpad < 0 )
@@ -289,7 +289,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 					if( *last4 == 0x1234abcd )
 					{
 						*last4 = 0;
-						runwordpad = 0xff; // Request exectution
+						runwordpad = 0x200; // Request exectution
 					}
 					e->opaque = 0;
 				}

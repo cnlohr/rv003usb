@@ -865,31 +865,6 @@ InterruptVector:
 .align 0
 .balign 0
 
-. =  0x66
-	addi a4, a0, 52;    // Start reading properties, starting from scratchpad + 52.
-	c.lw a1, 0(a4);     // a1 = Address to write to.
-	addi a2, a1, 64     // a2 = end of section to read from
-	c.lw a5, 4(a4);     // a5 = Get flash address (0x40022010)
-
-	// Must be done outside.
-//	li a3, 0x00080000 | 0x00010000;   c.sw a3, 0(a5);  //FLASH->CTLR = CR_BUF_RST | CR_PAGE_PG
-//	c.sw a1, 4(a5);     //FLASH->ADDR = writing location.
-
-	li t0, 0x00010000 | 0x00040000;	// CR_PAGE_PG | FLASH_CTLR_BUF_LOAD
-1:
-	c.lw a3, 8(a4);		//lw a3, 0(a1)       // Read from RAM (Starting @60)
-	c.sw a3, 0(a1);		//sw a3, 0(a4)       // Store into scratchpad
-	c.j 2f  // add delay
-2:
-	sw t0, 0(a5);     // Load into flash write buffer.
-	c.addi a1, 4        // Advance pointers
-	c.addi a4, 4
-	blt a1, a2, 1b      // Loop til all read.
-	li a3, -1
-//	li a1, 0x00010000 | 0x00000040 //CR_PAGE_PG|CR_STRT_Set
-//	c.sw a1, 0(a5);     //FLASH->CTRL = CR_PAGE_PG|CR_STRT_Set
-	c.sw a3, 0(a0)		// Write -1 into 0x00 indicating all done.
-	ret
 #endif
 
 .long 0xaaaaaaaa
