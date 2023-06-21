@@ -31,9 +31,6 @@ This project is not ready for prime time, though it is sort of in an early alpha
 :white_check_mark: Use SE0 1ms ticks to tune HSItrim  
 :white_check_mark: Rework sending code to send tokens/data separately.  
 :white_check_mark: Fix CRC Code  
-:grey_exclamation: Further optimize Send/Receive PHY code. (Please help)  
-:grey_exclamation: Use hardware CRC to save space/time??  
-:white_square_button: Fix timing on send, for CRC bits.  
 :white_check_mark: Make minichlink able to use bootloader.  
 :white_check_mark: Optimize high-level stack.  
 :white_check_mark: Fit in bootloader (NOTE: Need to tighten more)  
@@ -41,8 +38,11 @@ This project is not ready for prime time, though it is sort of in an early alpha
 :white_check_mark: Use HID custom messages.  
 :white_check_mark: Improve sync sled.  I.e. coarse and fine sledding.  
 :white_check_mark: Abort on non-8-bit-aligned-frames.  
-:warning: Arduino support (someone else will have to take this on)  
 :white_square_button: Make demos  
 :white_square_button: API For self-flashing + printf from bootloader  
+:white_square_button: Fix timing on send, for CRC bits.  
+:grey_exclamation: Use hardware CRC to save space/time (Investigate)  
+:grey_exclamation: Further optimize Send/Receive PHY code. (Please help)  
 :warning: Enable retiming (Requires a few more cycles) (Please help!)  
+:warning: Arduino support (someone else will have to take this on)  
 
