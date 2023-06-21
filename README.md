@@ -1,9 +1,26 @@
 # Using USB on the CH32V003
-(No, that's not a typo)
 
-Bit banged USB stack for the RISC-V WCH CH32V003, using [ch32v003fun](https://github.com/cnlohr/ch32v003fun).
+Ever wanted a 10 cent USB-capable processor? Well, look no further. RV003USB allows you to, in firmware connect a 10 cent RISC-V to a computer with USB. It is fundamentally just a pin-change interrupt routine that runs in assembly, and some C code to handle higher level functionality.
 
-### WARNING: Project is not ready for prime time.  Proof of concept works, we are on track for proper releases soon.  Maybe you can help out!
+### It's small!
+
+The bootloader version of the tool can create a HID device, enumerate and allow execution of code on-device in 1,920 bytes of code.
+
+### It's simple!
+
+The core assembly code is only 2 functions, an [interrupt](https://github.com/cnlohr/rv003usb/blob/master/rv003usb/rv003usb.S#L43) and [code to send](https://github.com/cnlohr/rv003usb/blob/master/rv003usb/rv003usb.S#L547). 
+
+### It's adaptable!
+
+The [core assembly](https://github.com/cnlohr/rv003usb/blob/master/rv003usb/rv003usb.S) code is standardized, but the C code, to handle different functionality with hid feature requests, control setup events, interrupt endpoints (send and receive) are all done in [a C file that changes per your needs](https://github.com/cnlohr/rv003usb/blob/master/demo_gamepad/rv003usb.c).
+
+### It's built on ch32v003fun
+
+[ch32v003fun](https://github.com/cnlohr/ch32v003fun) is a minimal development SDK of sorts for the CH32V003, allowing for maximum flexability without needing lots of code surrounding a HAL.
+
+### It's still in alpha.
+
+This project is not ready for prime time, though it is sort of in an early alpha phase.  Proof of concept works, we are on track for proper releases soon.  Maybe you can help out!
 
 :white_check_mark: Able to go on-bus and receive USB frames  
 :white_check_mark: Compute CRC in-line while receiving data  
@@ -15,17 +32,17 @@ Bit banged USB stack for the RISC-V WCH CH32V003, using [ch32v003fun](https://gi
 :white_check_mark: Rework sending code to send tokens/data separately.  
 :white_check_mark: Fix CRC Code  
 :grey_exclamation: Further optimize Send/Receive PHY code. (Please help)  
-:negative_squared_cross_mark: Enable systick-based retiming to correct timing mid-frame.  
+:grey_exclamation: Use hardware CRC to save space/time??  
+:white_square_button: Fix timing on send, for CRC bits.  
+:white_check_mark: Make minichlink able to use bootloader.  
 :white_check_mark: Optimize high-level stack.  
 :white_check_mark: Fit in bootloader (NOTE: Need to tighten more)  
-:grey_exclamation: Use hardware CRC to save space/time??  
+:white_check_mark: Do basic retiming, at least in preamble to improve timing.  
 :white_check_mark: Use HID custom messages.  
 :white_check_mark: Improve sync sled.  I.e. coarse and fine sledding.  
 :white_check_mark: Abort on non-8-bit-aligned-frames.  
-:white_square_button: Fix timing on send, for CRC bits.  
-:white_square_button: Make minichlink able to use bootloader.  
 :warning: Arduino support (someone else will have to take this on)  
 :white_square_button: Make demos  
 :white_square_button: API For self-flashing + printf from bootloader  
-:warning: Enable retiming (Requires a few more cycles, will be major effort)  
+:warning: Enable retiming (Requires a few more cycles) (Please help!)  
 
