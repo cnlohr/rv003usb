@@ -38,11 +38,11 @@ This project is not ready for prime time, though it is sort of in an early alpha
 :white_check_mark: Use HID custom messages.  
 :white_check_mark: Improve sync sled.  I.e. coarse and fine sledding.  
 :white_check_mark: Abort on non-8-bit-aligned-frames.  
-:white_square_button: Make demos  
+:white_square_button: Make more demos  
 :white_square_button: API For self-flashing + printf from bootloader  
-:white_square_button: Fix timing on send, for CRC bits.  
+:white_square_button: Improve timing on send, for CRC bits.  Currently we are off by about 6 cycles total.  
 :grey_exclamation: Use hardware CRC to save space/time (Investigate)  
 :grey_exclamation: Further optimize Send/Receive PHY code. (Please help)  
-:warning: Enable retiming (Requires a few more cycles) (Please help!)  
+:warning: Enable improved retiming (Requires a few more cycles) (Please help!)  
 :warning: Arduino support (someone else will have to take this on)  
 
