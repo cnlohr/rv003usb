@@ -30,6 +30,7 @@
 .global rv003usb_internal_data
 .global rv003usb_handle_packet
 .global usb_send_data
+.global main
 
 /* Register map
 	zero, ra, sp, gp, tp, t0, t1, t2
@@ -325,7 +326,7 @@ se0_complete:
 	// Now we have to decide what we're doing based on the
 	// packet type.
 	addi  a1, sp, DATA_PTR_OFFSET
-	lbu  a0, 0(a1)
+	XW_C_LBU(a0, a1, 0);	//lbu  a0, 0(a1)
 
 	// 0010 => 01001011 => ACK
 	// 0011 => 11000011 => DATA0
@@ -361,7 +362,7 @@ may_be_a_token:
 	bgeu a2, s0, done_usb_message // Make sure < ENDPOINTS
 	c.beqz a0,  yes_check_tokens
 	// Otherwise, we might have our assigned address.
-	lbu s0, MY_ADDRESS_OFFSET_BYTES(a4)
+	XW_C_LBU(s0, a4, MY_ADDRESS_OFFSET_BYTES);	//	lbu s0, MY_ADDRESS_OFFSET_BYTES(a4)
 	bne s0, a0, done_usb_message // addr != 0 && addr != ours.
 yes_check_tokens:
 	addi a5, a5, (0b01001011-0b10000111)
@@ -475,15 +476,14 @@ usb_pid_handle_setup:
 	c.sw a1, (28+16)(a2)
 	c.j done_usb_message_in	
 
-
-
 #endif
 
 //We need to handle this here because we could have an interrupt in the middle of a control or big transfer.
 //This will correctly swap back the endpoint.
 usb_pid_handle_out:
 	//void usb_pid_handle_out( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )	
-	sb a2, 0(a4) //ist->current_endpoint = endp;
+	//sb a2, 0(a4) //ist->current_endpoint = endp;
+	XW_C_SB( a2, a4, 0 );
 	c.j done_usb_message_in
 
 
@@ -678,10 +678,12 @@ done_poly_check2:
 //	c.j send_inner_loop
 .balign 4
 load_next_byte:
-	lb s0, 0(a0) //replace me with the QingKe v2 "special" opcode for this.
-	//c.addi a0, 2
-send_inner_loopp:
-	.long 0x00150513 // addi a0, a0, 1  (For alignment's sake)
+	// CH32v003 has the XW extension.
+	// this replaces: lb s0, 0(a0)
+	XW_C_LBU(s0, a0, 0);
+	//lb s0, 0(a0)
+	//	.long 0x00150513 // addi a0, a0, 1  (For alignment's sake)
+	c.addi a0, 1
 send_inner_loop:
 	/* High-level:
 		* extract the LSB from s0
@@ -694,11 +696,11 @@ send_inner_loop:
 
 	// a3 is now the lsb of s0 (the 'next bit' to read out)
 	c.mv a3, s0
-	c.srli s0, 1 // Shift down into the next bit.
 	c.andi a3, 1
 	// If a3 is 0, we should FLIP
 	// if a3 is 1, we should NOT flip.
 	c.beqz a3, send_zero_bit
+	c.srli s0, 1 // Shift down into the next bit.
 //send_one_bit:
 	//HANDLE_CRC (1 bit)
 	andi a3, a2, 1
@@ -713,6 +715,7 @@ send_inner_loop:
 //Send 0 bit. (Flip)
 .balign 4
 send_zero_bit:
+	c.srli s0, 1 // Shift down into the next bit.
 
 	// Handle CRC (0 bit)
 	// a2 is our running CRC
@@ -755,7 +758,7 @@ done_sending_data:
 	beqz t0, no_really_done_sending_data
 	srli t0, t0, 8 // reset poly - we don't want it anymore.
 	li a1, 7 // Load 8 more bits out
-	beqz t0, send_inner_loopp  //Second CRC byte
+	beqz t0, send_inner_loop  //Second CRC byte
 	// First CRC byte
 	not s0, a2 // get read to send out the CRC.
 	c.j send_inner_loop
@@ -793,12 +796,6 @@ no_really_done_sending_data:
 	ret
 
 .balign 4
-poly_function:
-	mv s0, a3
-	c.li a1, 5
-	c.j send_inner_loop
-
-.balign 4
 // TODO: This seems to be either 222 or 226 (not 224) in cases.
 // It's off by 2 clock cycles.  Probably OK, but, hmm.
 insert_stuffed_bit:
@@ -817,26 +814,18 @@ insert_stuffed_bit:
 
 #ifdef USE_TINY_BOOT
 
-// TINY BOOT!!!
-
-//void EXTI7_0_IRQHandler( void )          __attribute__((section(".text.vector_handler"))) __attribute((weak,alias("DefaultIRQHandler"))) __attribute__((used));
-
-#define NUMPASTE( x ) #x
+// Absolutey bare-bones hardware initialization for bringing the chip up,
+// setting up the envrionment for C, switching to 48MHz clock, and booting
+// into main... as well as providing EXTI7_0_IRQHandler jump at interrupt
 
 .section .init
 .global InterruptVector
 InterruptVector:
 	.align  2
-	.option   push;
-	.option   norvc;
-	j handle_reset
-	.option push
-	.option norelax
-handle_reset:
+.option push
+.option norelax
 	la gp, __global_pointer$
-.option pop
-	la sp, _eusrstack
-.option pop
+	mv sp, gp //_eusrstack
 #if __GNUC__ > 10
 .option arch, +zicsr
 #endif
@@ -844,46 +833,41 @@ handle_reset:
 	csrw mstatus, a0
 	c.li a0, 3
 	csrw mtvec, a0
-	la a0, _sbss
-	la a1, _ebss	// Initialize RAM to 0.
-	c.li a2, 0
-	bge a0, a1, 2f
-1:	c.sw a2, 0(a0)
+	addi a0, gp, -2048 // will be 0x20000000
+	c.li a4, 0
+1:	c.sw a4, 0(a0)	// Clear RAM
 	c.addi a0, 4
-	blt a0, a1, 1b
+	blt a0, gp, 1b  // Iterate over RAM until it's cleared.
 2:
 	//XXX WARNING: NO .DATA SECTION IS AVAILABLE HERE!
-
 	/* SystemInit48HSI */
 	la a2, RCC_BASE
 	la a3, FLASH_R_BASE
-	//sw x0, 4(a2)                          /* RCC->CFGR0 = RCC_HPRE_DIV1 | RCC_PLLSRC_HSI_Mul2*/
 	li a1, 0x00000001 | 0x01000000 | 0x80 /* RCC->CTLR RCC_HSION | RCC_PLLON | ((HSITRIM) << 3) */
 	c.sw a1, 0(a2)
 	c.li a1, 0x01       /* FLASH_ACTLR_LATENCY_1 */
-	c.j after_irq
-.balign 16
-	.word   EXTI7_0_IRQHandler            /* EXTI Line 7..0 */
-
-after_irq:
 	c.sw a1, 0(a3)      /* FLASH->ACTLR = FLASH_ACTLR_LATENCY_1 */
-//	li a1, 0x009F0000
-//	c.sw a1, 8(a2)      /* RCC->INTR  = 0x009F0000  I don't think this is needed. */
-	c.li a1, 0x00000002 /* RCC->CFGR0 |= RCC_SW_PLL */
+	c.li a1, 0x00000002 /* RCC->CFGR0 = RCC_SW_PLL */
 	c.sw a1, 4(a2)
-	la a0, main
-	csrw mepc, a0
+	la a1, main
+	csrw mepc, a1
+.option pop
 	mret
 
-/*
-.option push
-.section bss
-.org 0x100
-.global scratchpad
-	scratchpad:
-	.word 0x00000000
-.option pop
-*/
+// CAREFUL THIS MUST BE EXACTLY AT 0x50
+. = 0x52 // Weird...  I don't know why this has to be 0x52, for it to be at 0x50.
+	.word EXTI7_0_IRQHandler            /* EXTI Line 7..0 */
+
+//	li a1, 0x009F0000
+//	c.sw a1, 8(a2)      /* RCC->INTR  = 0x009F0000  I don't think this is needed. */
+
+
+.align 0
+.balign 0
 
 #endif
+
+.long 0xaaaaaaaa
+.long 0xaaaaaaaa
+.long 0xaaaaaaaa
 
