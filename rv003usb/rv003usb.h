@@ -29,6 +29,14 @@
 #define SE0_WINDUP_OFFSET       12
 #endif
 
+#if USB_IN_DATA_SECTION
+#define HANDLER_SECTION .srodata
+#define HANDLE_ATTRIBUTES __attribute__((section(".srodata")))
+#else
+#define HANDLE_ATTRIBUTES __attribute__((section(".text")))
+#define HANDLER_SECTION .text.vector_handler
+#endif
+
 #ifndef __ASSEMBLER__
 
 #define EMPTY_SEND_BUFFER (uint8_t*)1
@@ -86,12 +94,12 @@ struct usb_urb
 
 
 // Note: This checks addr & endp to make sure they are valid.
-void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist );
-void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist );
-void usb_pid_handle_out( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist );
+void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist ) HANDLE_ATTRIBUTES;
+void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )    HANDLE_ATTRIBUTES;
+void usb_pid_handle_out( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )   HANDLE_ATTRIBUTES;
 
-void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, uint32_t length, struct rv003usb_internal * ist );
-void usb_pid_handle_ack( uint32_t dummy, uint8_t * data, uint32_t dummy2, uint32_t dummy3, struct rv003usb_internal * ist  );
+void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, uint32_t length, struct rv003usb_internal * ist ) HANDLE_ATTRIBUTES;
+void usb_pid_handle_ack( uint32_t dummy, uint8_t * data, uint32_t dummy2, uint32_t dummy3, struct rv003usb_internal * ist  ) HANDLE_ATTRIBUTES;
 
 //poly_function = 0 to include CRC.
 //poly_function = 2 to exclude CRC.

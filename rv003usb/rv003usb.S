@@ -9,18 +9,18 @@
 
 #define SYSTICK_CNT 0xE000F008
 
-// This is 6 * n + 3 cylces
+// This is 6 * n + 3 cylces from flash, less from RAM.
 #define nx6p3delay( n, freereg ) li freereg, ((n)+1); 1: c.addi freereg, -1; c.bnez freereg, 1b
 
 //See DEBUG_TIMING note in .c file.
 #ifdef DEBUG_TIMING
 #define DEBUG_TICK_SETUP la x4, (TIM1_BASE + 0x24) 	// for debug
-#define DEBUG_TICK_MARK .balign 4; sw x0, 0(x4)
+#define DEBUG_TICK_MARK sw x0, 0(x4)
 #define	RESTORE_DEBUG_MARKER(x) lw	x4, x(sp)
 #define SAVE_DEBUG_MARKER(x)	sw	x4, x(sp)
 #else
 #define DEBUG_TICK_SETUP la x4, (TIM1_BASE + 0x44) 	// for debug (Go nowhere)
-#define DEBUG_TICK_MARK .balign 4; sw x0, 0(x4)
+#define DEBUG_TICK_MARK  sw x0, 0(x4)
 #define	RESTORE_DEBUG_MARKER(x) lw	x4, x(sp)
 #define SAVE_DEBUG_MARKER(x)	sw	x4, x(sp)
 #endif
@@ -38,11 +38,15 @@ Compressed:
 	s0, s1,	a0, a1, a2, a3, a4, a5
 */
 
+#ifdef HANDLER_SECTION
+.section HANDLER_SECTION
+#else
 .section .text.vector_handler
+#endif
 .global EXTI7_0_IRQHandler
 .balign 4
 EXTI7_0_IRQHandler:
-	addi	sp,sp,-80
+	addi	sp,sp,-56
 	sw	a0, 0(sp)
 	sw	a5, 20(sp)
 	la a5, USB_GPIO_BASE
@@ -96,9 +100,15 @@ preamble_loop:
 	c.beqz a0, done_usb_message // SE0 here?
 	c.xor a0, a1;
 	c.xor a1, a0; // Recover a1.
-	j 1f; 1: // 4 cycles?
+	j 1f; 1: // 4 cycles
+#if USB_IN_DATA_SECTION
+	c.nop; 
+#endif
 	c.beqz a0, done_preamble
-	j 1f; 1: // 4 cycles?
+#if USB_IN_DATA_SECTION
+	j 1f; 1:j 1f; 1: // Slow things down if running from RAM.
+#endif
+	j 1f; 1: // 4 cycles
 	c.lw s0, INDR_OFFSET(a5);
 	c.andi s0, USB_DMASK;
 	c.xor s0, a1
@@ -111,6 +121,7 @@ preamble_loop:
 	j preamble_loop // 4 cycles
 .balign 4
 done_preamble:
+
 	sw  t2, 40(sp)
 	sw  ra, 52(sp)
 	// 16-byte temporary buffer at 56+sp
@@ -121,7 +132,6 @@ done_preamble:
 	// This is the first bit that matters.
 	c.li s0, 6 // 1 runs.
 
-	c.nop; 
 
 	// 8 extra cycles here cause errors.
 	// -5 cycles is too much.
@@ -146,8 +156,12 @@ done_preamble:
 		* S0 = Bit Stuff Place
 		* S1 = # output bits remaining.
 */
-
-.balign 4
+#if USB_IN_DATA_SECTION
+#else
+	c.nop; 
+	c.nop; 
+#endif
+	.balign 4
 packet_type_loop:
 	// Up here to delay loop a tad, and we need to execute them anyway.
 	// TODO: Maybe we could further sync bits here instead of take up time?
@@ -157,10 +171,17 @@ packet_type_loop:
 	li a4, 0xa001
 	addi  t2, sp, DATA_PTR_OFFSET //rv003usb_internal_data
 	la  t0, 0x80
+#if USB_IN_DATA_SECTION
+	c.j 1f; 1:
+#else
 	c.nop
-
+	c.nop
+#endif
 	DEBUG_TICK_MARK
 	c.lw a0, INDR_OFFSET(a5);
+#if USB_IN_DATA_SECTION
+	c.nop
+#endif
 	c.andi a0, USB_DMASK;
 	c.beqz a0, done_usb_message // Not se0 complete, that can't happen here and be valid.
 	c.xor a0, a1;
@@ -206,7 +227,10 @@ packet_type_loop:
 	c.beqz a0, data_crc
 	c.li a4, 0x14	
 	c.li a3, 0x1e
+#if USB_IN_DATA_SECTION
+#else
 	.word 0x00000013 // nop, for alignment of data_crc.
+#endif
 data_crc:
 
 
@@ -216,12 +240,21 @@ data_crc:
 
 ///////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////	
-.balign 4
+
+#if USB_IN_DATA_SECTION
+	// Alignment when running from RAM should be off.
+#else
+	.balign 4
+#endif
 is_end_of_byte:
 	HANDLE_EOB_YES
 
 	// end-of-byte.
-.balign 4
+#if USB_IN_DATA_SECTION
+	c.j 1f; 1:
+#else
+	.balign 4
+#endif
 bit_process:
 	// Debug blip
 //	c.lw a4, INDR_OFFSET(a5);
@@ -259,9 +292,16 @@ handle_zero_bit:
 
 	c.srli a2, 1;  // shift a2 down by 1
 	HANDLE_NEXT_BYTE(is_end_of_byte, beqz)
+#if USB_IN_DATA_SECTION
+	c.nop;// c.nop;
+	.word 0x00000013 // nop, for alignment
+	prev_section_done_bit:
+	c.j 1f; 1:  c.nop; 
+#else
 	c.nop
 	c.nop
 	c.nop
+#endif
 	c.bnez s1, bit_process // + 4 cycles
 	c.j done_usb_message
 
@@ -281,11 +321,16 @@ handle_one_bit:
 	c.beqz s0, handle_bit_stuff;
 
 	HANDLE_NEXT_BYTE(is_end_of_byte, beqz)
-	c.nop // Need extra delay here because we need more time if it's end-of-byte.
+
+#if USB_IN_DATA_SECTION
+	c.j prev_section_done_bit
+#else
+	c.nop  // Need extra delay here because we need more time if it's end-of-byte.
 	c.nop
 	c.nop
 	c.bnez s1, bit_process // + 4 cycles
 	c.j done_usb_message
+#endif
 
 handle_bit_stuff:
 	// We want to wait a little bit, then read another byte, and make
@@ -390,8 +435,6 @@ crc_for_tokens_would_be_bad_maybe_data:
 
 done_usb_message:
 done_usb_message_in:
-
-
 	lw	s0, 24(sp)
 	lw	s1, 28(sp)
 	lw	t0, 32(sp)
@@ -419,7 +462,7 @@ interrupt_complete:
 	// Restore stack.
 	lw	a0, 0(sp)
 	lw	a5, 20(sp)
-	addi	sp,sp,80
+	addi	sp,sp,56
 	mret
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -487,7 +530,7 @@ usb_pid_handle_out:
 	c.j done_usb_message_in
 
 
-handle_se0_keepalive:
+handle_se0_keepalive:  // "KA" packets.
 	// In here, we want to do smart stuff with the
 	// 1ms tick.
 
@@ -499,7 +542,11 @@ handle_se0_keepalive:
 	c.sub a2, a1
 	c.sw a2, DELTA_SE0_OFFSET(a4) //record delta_se0_cyccount
 
+#if USB_IN_DATA_SECTION
+	li a1, 48200  //We actually want to run hot, since when we jump to ram things slow down.
+#else
 	li a1, 48000
+#endif
 	c.sub a2, a1
 	// This is our deviance from 48MHz.
 
@@ -527,7 +574,7 @@ handle_se0_keepalive:
 
 	// Decimate windup - use as HSIrim.
 	neg a1, a1
-	srai a2, a1, 9
+	srai a2, a1, 9 // Control how sensitive the windup controls the output.
 	addi a2, a2, 16  // add hsi offset.
 
 	// Put trim in place in register.
@@ -577,6 +624,7 @@ usb_send_data:
 
 	li t0, 0x0000
 	c.bnez a2, done_poly_check
+	c.nop;
 	li t0, 0xa001
 	li a2, 0xffff
 done_poly_check:
@@ -627,13 +675,16 @@ pre_and_tok_send_inner_loop:
 	c.li a4, 6 // reset bit stuffing.
 	// DO NOT flip.  Allow a4 to increment.
 // Deliberately unaligned for timing purposes.
-.balign 4
 pre_and_tok_send_one_bit:
 	sw s1, BSHR_OFFSET(a5)
 	//Bit stuffing doesn't happen.
 	c.addi a1, -1
 	c.beqz a1, pre_and_tok_done_sending_data
+#if USB_IN_DATA_SECTION
+	nx6p3delay( 3, a3 );    c.j 1f; 1:         // Free time!
+#else
 	nx6p3delay( 2, a3 );	c.nop;             // Free time!
+#endif
 	c.j pre_and_tok_send_inner_loop
 .balign 4
 pre_and_tok_done_sending_data:
@@ -649,6 +700,7 @@ pre_and_tok_done_sending_data:
 
 	bnez t0, done_poly_check2
 	li a2, 0xffff
+c.nop
 done_poly_check2:
 
 
@@ -700,8 +752,13 @@ send_inner_loop:
 	// If a3 is 0, we should FLIP
 	// if a3 is 1, we should NOT flip.
 	c.beqz a3, send_zero_bit
-	c.srli s0, 1 // Shift down into the next bit.
+
+//Send 1 bit.
 //send_one_bit:
+#if USB_IN_DATA_SECTION
+	c.nop;
+#endif
+	c.srli s0, 1 // Shift down into the next bit.
 	//HANDLE_CRC (1 bit)
 	andi a3, a2, 1
 	c.addi a3, -1
@@ -732,7 +789,7 @@ send_zero_bit:
 	// 11.....11 (xor with)
 	// 01.....10
 	xor s1, s1, t1
-	sw s1, BSHR_OFFSET(a5)
+	sw s1, BSHR_OFFSET(a5)  // Actually output bit.
 
 	c.li a4, 6 // reset bit stuffing.
 
@@ -747,6 +804,11 @@ send_end_bit_complete:
 	c.beqz a1, done_sending_data
 	andi a3, a1, 7
 	c.addi a1, -1
+
+#if USB_IN_DATA_SECTION
+	c.j 1f; 1: c.j 1f; 1: c.nop;
+#endif
+
 	c.beqz a3, load_next_byte
 	// Wait an extra few cycles.
 	c.j 1f; 1:
@@ -756,11 +818,11 @@ send_end_bit_complete:
 done_sending_data:
 	// BUT WAIT!! MAYBE WE NEED TO CRC!
 	beqz t0, no_really_done_sending_data
-	srli t0, t0, 8 // reset poly - we don't want it anymore.
+	srli t0, t0, 8 // Shift poly down.
 	li a1, 7 // Load 8 more bits out
 	beqz t0, send_inner_loop  //Second CRC byte
 	// First CRC byte
-	not s0, a2 // get read to send out the CRC.
+	not s0, a2 // get ready to send out the CRC (First byte)
 	c.j send_inner_loop
 
 
@@ -769,13 +831,21 @@ no_really_done_sending_data:
 
 //	c.bnez a2, poly_function  TODO: Uncomment me!
 
+#if USB_IN_DATA_SECTION
+	nx6p3delay( 4, a3 ); c.j 1f; 1:
+#else
 	nx6p3delay( 2, a3 );
+#endif
 
 	// Need to perform an SE0.
 	li s1, (1<<(USB_DP+16)) | (1<<(USB_DM+16))
 	c.sw s1, BSHR_OFFSET(a5)
 
+#if USB_IN_DATA_SECTION
+	nx6p3delay( 12, a3 );
+#else
 	nx6p3delay( 7, a3 );
+#endif
 
 	li s1, (1<<(USB_DP)) | (1<<(USB_DM+16))
 	c.sw s1, BSHR_OFFSET(a5)
@@ -852,7 +922,11 @@ InterruptVector:
 	la a1, main
 	csrw mepc, a1
 .option pop
-	mret
+#if USB_IN_DATA_SECTION
+	j datasection_start
+#else
+	mret // Jumpto main.
+#endif
 
 // CAREFUL THIS MUST BE EXACTLY AT 0x50
 . = 0x52 // Weird...  I don't know why this has to be 0x52, for it to be at 0x50.
@@ -861,13 +935,25 @@ InterruptVector:
 //	li a1, 0x009F0000
 //	c.sw a1, 8(a2)      /* RCC->INTR  = 0x009F0000  I don't think this is needed. */
 
+#if USB_IN_DATA_SECTION
+datasection_start:
+	// This loads DATA from FLASH to RAM.
+	la a0, _data_lma
+	la a1, _data_vma
+	la a2, _edata
+1:	beq a1, a2, 2f
+	lw a3, 0(a0)
+	sw a3, 0(a1)
+	addi a0, a0, 4
+	addi a1, a1, 4
+	bne a1, a2, 1b
+2:
+	mret // Jump to main
+#endif
+
 
 .align 0
 .balign 0
 
 #endif
-
-.long 0xaaaaaaaa
-.long 0xaaaaaaaa
-.long 0xaaaaaaaa
 

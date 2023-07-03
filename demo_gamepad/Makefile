@@ -1,5 +1,8 @@
 all : flash
 
+
+PREFIX:=/opt/rv32ec/bin/riscv32-unknown-elf
+
 TARGET:=rv003usb
 CH32V003FUN:=../ch32v003fun/ch32v003fun
 MINICHLINK?=../ch32v003fun/minichlink

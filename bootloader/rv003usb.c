@@ -15,9 +15,9 @@
 
 // If you don't want to automatically boot into the application, set
 // this flag:
-//#define DISABLE_BOOTLOAD
+#define DISABLE_BOOTLOAD
 
-#define SCRATCHPAD_SIZE 128
+#define SCRATCHPAD_SIZE 296
 extern volatile int32_t runwordpad;
 extern uint8_t scratchpad[SCRATCHPAD_SIZE];
 uint32_t always0;
@@ -31,8 +31,6 @@ void SystemInit48HSIUNSAFE( void );
 
 int main()
 {
-	SETUP_SYSTICK_HCLK
-
 	// Enable GPIOs, TIMERs
 	RCC->APB2PCENR = RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOC | RCC_APB2Periph_TIM1 | RCC_APB2Periph_GPIOA  | RCC_APB2Periph_AFIO | RCC_APB2Periph_TIM1;
 
@@ -81,9 +79,9 @@ int main()
 	GPIOD->CFGLR =
 		(GPIO_CNF_IN_PUPD)<<(4*1) |  // Keep SWIO enabled.
 //		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*DEBUG_PIN) |
-		(GPIO_SPEED_IN | GPIO_CNF_IN_PUPD)<<(4*USB_DM) |  //PD3 = GPIOD IN
-		(GPIO_SPEED_IN | GPIO_CNF_IN_PUPD)<<(4*USB_DP) |  //PD4 = GPIOD IN
-		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_DPU);
+		(GPIO_CFGLR_IN_FLOAT)<<(4*USB_DM) |  //PD3 = GPIOD IN
+		(GPIO_CFGLR_IN_FLOAT)<<(4*USB_DP) |  //PD4 = GPIOD IN
+		(GPIO_CFGLR_OUT_50Mhz_PP)<<(4*USB_DPU);
 
 	// Configure the IO as an interrupt.
 	AFIO->EXTICR = 3<<(USB_DP*2); //PORTD.3 (3 out front says PORTD, 3 in back says 3)
