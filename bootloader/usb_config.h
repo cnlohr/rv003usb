@@ -8,7 +8,7 @@
 
 
 #define DEBUG_PIN 2
-#define USB_DM 3     //DM MUST be BEFORE DP
+#define USB_DM 3
 #define USB_DP 4
 #define USB_DPU 5
 #define USB_PORT GPIOD

@@ -168,9 +168,11 @@ packet_type_loop:
 	// a0 = 00 for 1 and 11 for 0
 
 	// No CRC for the header.
-	c.srli a0, USB_DM
-	c.addi a0, 1 // 00 -> 1, 11 -> 100
-	c.andi a0, 1 // If 1, 1 if 0, 0.
+	//c.srli a0, USB_DM
+	//c.addi a0, 1 // 00 -> 1, 11 -> 100
+	//c.andi a0, 1 // If 1, 1 if 0, 0
+        c.nop
+        seqz a0, a0
 
 	// Write header into byte in reverse order, because we can.
 	c.slli a2, 1
@@ -295,21 +297,21 @@ handle_bit_stuff:
 	HANDLE_EOB_YES
 
 not_is_end_of_byte_and_bit_stuffed:
+        DEBUG_TICK_MARK
 	c.lw a0, INDR_OFFSET(a5);
-	DEBUG_TICK_MARK // Note: Out of order.  Not sure why we need to.  But otherwise things go caddywompus.
 	c.andi a0, USB_DMASK;
 	c.beqz a0, se0_complete
 	c.xor a0, a1;
 	c.xor a1, a0; // Recover a1, for next cycle.
 
-	slti a0, a0, 1<<USB_DM // A0 = 0 if 0 bit, A0 = 1 if 1 bit.
+	// If A0 is a 0 then that's bad, we just did a bit stuff
+        //   and A0 == 0 means there was no signal transition
+	c.beqz a0, done_usb_message
 
-	// If a0 is a 1 then that's bad.
-	c.bnez a0, done_usb_message
+        // Reset bit stuff, delay, then continue onto the next actual bit
+	c.li s0, 6;
 
-	c.li s0, 6  // reset bit stuffing.
-
-	//Delay
+        c.nop;
 	nx6p3delay( 2, a0 )
 
 	c.bnez s1, bit_process // + 4 cycles
