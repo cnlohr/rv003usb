@@ -6,9 +6,7 @@
 int main()
 {
 	SystemInit();
-
 	usb_setup();
-
 	while(1);
 }
 
