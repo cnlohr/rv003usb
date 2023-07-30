@@ -9,36 +9,39 @@
 #define INSTANCE_DESCRIPTORS
 #include "rv003usb.h"
 
-uint8_t scratchpad[128];
+// To use time debugging, enable thsi here, and DEBUG_TIMING in the .S
+// You must update in tandem
+//#define DEBUG_TIMING
+
+// If you don't want to automatically boot into the application, set
+// this flag:
+//#define DISABLE_BOOTLOAD
+
+#define SCRATCHPAD_SIZE 128
+extern volatile int32_t runwordpad;
+extern uint8_t scratchpad[SCRATCHPAD_SIZE];
 
 struct rv003usb_internal rv003usb_internal_data;
 
 // This is the data actually required for USB.
 uint8_t data_receptive;
-/*
-void usb_handle_custom_control( uint8_t bmRequestType, uint8_t bRequest, uint16_t wLength,  struct rv003usb_internal * ist )
-{
-	// Do something.
-}*/
+
+void SystemInit48HSIUNSAFE( void );
 
 int main()
 {
-	SystemInit48HSI();
-	SetupDebugPrintf();
-	SETUP_SYSTICK_HCLK
-
-	rv003usb_internal_data.se0_windup = 0;
+	SysTick->CTLR = 5;
 
 	// Enable GPIOs, TIMERs
 	RCC->APB2PCENR = RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOC | RCC_APB2Periph_TIM1 | RCC_APB2Periph_GPIOA  | RCC_APB2Periph_AFIO | RCC_APB2Periph_TIM1;
 
+#ifdef DEBUG_TIMING
 	// GPIO C0 Push-Pull
 	GPIOC->CFGLR = (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*0) |
 	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF)<<(4*3) | // PC3 = T1C3
-#ifdef DEBUG_TIMING
 	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF)<<(4*4) | // PC4 = T1C4
-#endif
 	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*2);
+#endif
 
 #ifdef DEBUG_TIMING
 	{
@@ -73,18 +76,12 @@ int main()
 	}
 #endif
 
-	const uint32_t trim = 15;
-	uint32_t regtemp;
-	regtemp = RCC->CTLR & ~RCC_HSITRIM;
-	regtemp |= (trim<<3);
-	RCC->CTLR = regtemp;
-
 	// GPIO D3 for input pin change.
 	GPIOD->CFGLR =
 		(GPIO_CNF_IN_PUPD)<<(4*1) |  // Keep SWIO enabled.
-		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*DEBUG_PIN) |
-		(GPIO_SPEED_IN | GPIO_CNF_IN_PUPD)<<(4*USB_DM) |  //PD3 = GPIOD IN
-		(GPIO_SPEED_IN | GPIO_CNF_IN_PUPD)<<(4*USB_DP) |  //PD4 = GPIOD IN
+//		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*DEBUG_PIN) |
+		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DM) |  //PD3 = GPIOD IN
+		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DP) |  //PD4 = GPIOD IN
 		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_DPU);
 
 	// Configure the IO as an interrupt.
@@ -98,35 +95,53 @@ int main()
 	// enable interrupt
 	NVIC_EnableIRQ( EXTI7_0_IRQn );
 
+	// Wait ~5 seconds.
+	int32_t localpad = -0xf00000; // Careful: Constant works out to a single lbu instruction.
 	while(1)
 	{
-		printf( "%lu %lu %lu %08lx\n", rv003usb_internal_data.delta_se0_cyccount, rv003usb_internal_data.last_se0_cyccount, rv003usb_internal_data.se0_windup, RCC->CTLR );
+		if( localpad < 0 )
+		{
+			if( ++localpad == 0 )
+			{
+				// Boot to user program.
+#ifndef DISABLE_BOOTLOAD
+				FLASH->BOOT_MODEKEYR = FLASH_KEY1;
+				FLASH->BOOT_MODEKEYR = FLASH_KEY2;
+				FLASH->STATR = 0; // 1<<14 is zero, so, boot user code.
+				FLASH->CTLR = CR_LOCK_Set;
+				PFIC->SCTLR = 1<<31;
+#endif
+			}
+		}
+		if( localpad > 0 )
+		{
+			if( --localpad == 0 )
+			{
+				/* Scratchpad strucure:
+					4-bytes:		LONG( 0x000000aa )
+						... code (this is executed) (120 bytes)
+					4-bytes:        LONG( 0x1234abcd )
+
+					After the scratchpad is the runpad, its structure is:
+					4-bytes:   int32_t  if negative, how long to go before bootloading.  If 0, do nothing.  If positive, execute.
+						... 1kB of totally free space.
+				*/
+				typedef void (*setype)( uint32_t *, volatile int32_t * );
+				setype scratchexec = (setype)(scratchpad+4);
+				scratchexec( (uint32_t*)&scratchpad[0], &runwordpad );
+			}
+		}
+
+		uint32_t commandpad = runwordpad;
+		if( commandpad )
+		{
+			localpad = commandpad-1;
+			runwordpad = 0;
+		}
 	}
 }
 
-
 #define ENDPOINT0_SIZE 8 //Fixed for USB 1.1, Low Speed.
-
-
-//Received a setup for a specific endpoint.
-void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
-{
-	ist->current_endpoint = endp;
-	struct usb_endpoint * e = &ist->eps[endp];
-
-	e->toggle_out = 0;
-	e->toggle_in = 1;
-	e->count_in = 0;
-	ist->setup_request = 1;
-
-	TIM1->CNT = 0;
-	TIM1->CNT = 0;
-	TIM1->CNT = 0;
-	TIM1->CNT = 0;
-	TIM1->CNT = 0;
-	TIM1->CNT = 0;
-	TIM1->CNT = 0;
-}
 
 void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
 {
@@ -135,50 +150,36 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 
 	int tosend = 0;
 	uint8_t * sendnow = data-1;
-	uint8_t * sendnowo = data-1;
 	uint8_t sendtok = e->toggle_in?0b01001011:0b11000011;
-
-		TIM1->CNT = 0;
-		TIM1->CNT = 0;
-		TIM1->CNT = 0;
-		TIM1->CNT = 0;
 	
 	// Handle IN (sending data back to PC)
 	// Do this down here.
 	// We do this because we are required to have an in-endpoint.  We don't
 	// have to do anything with it, though.
+	if( endp )
+	{
+		goto send_nada;
+	}
+
 	uint8_t * tsend = 0;
 
-	if( endp == 1 )
+	if( e->is_descriptor )
 	{
-		static uint8_t tsajoystick[8] = { 0x00, 0x01, 0x10, 0x00 };
-		tsajoystick[0]++;
-		tsajoystick[2]^=1; // Alter button 1.
-		sendnow = tsajoystick;
-		tosend = 3;
+		const struct descriptor_list_struct * dl = &descriptor_list[e->opaque];
+		tsend = ((uint8_t*)dl->addr);
 	}
-	else
+	else if( e->opaque == 1 )
 	{
-		if( e->is_descriptor )
-		{
-			const struct descriptor_list_struct * dl = &descriptor_list[e->opaque];
-			tsend = ((uint8_t*)dl->addr);
-		}
-		else if( e->opaque == 1 )
-		{
-			// Yes, it's a 0xAA
-			tsend = scratchpad;
-		}
-
-		int offset = (e->count_in)<<3;
-		tosend = ist->control_max_len - offset;
-		if( tosend > ENDPOINT0_SIZE ) tosend = ENDPOINT0_SIZE;
-		sendnow = tsend + offset;
+		tsend = scratchpad;
 	}
 
+	int offset = (e->count_in)<<3;
+	tosend = ist->control_max_len - offset;
+	if( tosend > ENDPOINT0_SIZE ) tosend = ENDPOINT0_SIZE;
 	if( tosend < 0 ) tosend = 0;
+	sendnow = tsend + offset;
 
-	if( !tosend || !sendnow )
+	if( !tosend || !tsend )
 	{
 		goto send_nada;
 	}
@@ -188,31 +189,13 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	}
 	return;
 send_nada:
-	sendnowo[0] = 0;
-	sendnowo[1] = 0; //CRC = 0
-	usb_send_data( sendnowo, 2, 2, sendtok );  //DATA = 0, 0 CRC.
-}
 
-void usb_pid_handle_out( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
-{
-	ist->current_endpoint = endp;
-
-
-		TIM1->CNT = 0;
-		TIM1->CNT = 0;
-	asm volatile( "nop; nop; nop; nop;" );
-		TIM1->CNT = 0;
-		TIM1->CNT = 0;
-	
-	//We need to handle this here because we could have an interrupt in the middle of a control or big transfer.
-	//This will correctly swap back the endpoint.
+	//always0 -> //CRC = 0
+	usb_send_data( (uint8_t*)&always0, 2, 2, sendtok );  //DATA = 0, 0 CRC.
 }
 
 void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, uint32_t length, struct rv003usb_internal * ist )
 {
-	TIM1->CNT = 0;
-	TIM1->CNT = 0;
-	TIM1->CNT = 0;
 	//Received data from host.
 	int cep = ist->current_endpoint;
 	struct usb_endpoint * e = &ist->eps[cep];
@@ -220,49 +203,20 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 	// Alrady received this packet.
 	if( e->toggle_out != which_data )
 	{
-		TIM1->CNT = 0;
-		TIM1->CNT = 0;
-		TIM1->CNT = 0;
-		TIM1->CNT = 0;
-		TIM1->CNT = 0;
-		if( cep == 0 )
-		{
-			TIM1->CNT = 0;
-			TIM1->CNT = 0;
-		}	
 		goto just_ack;
 	}
-
-	e->toggle_out = !e->toggle_out;
-
-	int i;
-	for( i = -8; i < cep; i++ )
-	{
-		TIM1->CNT = 0;
-	}
-
+	// XXX NOTE:  		e->toggle_out = !e->toggle_out; should be here.
 	if( cep == 0 )
 	{
-		TIM1->CNT = 0;
-		TIM1->CNT = 0;
-		TIM1->CNT = 0;
-		TIM1->CNT = 0;
-
+		e->toggle_out = !e->toggle_out;
 		if( ist->setup_request )
 		{
-		TIM1->CNT = 0;
-		TIM1->CNT = 0;
-		TIM1->CNT = 0;
-		TIM1->CNT = 0;
-		TIM1->CNT = 0;
-		TIM1->CNT = 0;
 			struct usb_urb * s = __builtin_assume_aligned( (struct usb_urb *)(data+1), 4 );
 
 			uint32_t wvi = s->lValueLSBIndexMSB;
 			//Send just a data packet.
 			e->count_in = 0;
 			e->count_out = 0;
-			e->opaque = 0;
 			e->is_descriptor = 0;
 			ist->setup_request = 0;
 			ist->control_max_len = 0;
@@ -271,16 +225,17 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			{
 				// Class read request.
 				uint32_t wlen = s->wLength;
-				if( wlen > sizeof(scratchpad) ) wlen = sizeof(scratchpad);
+				if( wlen > sizeof(scratchpad) ) wlen = SCRATCHPAD_SIZE;
 				// The host wants to read back from us.
 				ist->control_max_len = wlen;
 				e->opaque = 1;
 			}
-			if( s->wRequestTypeLSBRequestMSB == 0x0921 )
+			else if( s->wRequestTypeLSBRequestMSB == 0x0921 )
 			{
-				// Class request (Will be writing)  This is hid_send_feature_report
-				ist->control_max_len = sizeof( scratchpad );
-				e->opaque = 0xff;
+				// Class write request.
+				ist->control_max_len = SCRATCHPAD_SIZE;
+				runwordpad = 1; //request stoppage.
+				e->opaque = 2;
 			}
 			else if( (s->wRequestTypeLSBRequestMSB & 0xff80) == 0x0680 )
 			{
@@ -290,42 +245,53 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 				{
 					dl = &descriptor_list[i];
 					if( dl->lIndexValue == wvi )
+					{
+						// Send back descriptor.
+						e->opaque = i;
+						e->is_descriptor = 1;
+						uint16_t swLen = s->wLength;
+						uint16_t elLen = dl->length;
+						ist->control_max_len = (swLen < elLen)?swLen:elLen;
 						break;
+					}
 				}
 
-				if( i == DESCRIPTOR_LIST_ENTRIES )
-				{
-					//??? Somehow fail?  Is 'nak' the right thing? I don't know what to do here.
-					goto just_ack;
-				}
-
-				// Send back descriptor.
-				e->opaque = i;
-				e->is_descriptor = 1;
-				uint16_t swLen = s->wLength;
-				uint16_t elLen = dl->length;
-				ist->control_max_len = (swLen < elLen)?swLen:elLen;
+				goto just_ack;
 			}
 			else if( s->wRequestTypeLSBRequestMSB == 0x0500 )
 			{
 				//Set address.
 				ist->my_address = wvi;
+				e->opaque = 0;
+			}
+			else
+			{
+				e->opaque = 0;
 			}
 		}
 		else
 		{
-
-		TIM1->CNT = 0;
 			// Continuing data.
-			if( e->opaque == 0xff  )
+			if( e->opaque == 2 )
 			{
-		TIM1->CNT = 0;
 				uint8_t * start = &scratchpad[e->count_out];
 				int l = length-3;
 				int i;
 				for( i = 0; i < l; i++ )
 					start[i] = data[i+1];//((intptr_t)data)>>(i*8);
 				e->count_out += l;
+
+				if( e->count_out >= SCRATCHPAD_SIZE )
+				{
+					// If the last 4 bytes are 0x1234abcd, then we can go!
+					uint32_t * last4 = (uint32_t*)(start + 4);					
+					if( *last4 == 0x1234abcd )
+					{
+						*last4 = 0;
+						runwordpad = 0x200; // Request exectution
+					}
+					e->opaque = 0;
+				}
 			}
 			// Allow user code to receive data.
 		}
@@ -338,6 +304,8 @@ just_ack:
 	return;
 }
 
+#ifndef REALLY_TINY_COMP_FLASH
+
 void usb_pid_handle_ack( uint32_t dummy, uint8_t * data, uint32_t dummy1, uint32_t dummy2, struct rv003usb_internal * ist  )
 {
 	struct usb_endpoint * e = &ist->eps[ist->current_endpoint];
@@ -345,6 +313,21 @@ void usb_pid_handle_ack( uint32_t dummy, uint8_t * data, uint32_t dummy1, uint32
 	e->count_in++;
 	return;
 }
+
+//Received a setup for a specific endpoint.
+void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
+{
+	ist->current_endpoint = endp;
+	struct usb_endpoint * e = &ist->eps[endp];
+
+	e->toggle_out = 0;
+	e->count_in = 0;
+	e->toggle_in = 1;
+	ist->setup_request = 1;
+}
+
+#endif
+
 
 
 

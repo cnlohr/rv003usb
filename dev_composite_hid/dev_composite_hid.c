@@ -23,9 +23,7 @@ void usb_handle_custom_control( uint8_t bmRequestType, uint8_t bRequest, uint16_
 
 int main()
 {
-	SystemInit48HSI();
-	SetupDebugPrintf();
-	SETUP_SYSTICK_HCLK
+	SystemInit();
 
 	rv003usb_internal_data.se0_windup = 0;
 
@@ -83,8 +81,8 @@ int main()
 	GPIOD->CFGLR =
 		(GPIO_CNF_IN_PUPD)<<(4*1) |  // Keep SWIO enabled.
 		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*DEBUG_PIN) |
-		(GPIO_SPEED_IN | GPIO_CNF_IN_PUPD)<<(4*USB_DM) |  //PD3 = GPIOD IN
-		(GPIO_SPEED_IN | GPIO_CNF_IN_PUPD)<<(4*USB_DP) |  //PD4 = GPIOD IN
+		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DM) |  //PD3 = GPIOD IN
+		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DP) |  //PD4 = GPIOD IN
 		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_DPU);
 
 	// Configure the IO as an interrupt.

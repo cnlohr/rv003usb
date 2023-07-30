@@ -1,10 +1,10 @@
 all : flash
 
-TARGET:=demo_gamepad
+TARGET:=dev_gamepad
 CH32V003FUN:=../ch32v003fun/ch32v003fun
 MINICHLINK?=../ch32v003fun/minichlink
 
-ADDITIONAL_C_FILES+=../rv003usb/rv003usb.S ../rv003usb/rv003usb.c
+ADDITIONAL_C_FILES+=../rv003usb/rv003usb.S
 EXTRA_CFLAGS:=-I../lib -I../rv003usb
 
 include ../ch32v003fun/ch32v003fun/ch32v003fun.mk

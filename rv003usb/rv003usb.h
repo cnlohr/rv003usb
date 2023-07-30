@@ -1,9 +1,6 @@
 #ifndef _RV003USB_H
 #define _RV003USB_H
 
-// Port D.3 = D+
-// Port D.4 = D-
-// Port D.5 = DPU
 
 #define USB_GPIO_BASE GPIOD_BASE
 
@@ -85,11 +82,24 @@ struct usb_urb
 } __attribute__((packed));
 
 
+extern struct rv003usb_internal rv003usb_internal_data;
+extern uint32_t * always0;
+
+// If you are using the .c functionality, be sure to #define USE_RV003_C 1
+// usb_hande_interrupt_in is OBLIGATED to call usb_send_data or usb_send_nak.
+void usb_hande_interrupt_in( struct usb_endpoint * e, uint8_t * scratchpad, uint32_t sendtok );
+void usb_handle_control_in( struct usb_endpoint * e, uint8_t * scratchpad, uint32_t sendtok );
+
+// Other things to handle.
+void usb_handle_control_out_start( struct usb_endpoint * e, int reqLen );
+void usb_handle_control_out( struct usb_endpoint * e, uint8_t * data, int len );
+void usb_handle_control_in_start( struct usb_endpoint * e, int reqLen );
+
+
 // Note: This checks addr & endp to make sure they are valid.
 void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist );
 void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist );
 void usb_pid_handle_out( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist );
-
 void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, uint32_t length, struct rv003usb_internal * ist );
 void usb_pid_handle_ack( uint32_t dummy, uint8_t * data, uint32_t dummy2, uint32_t dummy3, struct rv003usb_internal * ist  );
 
@@ -97,6 +107,10 @@ void usb_pid_handle_ack( uint32_t dummy, uint8_t * data, uint32_t dummy2, uint32
 //poly_function = 2 to exclude CRC.
 //This function is provided in assembly
 void usb_send_data( uint8_t * data, uint32_t length, uint32_t poly_function, uint32_t token );
+void usb_send_nak( uint32_t token );
+
+void usb_setup();
+
 #endif
 
 #endif

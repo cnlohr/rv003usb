@@ -10,18 +10,15 @@
 #define USB_DM 3
 #define USB_DP 4
 #define USB_DPU 5
-#define USB_PORT D
+#define USB_PORT GPIOD
 
-#define REALLY_TINY_COMP_FLASH 1
-
-#define USE_RV003_C 1
+#define REALLY_TINY_COMP_FLASH
 
 #ifndef __ASSEMBLER__
 
 #include <tinyusb_hid.h>
 
 #ifdef INSTANCE_DESCRIPTORS
-
 //Taken from http://www.usbmadesimple.co.uk/ums_ms_desc_dev.htm
 static const uint8_t device_descriptor[] = {
 	18, //Length
@@ -113,6 +110,7 @@ static const uint8_t config_descriptor[] = {
 
 
 //Ever wonder how you have more than 6 keys down at the same time on a USB keyboard?  It's easy. Enumerate two keyboards!
+
 
 #define STR_MANUFACTURER u"CNLohr"
 #define STR_PRODUCT      u"RV003USB"

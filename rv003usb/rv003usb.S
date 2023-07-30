@@ -30,7 +30,9 @@
 .global rv003usb_internal_data
 .global rv003usb_handle_packet
 .global usb_send_data
+.global usb_send_nak
 .global main
+.global always0
 
 /* Register map
 	zero, ra, sp, gp, tp, t0, t1, t2
@@ -546,6 +548,11 @@ handle_se0_keepalive:
 
 //void usb_send_data( uint8_t * data, uint32_t length, uint32_t poly_function, uint32_t token );
 .balign 4
+usb_send_nak:
+	c.mv a3, a0
+	la a0, always0
+	li a1, 2
+	li a2, 2
 usb_send_data:
 	addi	sp,sp,-16
 	sw	s0, 0(sp)
@@ -553,7 +560,7 @@ usb_send_data:
 
 	la a5, USB_GPIO_BASE
 
-	// ASAP: Turn the bus around and send our preamble + token.	
+	// ASAP: Turn the bus around and send our preamble + token.
 	c.lw a4, CFGLR_OFFSET(a5)
 
 	li s1, ~((0b1111<<(USB_DM*4)) | (0b1111<<(USB_DP*4)))
@@ -859,17 +866,17 @@ InterruptVector:
 // CAREFUL THIS MUST BE EXACTLY AT 0x50
 . = 0x52 // Weird...  I don't know why this has to be 0x52, for it to be at 0x50.
 	.word EXTI7_0_IRQHandler            /* EXTI Line 7..0 */
-
-//	li a1, 0x009F0000
-//	c.sw a1, 8(a2)      /* RCC->INTR  = 0x009F0000  I don't think this is needed. */
-
+always0:
+	.byte 0x00 // Automatically expands out to 4 bytes.
 
 .align 0
 .balign 0
 
+#else
+
+always0:
+	.word 0x00
+
 #endif
 
-.long 0xaaaaaaaa
-.long 0xaaaaaaaa
-.long 0xaaaaaaaa
 
