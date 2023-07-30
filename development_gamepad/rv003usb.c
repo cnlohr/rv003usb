@@ -23,9 +23,7 @@ void usb_handle_custom_control( uint8_t bmRequestType, uint8_t bRequest, uint16_
 
 int main()
 {
-	SystemInit48HSI();
-	SetupDebugPrintf();
-	SETUP_SYSTICK_HCLK
+	SystemInit();
 
 	rv003usb_internal_data.se0_windup = 0;
 
@@ -82,9 +80,8 @@ int main()
 	// GPIO D3 for input pin change.
 	GPIOD->CFGLR =
 		(GPIO_CNF_IN_PUPD)<<(4*1) |  // Keep SWIO enabled.
-		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*DEBUG_PIN) |
-		(GPIO_SPEED_IN | GPIO_CNF_IN_PUPD)<<(4*USB_DM) |  //PD3 = GPIOD IN
-		(GPIO_SPEED_IN | GPIO_CNF_IN_PUPD)<<(4*USB_DP) |  //PD4 = GPIOD IN
+		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DM) |  //PD3 = GPIOD IN
+		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DP) |  //PD4 = GPIOD IN
 		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_DPU);
 
 	// Configure the IO as an interrupt.
@@ -100,9 +97,6 @@ int main()
 
 	while(1)
 	{
-		__disable_irq();
-		asm volatile( "c.nop; c.nop;c.nop; c.nop;c.nop; c.nop;c.nop; c.nop;c.nop; c.nop;c.nop; c.nop;c.nop; c.nop;c.nop; c.nop;c.nop; c.nop;c.nop; c.nop;c.nop; c.nop;c.nop; c.nop;c.nop; c.nop;" );
-		__enable_irq();
 		//printf( "%lu %lu %lu %08lx\n", rv003usb_internal_data.delta_se0_cyccount, rv003usb_internal_data.last_se0_cyccount, rv003usb_internal_data.se0_windup, RCC->CTLR );
 	}
 }
@@ -154,20 +148,11 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 
 	if( endp == 1 )
 	{
-		static uint8_t tsamouse[8] = { 0x00, 0x00, 0x00, 0x00 };
-		//tsamouse[0] ^= 1;  // click
-		// Jiggle mouse diagonally.
-		//tsamouse[1] = -tsamouse[1];
-		//tsamouse[2] = -tsamouse[2];
-		sendnow = tsamouse;
-		tosend = 4;
-	}
-	else if( endp == 2 )
-	{
-		static uint8_t tsakeyboard[8] = { 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00 };
-		//tsakeyboard[2] ^= 0x08;  // Press/unpress, 0x02/0x0a => 'g' button
-		sendnow = tsakeyboard;
-		tosend = 8;
+		static uint8_t tsajoystick[8] = { 0x00, 0x01, 0x10, 0x00 };
+		tsajoystick[0]++;
+		tsajoystick[2]^=1; // Alter button 1.
+		sendnow = tsajoystick;
+		tosend = 3;
 	}
 	else
 	{

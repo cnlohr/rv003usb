@@ -4,15 +4,16 @@
 //Defines the number of endpoints for this device. (Always add one for EP0). For two EPs, this should be 3.
 #define ENDPOINTS 2
 
-#define DEBUG_TIMING 0
-#define USB_IN_DATA_SECTION 0
+#define DEBUG_TIMING 1
 
-//#define INCLUDE_ACK_AND_SETUP
+#define USB_IN_DATA_SECTION 0
 
 #define USB_DM 3     //DM MUST be BEFORE DP
 #define USB_DP 4
 #define USB_DPU 5
 #define USB_PORT GPIOD
+
+#define REALLY_TINY_COMP_FLASH
 
 #ifndef __ASSEMBLER__
 
@@ -28,8 +29,8 @@ static const uint8_t device_descriptor[] = {
 	0x0, //Device Subclass
 	0x0, //Device Protocol  (000 = use config descriptor)
 	0x08, //Max packet size for EP0 (This has to be 8 because of the USB Low-Speed Standard)
-	0x06, 0x12, //ID Vendor   //TODO: register this in http://pid.codes/howto/ or somewhere.
-	0x03, 0xc0, //ID Product
+	0xcd, 0xab, //ID Vendor   //TODO: register this in http://pid.codes/howto/ or somewhere.
+	0x66, 0x33, //ID Product
 	0x02, 0x00, //ID Rev
 	1, //Manufacturer string
 	2, //Product string
@@ -113,8 +114,8 @@ static const uint8_t config_descriptor[] = {
 
 
 #define STR_MANUFACTURER u"CNLohr"
-#define STR_PRODUCT      u"RV003USB Gamepad"
-#define STR_SERIAL       u"Gamepad"
+#define STR_PRODUCT      u"RV003USB"
+#define STR_SERIAL       u"000"
 
 struct usb_string_descriptor_struct {
 	uint8_t bLength;

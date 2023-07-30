@@ -27,6 +27,8 @@
 #define LAST_SE0_OFFSET         4
 #define DELTA_SE0_OFFSET        8
 #define SE0_WINDUP_OFFSET       12
+#define ENDP_OFFSET             17
+#define SETUP_REQUEST_OFFSET    16
 #endif
 
 #if USB_IN_DATA_SECTION
@@ -73,9 +75,7 @@ struct rv003usb_internal
 	uint32_t last_se0_cyccount;
 	int32_t delta_se0_cyccount;
 	uint32_t se0_windup;
-	TURBO8TYPE setup_request;
-	// 5 bytes + 6 * ENDPOINTS
-
+	uint32_t setup_request;  //XXX TODO: Roll this into current_endpoint, as the MSB.
 	struct usb_endpoint eps[ENDPOINTS];
 };
 
@@ -90,7 +90,7 @@ struct usb_urb
 	uint16_t wRequestTypeLSBRequestMSB;
 	uint32_t lValueLSBIndexMSB;
 	uint16_t wLength;
-} __attribute__((packed));
+};
 
 
 // Note: This checks addr & endp to make sure they are valid.

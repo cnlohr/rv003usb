@@ -3,7 +3,7 @@ ENTRY( InterruptVector )
 MEMORY
 {
 	/* Actually at 0x1FFFF000 but the system maps it to 0x00000000 */
-	FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 1920
+	FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 19200
 	RAM (xrw)	: ORIGIN = 0x20000000, LENGTH = 2K
 }
 

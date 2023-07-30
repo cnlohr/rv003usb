@@ -25,6 +25,9 @@
 #define SAVE_DEBUG_MARKER(x)	sw	x4, x(sp)
 #endif
 
+// A little weird, but this way, the USB packet is always aligned.
+#define DATA_PTR_OFFSET (59+4)
+#define USB_BUFFER_SPACE 16
 
 .global test_memory
 .global rv003usb_internal_data
@@ -46,7 +49,7 @@ Compressed:
 .global EXTI7_0_IRQHandler
 .balign 4
 EXTI7_0_IRQHandler:
-	addi	sp,sp,-56
+	addi	sp,sp,-56-USB_BUFFER_SPACE
 	sw	a0, 0(sp)
 	sw	a5, 20(sp)
 	la a5, USB_GPIO_BASE
@@ -86,9 +89,6 @@ syncout:
 	// This will be called when we have synchronized our USB.  We can put our
 	// preamble detect code here.  But we have a whole free USB bit cycle to
 	// do whatever we feel like.
-
-	// A little weird, but this way, the USB packet is always aligned.
-#define DATA_PTR_OFFSET (59+4)
 	
 	// This is actually somewhat late.
 	// The preamble loop should try to make it earlier.
@@ -235,7 +235,7 @@ data_crc:
 
 
 #define HANDLE_EOB_YES \
-	sb a2, 0(t2); /* Save the byte off. TODO: Is unaligned byte access to RAM slow? */ \
+	sb a2, 0(t2);     /* Save the byte off. TODO: Is unaligned byte access to RAM slow? */ \
 	.word 0x00138393; /*addi t2, t2, 1;*/
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -462,11 +462,13 @@ interrupt_complete:
 	// Restore stack.
 	lw	a0, 0(sp)
 	lw	a5, 20(sp)
-	addi	sp,sp,56
+	addi	sp,sp,56+USB_BUFFER_SPACE
 	mret
 
 ///////////////////////////////////////////////////////////////////////////////
 // High level functions.
+
+#if defined( REALLY_TINY_COMP_FLASH ) || defined( INCLUDE_ACK_AND_SETUP )
 
 #ifdef REALLY_TINY_COMP_FLASH
 /*
@@ -477,25 +479,7 @@ void usb_pid_handle_ack( uint32_t dummy, uint8_t * data, uint32_t dummy1, uint32
 	e->count_in++;
 	return;
 }
-*/
-usb_pid_handle_ack:
-	c.lw a2, 0(a4) //ist->current_endpoint -> endp;
-	c.slli a2, 5
-	c.add a2, a4
-	c.addi a2, ENDP_OFFSET // usb_endpoint eps[ENDPOINTS];
 
-	c.lw a0, (3*4)(a2) // toggle_in=!toggle_in
-	c.li a1, 1
-	c.xor a0, a1
-	c.sw a0, (3*4)(a2)
-
-	c.lw a0, 0(a2)
-	c.addi a0, 1
-	c.sw a0, 0(a2)
-
-	c.j done_usb_message_in
-
-/*
 //Received a setup for a specific endpoint.
 void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
 {
@@ -507,17 +491,64 @@ void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, uint32_
 	e->toggle_in = 1;
 	ist->setup_request = 1;
 }*/
+
+usb_pid_handle_ack:
+	c.lw a2, 0(a4) //ist->current_endpoint -> endp;
+	c.slli a2, 5
+	c.add a2, a4
+	c.addi a2, ENDP_OFFSET // usb_endpoint eps[ENDPOINTS];
+	c.lw a0, (3*4)(a2) // toggle_in=!toggle_in
+	c.li a1, 1
+	c.xor a0, a1
+	c.sw a0, (3*4)(a2)
+	c.lw a0, 0(a2)
+	c.addi a0, 1
+	c.sw a0, 0(a2)
+	c.j done_usb_message_in
+
 usb_pid_handle_setup:
 	c.sw a2, 0(a4) // ist->current_endpoint = endp
 	c.li a1, 1
 	c.sw a1, SETUP_REQUEST_OFFSET(a4) //ist->setup_request = 1;
 	c.slli a2, 3+2
 	c.add a2, a4
-	c.sw a1, (28+12)(a2) //e->toggle_in = 1;
+	c.sw a1, (ENDP_OFFSET+12)(a2) //e->toggle_in = 1;
 	c.li a1, 0
-	c.sw a1, (28+0)(a2)
-	c.sw a1, (28+16)(a2)
+	c.sw a1, (ENDP_OFFSET+0)(a2)
+	c.sw a1, (ENDP_OFFSET+16)(a2)
 	c.j done_usb_message_in	
+
+#else
+
+usb_pid_handle_ack:
+	c.lw a2, 0(a4) //ist->current_endpoint -> endp;
+	c.slli a2, 5
+	c.add a2, a4
+	c.addi a2, ENDP_OFFSET // usb_endpoint eps[ENDPOINTS];
+	lbu a0, 3(a2) // toggle_in=!toggle_in
+	c.li a1, 1
+	c.xor a0, a1
+	sb a0, 3(a2)
+	lb a0, 0(a2) //count_in++
+	c.addi a0, 1
+	sb a0, 0(a2)
+	c.j done_usb_message_in
+
+usb_pid_handle_setup:
+	c.sw a2, 0(a4) // ist->current_endpoint = endp
+	c.li a1, 1
+	sb a1, SETUP_REQUEST_OFFSET(a4) //ist->setup_request = 1;
+	c.slli a2, 3+2
+	c.add a2, a4
+	sb a1, (ENDP_OFFSET+3)(a2) //e->toggle_in = 1;
+	c.li a1, 0
+	sb a1, (ENDP_OFFSET+0)(a2) // e->count_in = 0;
+	sb a1, (ENDP_OFFSET+4)(a2) // e->toggle_out = 0
+	c.j done_usb_message_in	
+
+
+
+#endif
 
 #endif
 
@@ -543,14 +574,14 @@ handle_se0_keepalive:  // "KA" packets.
 	c.sw a2, DELTA_SE0_OFFSET(a4) //record delta_se0_cyccount
 
 #if USB_IN_DATA_SECTION
-	li a1, 48200  //We actually want to run hot, since when we jump to ram things slow down.
+	li a1, 48200  	// We actually want to run hot, since when we jump to ram things slow down.
 #else
-	li a1, 48000
+	li a1, 48000    // FYI Flash slows down a tiny bit, but not enough to worry about.
 #endif
 	c.sub a2, a1
 	// This is our deviance from 48MHz.
 
-	// Make sure we aren't in left field.
+	// Make sure we aren't in left field. (Must be between 44 and 52MHz)
 	li a5, 4000
 	bge a2, a5, ret_from_se0
 	li a5, -4000

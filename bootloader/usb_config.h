@@ -56,21 +56,21 @@ static const uint8_t config_descriptor[] = {  //Mostly stolen from a USB mouse I
 	// configuration descriptor, USB spec 9.6.3, page 264-266, Table 9-10
 	9, 					// bLength;
 	2,					// bDescriptorType;
-	0x22, 0x00,			// wTotalLength  	
+	0x22, 0x00,			// wTotalLength
 
 	//34, 0x00, //for just the one descriptor
 	
-	0x01,					// bNumInterfaces (Normally 1)  (If we need an additional HID interface add here)
-	0x01,					// bConfigurationValue
-	0x00,					// iConfiguration
-	0x80,					// bmAttributes (was 0xa0)
-	0x64,					// bMaxPower (200mA)
+	0x01,				// bNumInterfaces (Normally 1)  (If we need an additional HID interface add here)
+	0x01,				// bConfigurationValue
+	0x00,				// iConfiguration
+	0x80,				// bmAttributes (was 0xa0)
+	0x64,				// bMaxPower (200mA)
 
 
 	//HID THING
 	9,					// bLength
 	4,					// bDescriptorType
-	0,			// bInterfaceNumber (unused, would normally be used for HID)
+	0,			        // bInterfaceNumber (unused, would normally be used for HID)
 	0,					// bAlternateSetting
 	1,					// bNumEndpoints
 	0x03,					// bInterfaceClass (0x03 = HID)
@@ -99,7 +99,7 @@ static const uint8_t config_descriptor[] = {  //Mostly stolen from a USB mouse I
 
 #define STR_MANUFACTURER u""
 #define STR_PRODUCT      u""
-#define STR_SERIAL       u"NBTT" // Need to change to BOOT when we finally decide on a flashing mechanism.
+#define STR_SERIAL       u"RZ" // Need to change to BOOT when we finally decide on a flashing mechanism.
 
 struct usb_string_descriptor_struct {
 	uint8_t bLength;
@@ -150,3 +150,4 @@ const static struct descriptor_list_struct {
 
 #endif // __ASSEMBLER__
 #endif 
+
