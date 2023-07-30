@@ -10,12 +10,20 @@ int main()
 	while(1);
 }
 
-void usb_hande_interrupt_in( struct usb_endpoint * e, uint8_t * scratchpad, uint32_t sendtok )
+void usb_handle_user_in( struct usb_endpoint * e, uint8_t * scratchpad, int endp, uint32_t sendtok, struct rv003usb_internal * ist )
 {
-	static uint8_t tsajoystick[8] = { 0x00, 0x01, 0x10, 0x00 };
-	tsajoystick[0]++;  // Go left->right fast
-	tsajoystick[2]^=1; // Alter button 1.
-	usb_send_data( tsajoystick, 3, 0, sendtok );
+	if( endp )
+	{
+		static uint8_t tsajoystick[8] = { 0x00, 0x01, 0x10, 0x00 };
+		tsajoystick[0]++;  // Go left->right fast
+		tsajoystick[2]^=1; // Alter button 1.
+		usb_send_data( tsajoystick, 3, 0, sendtok );
+	}
+	else
+	{
+		// If it's a control transfer, nak it.
+		usb_send_nak( sendtok );
+	}
 }
 
 

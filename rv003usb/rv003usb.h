@@ -88,10 +88,7 @@ extern uint32_t * always0;
 
 // If you are using the .c functionality, be sure to #define USE_RV003_C 1
 // usb_hande_interrupt_in is OBLIGATED to call usb_send_data or usb_send_nak.
-void usb_hande_interrupt_in( struct usb_endpoint * e, uint8_t * scratchpad, uint32_t sendtok );
-
-// NOTE: Tricky: When making outbound OUT messages, this will be called at the end.
-void usb_handle_control_in( struct usb_endpoint * e, uint8_t * scratchpad, uint32_t sendtok );
+void usb_hande_user_in( struct usb_endpoint * e, uint8_t * scratchpad, int endp, uint32_t sendtok, struct rv003usb_internal * ist );
 
 void usb_handle_control_out_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB );
 void usb_handle_control_out( struct usb_endpoint * e, uint8_t * data, int len );

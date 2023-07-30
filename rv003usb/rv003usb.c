@@ -45,18 +45,12 @@ void usb_setup()
 	NVIC_EnableIRQ( EXTI7_0_IRQn );
 }
 
-void usb_hande_interrupt_in( struct usb_endpoint * e, uint8_t * scratchpad, uint32_t sendtok ) __attribute((weak,alias("usb_hande_interrupt_in_default")));
-void usb_handle_control_in( struct usb_endpoint * e, uint8_t * scratchpad, uint32_t sendtok )  __attribute((weak,alias("usb_handle_control_in_default")));
+void usb_handle_user_in( struct usb_endpoint * e, uint8_t * scratchpad, int endp, uint32_t sendtok, struct rv003usb_internal * ist ) __attribute((weak,alias("usb_handle_user_in_default")));
 void usb_handle_control_out( struct usb_endpoint * e, uint8_t * data, int len )  __attribute((weak,alias("usb_handle_control_out_default")));
 void usb_handle_control_out_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )  __attribute((weak,alias("usb_handle_control_out_start_default")));
 void usb_handle_control_in_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )  __attribute((weak,alias("usb_handle_control_in_start_default")));
 
-void usb_hande_interrupt_in_default( struct usb_endpoint * e, uint8_t * scratchpad, uint32_t sendtok )
-{
-	usb_send_nak( sendtok );
-}
-
-void usb_handle_control_in_default( struct usb_endpoint * e, uint8_t * scratchpad, uint32_t sendtok )
+void usb_handle_user_in_default( struct usb_endpoint * e, uint8_t * scratchpad, int endp, uint32_t sendtok, struct rv003usb_internal * ist )
 {
 	usb_send_nak( sendtok );
 }
@@ -70,7 +64,6 @@ void usb_handle_control_out_start_default( struct usb_endpoint * e, int reqLen, 
 void usb_handle_control_in_start_default( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB ) { }
 
 
-
 void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
 {
 	ist->current_endpoint = endp;
@@ -80,14 +73,9 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	uint8_t * sendnow = data-1;
 	int sendtok = e->toggle_in?0b01001011:0b11000011;
 
-	if( endp )
+	if( endp || !e->is_descriptor )
 	{
-		usb_hande_interrupt_in( e, sendnow, sendtok );
-		return;
-	}
-	if( !e->is_descriptor )
-	{
-		usb_handle_control_in( e, sendnow, sendtok );
+		usb_handle_user_in( e, sendnow, endp, sendtok, ist );
 		return;
 	}
 

@@ -14,23 +14,31 @@ int main()
 
 	while(1)
 	{
-		printf( "%lu %lu %lu %08lx\n", rv003usb_internal_data.delta_se0_cyccount, rv003usb_internal_data.last_se0_cyccount, rv003usb_internal_data.se0_windup, RCC->CTLR );
+		//printf( "%lu %lu %lu %08lx\n", rv003usb_internal_data.delta_se0_cyccount, rv003usb_internal_data.last_se0_cyccount, rv003usb_internal_data.se0_windup, RCC->CTLR );
 	}
 }
 
-void usb_handle_control_in( struct usb_endpoint * e, uint8_t * sdata, uint32_t sendtok )
+void usb_handle_user_in( struct usb_endpoint * e, uint8_t * scratchpad, int endp, uint32_t sendtok, struct rv003usb_internal * ist )
 {
-	int offset = (e->count)<<3;
-	int remain = (int)e->max_len - (int)offset;
-	if( remain <= 0 )
+	// Make sure we only deal with control messages.  Like get/set feature reports.
+	if( endp )
 	{
 		usb_send_nak( sendtok );
 	}
 	else
 	{
-		if( remain > 8 ) remain = 8;
-		usb_send_data( scratch + offset, remain, 0, sendtok );
-		// Don't advance, that will be done by ACK packets.
+		int offset = (e->count)<<3;
+		int remain = (int)e->max_len - (int)offset;
+		if( remain <= 0 )
+		{
+			usb_send_nak( sendtok );
+		}
+		else
+		{
+			if( remain > 8 ) remain = 8;
+			usb_send_data( scratch + offset, remain, 0, sendtok );
+			// Don't advance, that will be done by ACK packets.
+		}
 	}
 }
 

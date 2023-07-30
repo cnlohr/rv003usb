@@ -4,7 +4,7 @@ Ever wanted a 10 cent USB-capable processor? Well, look no further. RV003USB all
 
 ### It's small!
 
-The bootloader version of the tool can create a HID device, enumerate and allow execution of code on-device in 1,920 bytes of code.
+The bootloader version of the tool can create a HID device, enumerate and allow execution of code on-device in 1,920 bytes of code.  Basic HID setups are approximately 2kB, like the Joystick demo.
 
 ### It's simple!
 
@@ -12,7 +12,7 @@ The core assembly code is only 2 functions, an [interrupt](https://github.com/cn
 
 ### It's adaptable!
 
-The [core assembly](https://github.com/cnlohr/rv003usb/blob/master/rv003usb/rv003usb.S) code is standardized, but the C code, to handle different functionality with hid feature requests, control setup events, interrupt endpoints (send and receive) are all done in [a C file that changes per your needs](https://github.com/cnlohr/rv003usb/blob/master/demo_gamepad/rv003usb.c).
+The [core assembly](https://github.com/cnlohr/rv003usb/blob/master/rv003usb/rv003usb.S) code is standardized, and there is also [a c file]((https://github.com/cnlohr/rv003usb/blob/master/rv003usb/rv003usb.c) code, to handle different functionality with hid feature requests, control setup events, interrupt endpoints (send and receive) are all done in.
 
 ### It's built on ch32v003fun
 
@@ -41,7 +41,6 @@ This project is not ready for prime time, though it is sort of in an early alpha
 :white_square_button: Make more demos  
 :white_square_button: API For self-flashing + printf from bootloader  
 :white_square_button: Improve timing on send, for CRC bits.  Currently we are off by about 6 cycles total.  
-:grey_exclamation: Use hardware CRC to save space/time (Investigate)  
 :grey_exclamation: Further optimize Send/Receive PHY code. (Please help)  
 :warning: Enable improved retiming (Requires a few more cycles) (Please help!)  
 :warning: Arduino support (someone else will have to take this on)  
