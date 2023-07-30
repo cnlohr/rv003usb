@@ -47,9 +47,10 @@ struct usb_endpoint
 	TURBO8TYPE toggle_in;   // DATA0 or DATA1?
 	TURBO8TYPE toggle_out;  // Out PC->US
 	TURBO8TYPE is_descriptor;
-	TURBO8TYPE max_len;
+	TURBO16TYPE max_len;
+	TURBO8TYPE reserved1;
 #ifdef REALLY_TINY_COMP_FLASH
-	TURBO8TYPE reserved1, reserved2;
+	TURBO8TYPE reserved2;
 #endif
 };
 

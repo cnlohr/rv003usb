@@ -202,7 +202,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 	{
 		goto just_ack;
 	}
-	// XXX NOTE:  		e->toggle_out = !e->toggle_out; should be here.
+
 	if( cep == 0 )
 	{
 		e->toggle_out = !e->toggle_out;
