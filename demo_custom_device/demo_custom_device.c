@@ -20,7 +20,7 @@ int main()
 
 void usb_handle_control_in( struct usb_endpoint * e, uint8_t * sdata, uint32_t sendtok )
 {
-	int offset = (e->count_in)<<3;
+	int offset = (e->count)<<3;
 	int remain = (int)e->max_len - (int)offset;
 	if( remain <= 0 )
 	{
@@ -36,25 +36,26 @@ void usb_handle_control_in( struct usb_endpoint * e, uint8_t * sdata, uint32_t s
 
 void usb_handle_control_out( struct usb_endpoint * e, uint8_t * data, int len )
 {
-	int offset = e->count_out<<3;
+	int offset = e->count<<3;
 	int torx = e->max_len - offset;
 	if( torx > len ) torx = len;
-	memcpy( scratch + offset, data, torx );
-	e->count_out++;
+	if( torx > 0 )
+	{
+		memcpy( scratch + offset, data, torx );
+		e->count++;
+	}
 }
 
 void usb_handle_control_in_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )
 {
-	e->count_out = 0xff;
-	e->count_in = 0;
+	e->count = 0;
 	if( reqLen > sizeof( scratch ) ) reqLen = sizeof( scratch );
 	e->max_len = reqLen;
 }
 
 void usb_handle_control_out_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )
 {
-	e->count_out = 0;
-	e->count_in = 0xff;
+	e->count = 0;
 	if( reqLen > sizeof( scratch ) ) reqLen = sizeof( scratch );
 	e->max_len = reqLen;
 }

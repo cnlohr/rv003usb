@@ -14,9 +14,9 @@
 
 #ifdef  REALLY_TINY_COMP_FLASH
 #define MY_ADDRESS_OFFSET_BYTES 4
-#define LAST_SE0_OFFSET         12
-#define DELTA_SE0_OFFSET        16
-#define SE0_WINDUP_OFFSET       20
+#define LAST_SE0_OFFSET         16
+#define DELTA_SE0_OFFSET        20
+#define SE0_WINDUP_OFFSET       24
 #define ENDP_OFFSET             28
 #define SETUP_REQUEST_OFFSET    8
 #else
@@ -42,15 +42,14 @@
 
 struct usb_endpoint
 {
-	TURBO8TYPE count_in;	// ack count
-	TURBO8TYPE count_out;	// For future: When receiving data. // XXX TODO: Can this be merged?
-	TURBO8TYPE opaque;     // For user.
+	TURBO8TYPE count;	    // ack count / in count
+	TURBO8TYPE opaque;      // For user.
 	TURBO8TYPE toggle_in;   // DATA0 or DATA1?
-	TURBO8TYPE toggle_out;  //Out PC->US
+	TURBO8TYPE toggle_out;  // Out PC->US
 	TURBO8TYPE is_descriptor;
 	TURBO8TYPE max_len;
 #ifdef REALLY_TINY_COMP_FLASH
-	TURBO8TYPE reserved1;
+	TURBO8TYPE reserved1, reserved2;
 #endif
 };
 

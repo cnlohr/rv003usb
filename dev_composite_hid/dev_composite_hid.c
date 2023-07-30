@@ -117,7 +117,7 @@ void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, uint32_
 
 	e->toggle_out = 0;
 	e->toggle_in = 1;
-	e->count_in = 0;
+	e->count = 0;
 	ist->setup_request = 1;
 
 	TIM1->CNT = 0;
@@ -180,8 +180,8 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 			tsend = scratchpad;
 		}
 
-		int offset = (e->count_in)<<3;
-		tosend = ist->control_max_len - offset;
+		int offset = (e->count)<<3;
+		tosend = e->max_len - offset;
 		if( tosend > ENDPOINT0_SIZE ) tosend = ENDPOINT0_SIZE;
 		sendnow = tsend + offset;
 	}
@@ -270,12 +270,11 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 
 			uint32_t wvi = s->lValueLSBIndexMSB;
 			//Send just a data packet.
-			e->count_in = 0;
-			e->count_out = 0;
+			e->count = 0;
 			e->opaque = 0;
 			e->is_descriptor = 0;
 			ist->setup_request = 0;
-			ist->control_max_len = 0;
+			e->max_len = 0;
 
 			if( s->wRequestTypeLSBRequestMSB == 0x01a1 )
 			{
@@ -283,13 +282,13 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 				uint32_t wlen = s->wLength;
 				if( wlen > sizeof(scratchpad) ) wlen = sizeof(scratchpad);
 				// The host wants to read back from us.
-				ist->control_max_len = wlen;
+				e->max_len = wlen;
 				e->opaque = 1;
 			}
 			if( s->wRequestTypeLSBRequestMSB == 0x0921 )
 			{
 				// Class request (Will be writing)  This is hid_send_feature_report
-				ist->control_max_len = sizeof( scratchpad );
+				e->max_len = sizeof( scratchpad );
 				e->opaque = 0xff;
 			}
 			else if( (s->wRequestTypeLSBRequestMSB & 0xff80) == 0x0680 )
@@ -314,7 +313,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 				e->is_descriptor = 1;
 				uint16_t swLen = s->wLength;
 				uint16_t elLen = dl->length;
-				ist->control_max_len = (swLen < elLen)?swLen:elLen;
+				e->max_len = (swLen < elLen)?swLen:elLen;
 			}
 			else if( s->wRequestTypeLSBRequestMSB == 0x0500 )
 			{
@@ -330,12 +329,12 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			if( e->opaque == 0xff  )
 			{
 		TIM1->CNT = 0;
-				uint8_t * start = &scratchpad[e->count_out];
+				uint8_t * start = &scratchpad[e->count<<3];
 				int l = length-3;
 				int i;
 				for( i = 0; i < l; i++ )
 					start[i] = data[i+1];//((intptr_t)data)>>(i*8);
-				e->count_out += l;
+				e->count++;
 			}
 			// Allow user code to receive data.
 		}
@@ -352,7 +351,7 @@ void usb_pid_handle_ack( uint32_t dummy, uint8_t * data, uint32_t dummy1, uint32
 {
 	struct usb_endpoint * e = &ist->eps[ist->current_endpoint];
 	e->toggle_in = !e->toggle_in;
-	e->count_in++;
+	e->count++;
 	return;
 }
 

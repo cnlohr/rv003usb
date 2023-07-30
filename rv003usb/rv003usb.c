@@ -61,7 +61,11 @@ void usb_handle_control_in_default( struct usb_endpoint * e, uint8_t * scratchpa
 	usb_send_nak( sendtok );
 }
 
-void usb_handle_control_out_default( struct usb_endpoint * e, uint8_t * data, int len ) { }
+void usb_handle_control_out_default( struct usb_endpoint * e, uint8_t * data, int len )
+{
+	e->count++;
+}
+
 void usb_handle_control_out_start_default( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB ) { }
 void usb_handle_control_in_start_default( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB ) { }
 
@@ -99,7 +103,7 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	const struct descriptor_list_struct * dl = &descriptor_list[e->opaque];
 	tsend = ((uint8_t*)dl->addr);
 
-	int offset = (e->count_in)<<3;
+	int offset = (e->count)<<3;
 	tosend = e->max_len - offset;
 	if( tosend > ENDPOINT0_SIZE ) tosend = ENDPOINT0_SIZE;
 	sendnow = tsend + offset;
@@ -147,8 +151,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 
 			uint32_t wvi = s->lValueLSBIndexMSB;
 			//Send just a data packet.
-			e->count_in = 0;
-			e->count_out = 0;
+			e->count = 0;
 			e->opaque = 0;
 			e->is_descriptor = 0;
 			ist->setup_request = 0;
@@ -226,7 +229,7 @@ void usb_pid_handle_ack( uint32_t dummy, uint8_t * data, uint32_t dummy1, uint32
 {
 	struct usb_endpoint * e = &ist->eps[ist->current_endpoint];
 	e->toggle_in = !e->toggle_in;
-	e->count_in++;
+	e->count++;
 }
 
 
@@ -238,7 +241,7 @@ void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, uint32_
 	ist->setup_request = 1;
 	e->toggle_in = 1;
 	e->toggle_out = 0;
-	e->count_in = 0;
+	e->count = 0;
 }
 #endif
 
