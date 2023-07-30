@@ -4,7 +4,7 @@ Have you ever wanted to have a USB device you could talk to from userspace progr
 
 This demo sets up a device with a HID descriptor on endpoint 1.  But we don't actually use that endpoint for anything.  Everything can be done with control messages.
 
-Control messages are what you use for `hid_send_feature_report` and `hid_get_feature_report`.  These are advanteagous because they let you transfer data very fast.  Usually at around 1MBit/s.
+Control messages are what you use for `hid_send_feature_report` and `hid_get_feature_report`.  These are advanteagous because they let you transfer data very fast.  Usually at > 500kbit/s.
 
 They also handle framing messages, so you don't need to tell either side how big your messages are, use escape sequences, etc.  They just transfer a block of data from one side to the other.
 
