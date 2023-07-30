@@ -41,14 +41,14 @@ static const uint8_t device_descriptor[] = {
 };
 
 static const uint8_t special_hid_desc[] = { 
-	HID_USAGE_PAGE ( HID_USAGE_PAGE_DESKTOP ),
+	HID_USAGE_PAGE ( 0xff ), // Vendor-defined page.
 	HID_USAGE      ( 0x00 ),
 	HID_REPORT_SIZE ( 8 ),
 	HID_COLLECTION ( HID_COLLECTION_LOGICAL ),
 		HID_REPORT_COUNT   ( 254 ),
 		HID_REPORT_ID      ( 0xaa )
 		HID_USAGE          ( 0x01 ),
-		HID_FEATURE        ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ) ,
+		HID_FEATURE        ( HID_DATA | HID_VARIABLE | HID_ABSOLUTE ) ,
 	HID_COLLECTION_END,
 };
 
