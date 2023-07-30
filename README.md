@@ -20,9 +20,9 @@ It shows both how to be a normal USB device, as well as how to write programs to
 
 [ch32v003fun](https://github.com/cnlohr/ch32v003fun) is a minimal development SDK of sorts for the CH32V003, allowing for maximum flexability without needing lots of code surrounding a HAL.
 
-### It's still in alpha.
+### It's still in beta.
 
-This project is not ready for prime time, though it is sort of in an early alpha phase.  Proof of concept works, we are on track for proper releases soon.  Maybe you can help out!
+This project is not ready for prime time, though it is sort of in a beta phase.  Proof of concept works, lots of demos work.  Maybe you can help out!
 
 :white_check_mark: Able to go on-bus and receive USB frames  
 :white_check_mark: Compute CRC in-line while receiving data  
