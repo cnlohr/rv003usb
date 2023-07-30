@@ -42,12 +42,13 @@ static const uint8_t device_descriptor[] = {
 
 static const uint8_t special_hid_desc[] = { 
   HID_USAGE_PAGE ( HID_USAGE_PAGE_DESKTOP     )                 ,
-  HID_USAGE      ( 0xff  )                                      , // Needed?
+  HID_USAGE      ( HID_USAGE_DESKTOP_GAMEPAD  )                 , // Needed?
   HID_COLLECTION ( HID_COLLECTION_APPLICATION )                 ,
+    HID_REPORT_COUNT ( 254 ) ,
+    HID_REPORT_SIZE ( 8 ) ,
     HID_REPORT_ID    ( 0xaa                                   )
-    HID_USAGE        ( 0xff                                   ) ,
+    HID_USAGE      ( HID_USAGE_DESKTOP_GAMEPAD  )                 , // Needed?
     HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE    ) ,
-    HID_REPORT_COUNT ( 255 ) ,
   HID_COLLECTION_END
 };
 
@@ -88,7 +89,7 @@ static const uint8_t config_descriptor[] = {
 	0x05,         // Endpoint Descriptor (Must be 5)
 	0x81,         // Endpoint Address
 	0x03,         // Attributes
-	0x00,	0x01, // Size (We aren't using it)
+	0x01,	0x00, // Size (We aren't using it)
 	100,          // Interval (We don't use it.)
 };
 
