@@ -546,13 +546,14 @@ handle_se0_keepalive:
 //////////////////////////////////////////////////////////////////////////////
 
 
-//void usb_send_data( uint8_t * data, uint32_t length, uint32_t poly_function, uint32_t token );
 .balign 4
+//void usb_send_nak( uint32_t token );
 usb_send_nak:
 	c.mv a3, a0
 	la a0, always0
 	li a1, 2
-	li a2, 2
+	c.mv a2, a1
+//void usb_send_data( uint8_t * data, uint32_t length, uint32_t poly_function, uint32_t token );
 usb_send_data:
 	addi	sp,sp,-16
 	sw	s0, 0(sp)
@@ -874,6 +875,7 @@ always0:
 
 #else
 
+.balign 4
 always0:
 	.word 0x00
 

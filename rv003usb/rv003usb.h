@@ -18,7 +18,7 @@
 #define DELTA_SE0_OFFSET        16
 #define SE0_WINDUP_OFFSET       20
 #define ENDP_OFFSET             28
-#define SETUP_REQUEST_OFFSET    24
+#define SETUP_REQUEST_OFFSET    8
 #else
 #define MY_ADDRESS_OFFSET_BYTES 1
 #define LAST_SE0_OFFSET         4
@@ -43,26 +43,27 @@
 struct usb_endpoint
 {
 	TURBO8TYPE count_in;	// ack count
-	TURBO8TYPE count_out;	// For future: When receiving data.
+	TURBO8TYPE count_out;	// For future: When receiving data. // XXX TODO: Can this be merged?
 	TURBO8TYPE opaque;     // For user.
 	TURBO8TYPE toggle_in;   // DATA0 or DATA1?
 	TURBO8TYPE toggle_out;  //Out PC->US
 	TURBO8TYPE is_descriptor;
+	TURBO8TYPE max_len;
 #ifdef REALLY_TINY_COMP_FLASH
-	TURBO8TYPE reserved1, reserved2;
+	TURBO8TYPE reserved1;
 #endif
 };
 
 
 struct rv003usb_internal
 {
-	TURBO8TYPE current_endpoint;
+	TURBO8TYPE current_endpoint; // Can this be combined with setup_request?
 	TURBO8TYPE my_address; // Will be 0 until set up.
-	TURBO16TYPE control_max_len;
+	TURBO8TYPE setup_request;
+	TURBO8TYPE reserved;
 	uint32_t last_se0_cyccount;
 	int32_t delta_se0_cyccount;
 	uint32_t se0_windup;
-	TURBO8TYPE setup_request;
 	// 5 bytes + 6 * ENDPOINTS
 
 	struct usb_endpoint eps[ENDPOINTS];
@@ -88,12 +89,13 @@ extern uint32_t * always0;
 // If you are using the .c functionality, be sure to #define USE_RV003_C 1
 // usb_hande_interrupt_in is OBLIGATED to call usb_send_data or usb_send_nak.
 void usb_hande_interrupt_in( struct usb_endpoint * e, uint8_t * scratchpad, uint32_t sendtok );
+
+// NOTE: Tricky: When making outbound OUT messages, this will be called at the end.
 void usb_handle_control_in( struct usb_endpoint * e, uint8_t * scratchpad, uint32_t sendtok );
 
-// Other things to handle.
-void usb_handle_control_out_start( struct usb_endpoint * e, int reqLen );
+void usb_handle_control_out_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB );
 void usb_handle_control_out( struct usb_endpoint * e, uint8_t * data, int len );
-void usb_handle_control_in_start( struct usb_endpoint * e, int reqLen );
+void usb_handle_control_in_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB );
 
 
 // Note: This checks addr & endp to make sure they are valid.

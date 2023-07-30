@@ -1,7 +1,3 @@
-// Could be defined here, or in the processor defines.
-#define SYSTEM_CORE_CLOCK 48000000
-#define SYSTICK_USE_HCLK
-
 #include "ch32v003fun.h"
 #include <stdio.h>
 #include <string.h>
@@ -169,7 +165,7 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 		}
 
 		int offset = (e->count_in)<<3;
-		tosend = ist->control_max_len - offset;
+		tosend = e->max_len - offset;
 		if( tosend > ENDPOINT0_SIZE ) tosend = ENDPOINT0_SIZE;
 		sendnow = tsend + offset;
 	}
@@ -263,7 +259,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			e->opaque = 0;
 			e->is_descriptor = 0;
 			ist->setup_request = 0;
-			ist->control_max_len = 0;
+			e->max_len = 0;
 
 			if( s->wRequestTypeLSBRequestMSB == 0x01a1 )
 			{
@@ -271,13 +267,13 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 				uint32_t wlen = s->wLength;
 				if( wlen > sizeof(scratchpad) ) wlen = sizeof(scratchpad);
 				// The host wants to read back from us.
-				ist->control_max_len = wlen;
+				e->max_len = wlen;
 				e->opaque = 1;
 			}
-			if( s->wRequestTypeLSBRequestMSB == 0x0921 )
+			else if( s->wRequestTypeLSBRequestMSB == 0x0921 )
 			{
 				// Class request (Will be writing)  This is hid_send_feature_report
-				ist->control_max_len = sizeof( scratchpad );
+				e->max_len = sizeof( scratchpad );
 				e->opaque = 0xff;
 			}
 			else if( (s->wRequestTypeLSBRequestMSB & 0xff80) == 0x0680 )
@@ -302,7 +298,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 				e->is_descriptor = 1;
 				uint16_t swLen = s->wLength;
 				uint16_t elLen = dl->length;
-				ist->control_max_len = (swLen < elLen)?swLen:elLen;
+				e->max_len = (swLen < elLen)?swLen:elLen;
 			}
 			else if( s->wRequestTypeLSBRequestMSB == 0x0500 )
 			{

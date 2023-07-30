@@ -48,8 +48,8 @@ void usb_setup()
 void usb_hande_interrupt_in( struct usb_endpoint * e, uint8_t * scratchpad, uint32_t sendtok ) __attribute((weak,alias("usb_hande_interrupt_in_default")));
 void usb_handle_control_in( struct usb_endpoint * e, uint8_t * scratchpad, uint32_t sendtok )  __attribute((weak,alias("usb_handle_control_in_default")));
 void usb_handle_control_out( struct usb_endpoint * e, uint8_t * data, int len )  __attribute((weak,alias("usb_handle_control_out_default")));
-void usb_handle_control_out_start( struct usb_endpoint * e, int reqLen )  __attribute((weak,alias("usb_handle_control_out_start_default")));
-void usb_handle_control_in_start( struct usb_endpoint * e, int reqLen )  __attribute((weak,alias("usb_handle_control_in_start_default")));
+void usb_handle_control_out_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )  __attribute((weak,alias("usb_handle_control_out_start_default")));
+void usb_handle_control_in_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )  __attribute((weak,alias("usb_handle_control_in_start_default")));
 
 void usb_hande_interrupt_in_default( struct usb_endpoint * e, uint8_t * scratchpad, uint32_t sendtok )
 {
@@ -62,8 +62,8 @@ void usb_handle_control_in_default( struct usb_endpoint * e, uint8_t * scratchpa
 }
 
 void usb_handle_control_out_default( struct usb_endpoint * e, uint8_t * data, int len ) { }
-void usb_handle_control_out_start_default( struct usb_endpoint * e, int reqLen ) { }
-void usb_handle_control_in_start_default( struct usb_endpoint * e, int reqLen ) { }
+void usb_handle_control_out_start_default( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB ) { }
+void usb_handle_control_in_start_default( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB ) { }
 
 
 
@@ -100,7 +100,7 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	tsend = ((uint8_t*)dl->addr);
 
 	int offset = (e->count_in)<<3;
-	tosend = ist->control_max_len - offset;
+	tosend = e->max_len - offset;
 	if( tosend > ENDPOINT0_SIZE ) tosend = ENDPOINT0_SIZE;
 	sendnow = tsend + offset;
 
@@ -152,19 +152,19 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			e->opaque = 0;
 			e->is_descriptor = 0;
 			ist->setup_request = 0;
-			ist->control_max_len = 0;
+			e->max_len = 0;
 
 			if( s->wRequestTypeLSBRequestMSB == 0x01a1 )
 			{
 				// Class read request.
 				// The host wants to read back from us. hid_get_feature_report
-				usb_handle_control_in_start( e, s->wLength );
+				usb_handle_control_in_start( e, s->wLength, wvi );
 				e->opaque = 1;
 			}
-			if( s->wRequestTypeLSBRequestMSB == 0x0921 )
+			else if( s->wRequestTypeLSBRequestMSB == 0x0921 )
 			{
 				// Class request (Will be writing)  This is hid_send_feature_report
-				usb_handle_control_out_start( e, s->wLength );
+				usb_handle_control_out_start( e, s->wLength, wvi );
 				e->opaque = 0xff;
 			}
 			else if( (s->wRequestTypeLSBRequestMSB & 0xff80) == 0x0680 )
@@ -189,7 +189,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 				e->is_descriptor = 1;
 				uint16_t swLen = s->wLength;
 				uint16_t elLen = dl->length;
-				ist->control_max_len = (swLen < elLen)?swLen:elLen;
+				e->max_len = (swLen < elLen)?swLen:elLen;
 			}
 			else if( s->wRequestTypeLSBRequestMSB == 0x0500 )
 			{

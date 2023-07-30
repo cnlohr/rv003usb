@@ -1,12 +1,6 @@
-// Could be defined here, or in the processor defines.
-#define SYSTEM_CORE_CLOCK 48000000
-#define SYSTICK_USE_HCLK
-
 #include "ch32v003fun.h"
 #include <stdio.h>
 #include <string.h>
-
-#define INSTANCE_DESCRIPTORS
 #include "rv003usb.h"
 
 int main()
