@@ -14,6 +14,8 @@ The core assembly code is only 2 functions, an [interrupt](https://github.com/cn
 
 The [core assembly](https://github.com/cnlohr/rv003usb/blob/master/rv003usb/rv003usb.S) code is standardized, and there is also [a c file]((https://github.com/cnlohr/rv003usb/blob/master/rv003usb/rv003usb.c) code, to handle different functionality with hid feature requests, control setup events, interrupt endpoints (send and receive) are all done in.
 
+It shows both how to be a normal USB device, as well as how to write programs to run on your PC that can talk to your USB device.
+
 ### It's built on ch32v003fun
 
 [ch32v003fun](https://github.com/cnlohr/ch32v003fun) is a minimal development SDK of sorts for the CH32V003, allowing for maximum flexability without needing lots of code surrounding a HAL.
