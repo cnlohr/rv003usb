@@ -16,11 +16,12 @@ int main()
 
 	// Size of buffers must match the report descriptor size in the special_hid_desc
 	//  NOTE: You are permitted to have multiple entries.
-	uint8_t buffer0[255] = { 0 };
+	uint8_t buffer0[255] = { 0 }; // NOTE: This must be ONE MORE THAN what is in the hid descriptor.
 	uint8_t buffer1[255] = { 0 };
 	int r;
 	int i;
 	int j;
+	int retries = 0;
 	for( j = 0; ; j++ )
 	{
 		buffer0[0] = 0xaa; // First byte must match the ID.
@@ -34,8 +35,12 @@ int main()
 		if( r != sizeof(buffer0) )
 		{
 			fprintf( stderr, "Warning: HID Send fault (%d) Retrying\n", r );
+			retries++;
+			if( retries > 10 ) break;
 			goto retrysend;
 		}
+
+		retries = 0;
 		printf( "<" ); // Print this out meaning we sent the data.
 
 		memset( buffer1, 0xff, sizeof( buffer1 ) );
