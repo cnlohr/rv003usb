@@ -13,8 +13,8 @@
 #define USB_PORT D
 
 #define REALLY_TINY_COMP_FLASH 1
-
 #define USE_RV003_C 1
+
 
 #ifndef __ASSEMBLER__
 
@@ -36,10 +36,9 @@ static const uint8_t device_descriptor[] = {
 	0x02, 0x00, //ID Rev
 	1, //Manufacturer string
 	2, //Product string
-	0, //Serial string
+	3, //Serial string
 	1, //Max number of configurations
 };
-
 
 static const uint8_t gamepad_hid_desc[] = {  //From http://eleccelerator.com/tutorial-about-usb-hid-report-descriptors/
 HID_USAGE_PAGE ( HID_USAGE_PAGE_DESKTOP     ),
@@ -115,7 +114,7 @@ static const uint8_t config_descriptor[] = {
 //Ever wonder how you have more than 6 keys down at the same time on a USB keyboard?  It's easy. Enumerate two keyboards!
 
 #define STR_MANUFACTURER u"CNLohr"
-#define STR_PRODUCT      u"RV003USB"
+#define STR_PRODUCT      u"RV003USB Demo Gamepad"
 #define STR_SERIAL       u"000"
 
 struct usb_string_descriptor_struct {

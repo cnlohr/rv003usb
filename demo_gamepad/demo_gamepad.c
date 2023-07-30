@@ -9,10 +9,7 @@ int main()
 
 	usb_setup();
 
-	while(1)
-	{
-		printf( "%lu %lu %lu %08lx\n", rv003usb_internal_data.delta_se0_cyccount, rv003usb_internal_data.last_se0_cyccount, rv003usb_internal_data.se0_windup, RCC->CTLR );
-	}
+	while(1);
 }
 
 void usb_hande_interrupt_in( struct usb_endpoint * e, uint8_t * scratchpad, uint32_t sendtok )

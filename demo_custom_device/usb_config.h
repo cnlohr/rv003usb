@@ -36,7 +36,7 @@ static const uint8_t device_descriptor[] = {
 	0x02, 0x00, //ID Rev
 	1, //Manufacturer string
 	2, //Product string
-	0, //Serial string
+	3, //Serial string
 	1, //Max number of configurations
 };
 
@@ -94,7 +94,7 @@ static const uint8_t config_descriptor[] = {
 
 #define STR_MANUFACTURER u"CNLohr"
 #define STR_PRODUCT      u"RV003 Custom Device"
-#define STR_SERIAL       u"CDEVICE"
+#define STR_SERIAL       u"CUSTOMDEVICE000"
 
 struct usb_string_descriptor_struct {
 	uint8_t bLength;

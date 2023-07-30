@@ -6,7 +6,7 @@
 
 int main()
 {
-	hid_device * hd = hid_open( 0x1209, 0xd003, 0); // third parameter is "serial"
+	hid_device * hd = hid_open( 0x1209, 0xd003, L"CUSTOMDEVICE000"); // third parameter is "serial"
 	printf( "HD: %p\n", hd );
 	if( !hd ) return -4;
 
