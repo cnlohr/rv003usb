@@ -52,7 +52,7 @@ void usb_handle_control_in_start( struct usb_endpoint * e, int reqLen, uint32_t 
 
 void usb_handle_user_in_default( struct usb_endpoint * e, uint8_t * scratchpad, int endp, uint32_t sendtok, struct rv003usb_internal * ist )
 {
-	usb_send_nak( sendtok );
+	usb_send_empty( sendtok );
 }
 
 void usb_handle_control_out_default( struct usb_endpoint * e, uint8_t * data, int len )
@@ -100,7 +100,7 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 
 	if( !tosend || !sendnow )
 	{
-		usb_send_nak( sendtok );
+		usb_send_empty( sendtok );
 	}
 	else
 	{

@@ -87,7 +87,7 @@ extern struct rv003usb_internal rv003usb_internal_data;
 extern uint32_t * always0;
 
 // If you are using the .c functionality, be sure to #define USE_RV003_C 1
-// usb_hande_interrupt_in is OBLIGATED to call usb_send_data or usb_send_nak.
+// usb_hande_interrupt_in is OBLIGATED to call usb_send_data or usb_send_empty.
 void usb_hande_user_in( struct usb_endpoint * e, uint8_t * scratchpad, int endp, uint32_t sendtok, struct rv003usb_internal * ist );
 
 void usb_handle_control_out_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB );
@@ -106,7 +106,7 @@ void usb_pid_handle_ack( uint32_t dummy, uint8_t * data, uint32_t dummy2, uint32
 //poly_function = 2 to exclude CRC.
 //This function is provided in assembly
 void usb_send_data( uint8_t * data, uint32_t length, uint32_t poly_function, uint32_t token );
-void usb_send_nak( uint32_t token );
+void usb_send_empty( uint32_t token );
 
 void usb_setup();
 

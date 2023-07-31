@@ -30,7 +30,7 @@
 .global rv003usb_internal_data
 .global rv003usb_handle_packet
 .global usb_send_data
-.global usb_send_nak
+.global usb_send_empty
 .global main
 .global always0
 
@@ -546,8 +546,8 @@ handle_se0_keepalive:
 
 
 .balign 4
-//void usb_send_nak( uint32_t token );
-usb_send_nak:
+//void usb_send_empty( uint32_t token );
+usb_send_empty:
 	c.mv a3, a0
 	la a0, always0
 	li a1, 2

@@ -18,12 +18,12 @@ void usb_handle_user_in( struct usb_endpoint * e, uint8_t * scratchpad, int endp
 	}
 	else if( endp == 1 )
 	{
-		usb_send_nak( sendtok );
+		usb_send_empty( sendtok );
 	}
 	else
 	{
 		// If it's a control transfer, nak it.
-		usb_send_nak( sendtok );
+		usb_send_empty( sendtok );
 	}
 }
 
