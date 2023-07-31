@@ -19,15 +19,16 @@
 #ifndef __ASSEMBLER__
 
 #include <tinyusb_hid.h>
+#include <tusb_types.h>
 
 #ifdef INSTANCE_DESCRIPTORS
 
 //Taken from http://www.usbmadesimple.co.uk/ums_ms_desc_dev.htm
 static const uint8_t device_descriptor[] = {
 	18, //Length
-	1,  //Type (Device)
+	TUSB_DESC_DEVICE,  //Type (Device)
 	0x10, 0x01, //Spec
-	0x0, //Device Class
+	TUSB_CLASS_HID, //Device Class
 	0x0, //Device Subclass
 	0x0, //Device Protocol  (000 = use config descriptor)
 	0x08, //Max packet size for EP0 (This has to be 8 because of the USB Low-Speed Standard)
@@ -66,43 +67,40 @@ HID_COLLECTION_END
 
 static const uint8_t config_descriptor[] = {
 	// configuration descriptor, USB spec 9.6.3, page 264-266, Table 9-10
-	9, 					// bLength;
-	2,					// bDescriptorType;
-	0x22, 0x00,			// wTotalLength  	
-
-	//34, 0x00, //for just the one descriptor
-	
-	0x01,					// bNumInterfaces (Normally 1)
-	0x01,					// bConfigurationValue
-	0x00,					// iConfiguration
-	0x80,					// bmAttributes (was 0xa0)
-	0x64,					// bMaxPower (200mA)
+	9,                        // bLength;
+	TUSB_DESC_CONFIGURATION,  // bDescriptorType;
+	0x22, 0x00,               // wTotalLength
+	0x01,                     // bNumInterfaces (Normally 1)
+	0x01,                     // bConfigurationValue
+	0x00,                     // iConfiguration
+	0x80,                     // bmAttributes (was 0xa0)
+	0x64,                     // bMaxPower (200mA)
 
 	//Joystick  (It is unusual that this would be here)
-	9,					// bLength
-	4,					// bDescriptorType
-	0,		            // bInterfaceNumber  = 1 instead of 0 -- well make it second.
-	0,					// bAlternateSetting
-	1,					// bNumEndpoints
-	0x03,				// bInterfaceClass (0x03 = HID)
-	0x00,				// bInterfaceSubClass
-	0xff,				// bInterfaceProtocol (1 = Keyboard, 2 = Mouse)
-	0,					// iInterface
+	9,                        // bLength
+	TUSB_DESC_INTERFACE,      // bDescriptorType
+	0,                        // bInterfaceNumber  = 1 instead of 0 -- well make it second.
+	0,                        // bAlternateSetting
+	1,                        // bNumEndpoints
+	TUSB_CLASS_HID,           // bInterfaceClass (0x03 = HID)
+	HID_SUBCLASS_NONE,        // bInterfaceSubClass
+	HID_PROTOCOL_NONE,        // bInterfaceProtocol (1 = Keyboard, 2 = Mouse)
+	0,                        // iInterface
 
-	9,					// bLength
-	0x21,					// bDescriptorType (HID)
-	0x10,0x01,	  // bcd 1.1
-	0x00,         //country code
-	0x01,         // Num descriptors
-	0x22,         // DescriptorType[0] (HID)
+	9,                        // bLength
+	HID_DESC_TYPE_HID,        // bDescriptorType (HID)
+	0x10,0x01,                // bcd 1.10
+	0x00,                     //country code
+	0x01,                     // Num descriptors
+	HID_DESC_TYPE_REPORT,     // DescriptorType[0] (HID)
 	sizeof(gamepad_hid_desc), 0x00,     // Descriptor length XXX This looks wrong!!!
 
-	7,            // endpoint descriptor (For endpoint 1)
-	0x05,         // Endpoint Descriptor (Must be 5)
-	0x81,         // Endpoint Address
-	0x03,         // Attributes
-	0x03,	0x00, // Size
-	1,            // Interval (Was 0x0a)
+	7,                        // endpoint descriptor (For endpoint 1)
+	TUSB_DESC_ENDPOINT,       // Endpoint Descriptor (Must be 5)
+	0x81,                     // Endpoint Address
+	0x03,                     // Attributes
+	0x03, 0x00,               // Size
+	1,                        // Interval (Was 0x0a)
 };
 
 
