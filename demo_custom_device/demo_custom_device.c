@@ -3,17 +3,12 @@
 #include <string.h>
 #include "rv003usb.h"
 
-#define WS2812DMA_IMPLEMENTATION
-#include "ws2812b_dma_spi_led_driver.h"
+#define WS2812BSIMPLE_IMPLEMENTATION
+#include "ws2812b_simple.h"
 
 // Allow reading and writing to the scratchpad via HID control messages.
 uint8_t scratch[255];
-
-uint32_t WS2812BLEDCallback( int ledno )
-{
-	uint8_t * k = &scratch[ledno * 3];
-	return k[0] | (k[1]<<8) | (k[2]<<16);
-}
+uint8_t start_leds = 0;
 
 
 #define NUMUEVENTS 32
@@ -44,8 +39,9 @@ int main()
 	SystemInit();
 
 	usb_setup();
-	
-	WS2812BDMAInit();
+
+	GPIOD->CFGLR = ( ( GPIOD->CFGLR ) & (~( 0xf << (4*2) )) ) | 
+		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*2);
 
 	while(1)
 	{
@@ -55,11 +51,17 @@ int main()
 		{
 			printf( "%lu %lx %lx %lx\n", ue[0], ue[1], ue[2], ue[3] );
 		}
+		if( start_leds )
+		{
+			//WS2812BSimpleSend( GPIOC, 6, scratch, start_leds );
+			start_leds = 0;
+		}
 	}
 }
 
 void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, int endp, uint32_t sendtok, struct rv003usb_internal * ist )
 {
+	GPIOD->BSHR = 1<<2;
 	// Make sure we only deal with control messages.  Like get/set feature reports.
 	if( endp )
 	{
@@ -80,6 +82,8 @@ void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, 
 			// Don't advance, that will be done by ACK packets.
 		}
 	}
+	GPIOD->BSHR = 1<<(2+16);
+
 }
 
 void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_t * data, int len, struct rv003usb_internal * ist )
@@ -94,7 +98,7 @@ void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_
 		e->count++;
 		if( ( e->count << 3 ) >= e->max_len )
 		{
-			WS2812BDMAStart( e->max_len/3 );
+			start_leds = e->max_len;
 		}
 	}
 }
@@ -103,8 +107,11 @@ void usb_handle_hid_get_report_start( struct usb_endpoint * e, int reqLen, uint3
 {
 	if( reqLen > sizeof( scratch ) ) reqLen = sizeof( scratch );
 	e->opaque = scratch;
-	e->is_descriptor = 1;
+	e->is_descriptor = 0;
 	e->max_len = reqLen;
+	GPIOD->BSHR = 1<<2;
+	GPIOD->BSHR = 1<<(2+16);
+
 }
 
 void usb_handle_hid_set_report_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )
