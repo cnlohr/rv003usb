@@ -84,7 +84,7 @@ void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, 
 
 void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_t * data, int len, struct rv003usb_internal * ist )
 {
-	LogUEvent( SysTick->CNT, current_endpoint, e->count, 0xaaaaaaaa );
+	//LogUEvent( SysTick->CNT, current_endpoint, e->count, 0xaaaaaaaa );
 	int offset = e->count<<3;
 	int torx = e->max_len - offset;
 	if( torx > len ) torx = len;
@@ -101,14 +101,14 @@ void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_
 
 void usb_handle_hid_get_report_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )
 {
-	e->count = 0;
 	if( reqLen > sizeof( scratch ) ) reqLen = sizeof( scratch );
+	e->opaque = scratch;
+	e->is_descriptor = 1;
 	e->max_len = reqLen;
 }
 
 void usb_handle_hid_set_report_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )
 {
-	e->count = 0;
 	if( reqLen > sizeof( scratch ) ) reqLen = sizeof( scratch );
 	e->max_len = reqLen;
 }
@@ -117,7 +117,6 @@ void usb_handle_hid_set_report_start( struct usb_endpoint * e, int reqLen, uint3
 void usb_handle_other_control_message( struct usb_endpoint * e, struct usb_urb * s )
 {
 	LogUEvent( SysTick->CNT, s->wRequestTypeLSBRequestMSB, s->lValueLSBIndexMSB, s->wLength );
-	e->opaque = 1;
 }
 
 
