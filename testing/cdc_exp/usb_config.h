@@ -171,10 +171,8 @@ const static struct descriptor_list_struct {
 } descriptor_list[] = {
 	{0x00000100, device_descriptor, sizeof(device_descriptor)},
 	{0x00000200, config_descriptor, sizeof(config_descriptor)},
-
 	//{0x00002200, test_desc2, sizeof(test_desc2)},
 	//{0x00002100, config_descriptor + 44, 7 },
-
 	{0x00000300, (const uint8_t *)&string0, 4},
 	{0x04090301, (const uint8_t *)&string1, sizeof(STR_MANUFACTURER)},
 	{0x04090302, (const uint8_t *)&string2, sizeof(STR_PRODUCT)},	

@@ -19,6 +19,13 @@
 #define SE0_WINDUP_OFFSET       24
 #define ENDP_OFFSET             28
 #define SETUP_REQUEST_OFFSET    8
+
+#define EP_COUNT_OFFSET         0
+#define EP_TOGGLE_IN_OFFSET     4
+#define EP_TOGGLE_OUT_OFFSET    8
+#define EP_IS_DESCR_OFFSET      12
+#define EP_MAX_LEN_OFFSET       16
+#define EP_OPAQUE_OFFSET        28
 #else
 #define MY_ADDRESS_OFFSET_BYTES 1
 #define LAST_SE0_OFFSET         4
@@ -40,18 +47,16 @@
 #endif
 
 
-struct usb_endpoint
+struct usb_endpoint  // Make the size of this a power of 2.
 {
 	TURBO8TYPE count;	    // ack count / in count
-	TURBO8TYPE opaque;      // For user.
 	TURBO8TYPE toggle_in;   // DATA0 or DATA1?
 	TURBO8TYPE toggle_out;  // Out PC->US
 	TURBO8TYPE is_descriptor;
 	TURBO16TYPE max_len;
-	TURBO8TYPE reserved1;
-#ifdef REALLY_TINY_COMP_FLASH
-	TURBO8TYPE reserved2;
-#endif
+	TURBO16TYPE reserved1;
+	uint32_t    reserved2; 
+	uint8_t *   opaque;      // For user.
 };
 
 
@@ -115,7 +120,7 @@ void usb_pid_handle_ack( uint32_t dummy, uint8_t * data, uint32_t dummy2, uint32
 //poly_function = 0 to include CRC.
 //poly_function = 2 to exclude CRC.
 //This function is provided in assembly
-void usb_send_data( uint8_t * data, uint32_t length, uint32_t poly_function, uint32_t token );
+void usb_send_data( const uint8_t * data, uint32_t length, uint32_t poly_function, uint32_t token );
 void usb_send_empty( uint32_t token );
 
 void usb_setup();

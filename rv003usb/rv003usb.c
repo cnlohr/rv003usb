@@ -55,7 +55,7 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	uint8_t * sendnow = data-1;
 	int sendtok = e->toggle_in?0b01001011:0b11000011;
 
-	if( endp || !e->is_descriptor )
+	if( endp || !e->opaque )
 	{
 #if RV003USB_HANDLE_IN_REQUEST
 		usb_handle_user_in_request( e, sendnow, endp, sendtok, ist );
@@ -72,13 +72,10 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	// Do this down here.
 	// We do this because we are required to have an in-endpoint.  We don't
 	// have to do anything with it, though.
-	uint8_t * tsend = 0;
-
-	const struct descriptor_list_struct * dl = &descriptor_list[e->opaque];
-	tsend = ((uint8_t*)dl->addr);
+	uint8_t * tsend = e->opaque;
 
 	int offset = (e->count)<<3;
-	tosend = e->max_len - offset;
+	tosend = (int)e->max_len - offset;
 	if( tosend > ENDPOINT0_SIZE ) tosend = ENDPOINT0_SIZE;
 	sendnow = tsend + offset;
 
@@ -119,7 +116,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 
 	e->toggle_out = !e->toggle_out;
 
-	if( epno || e->opaque )
+	if( epno || !ist->setup_request )
 	{
 #if RV003USB_HANDLE_USER_DATA
 		usb_handle_user_data( e, epno, data + 1, length - 3, ist );
@@ -134,8 +131,10 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 		e->count = 0;
 		e->opaque = 0;
 		e->is_descriptor = 0;
-		ist->setup_request = 0;
 		e->max_len = 0;
+		ist->setup_request = 0;
+
+		//int bRequest = s->wRequestTypeLSBRequestMSB >> 8;
 
 #if RV003USB_HID_FEATURES
 		if( s->wRequestTypeLSBRequestMSB == 0x01a1 )
@@ -143,17 +142,15 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			// Class read request.
 			// The host wants to read back from us. hid_get_feature_report
 			usb_handle_hid_get_report_start( e, s->wLength, wvi );
-			e->opaque = 1;
 		}
 		else if( s->wRequestTypeLSBRequestMSB == 0x0921 )
 		{
 			// Class request (Will be writing)  This is hid_send_feature_report
 			usb_handle_hid_set_report_start( e, s->wLength, wvi );
-			e->opaque = 0xff;
 		}
 		else
 #endif
-		if( (s->wRequestTypeLSBRequestMSB & 0xff80) == 0x0680 )
+		if( s->wRequestTypeLSBRequestMSB == 0x0680 ) // GET_DESCRIPTOR = 6 (msb)
 		{
 			int i;
 			const struct descriptor_list_struct * dl;
@@ -171,17 +168,25 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			}
 
 			// Send back descriptor.
-			e->opaque = i;
+			e->opaque = (uint8_t*)dl->addr;
 			e->is_descriptor = 1;
 			uint16_t swLen = s->wLength;
 			uint16_t elLen = dl->length;
 			e->max_len = (swLen < elLen)?swLen:elLen;
 		}
-		else if( s->wRequestTypeLSBRequestMSB == 0x0500 )
+		else if( s->wRequestTypeLSBRequestMSB == 0x0500 ) // SET_ADDRESS = 0x05
 		{
-			//Set address.
 			ist->my_address = wvi;
 		}
+		else if( s->wRequestTypeLSBRequestMSB == 0x0080 ) // GET_STATUS = 0x00 ,always reply with { 0x00, 0x00 } 
+		{
+			e->max_len = 2;
+		}
+		//  You could handle SET_CONFIGURATION == 0x0900 here if you wanted.
+		//  Can also handle GET_CONFIGURATION == 0x0880 to which we send back { 0x00 }, or the interface number.  (But no one does this).
+		//  You could handle SET_INTERFACE == 0x1101 here if you wanted.
+		//   or
+		//  USB_REQ_GET_INTERFACE to which we would send 0x00, or the interface #
 		else
 		{
 #if RV003USB_OTHER_CONTROL

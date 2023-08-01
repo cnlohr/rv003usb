@@ -149,7 +149,7 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	struct usb_endpoint * e = &ist->eps[endp];
 
 	int tosend = 0;
-	uint8_t * sendnow = data-1;
+	const uint8_t * sendnow = data-1;
 	uint8_t sendtok = e->toggle_in?0b01001011:0b11000011;
 	
 	// Handle IN (sending data back to PC)
@@ -162,16 +162,11 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 		return;
 	}
 
-	uint8_t * tsend = 0;
+	const uint8_t * tsend = 0;
 
 	if( e->is_descriptor )
 	{
-		const struct descriptor_list_struct * dl = &descriptor_list[e->opaque];
-		tsend = ((uint8_t*)dl->addr);
-	}
-	else if( e->opaque == 1 )
-	{
-		tsend = scratchpad;
+		tsend = e->opaque;
 	}
 
 	int offset = (e->count)<<3;
@@ -224,14 +219,15 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 				if( wlen > sizeof(scratchpad) ) wlen = SCRATCHPAD_SIZE;
 				// The host wants to read back from us.
 				e->max_len = wlen;
-				e->opaque = 1;
+				e->opaque = scratchpad;
+				e->is_descriptor = 1;
 			}
 			else if( s->wRequestTypeLSBRequestMSB == 0x0921 )
 			{
 				// Class write request.
 				e->max_len = SCRATCHPAD_SIZE;
 				runwordpad = 1; //request stoppage.
-				e->opaque = 2;
+				e->opaque = scratchpad;
 			}
 			else if( (s->wRequestTypeLSBRequestMSB & 0xff80) == 0x0680 )
 			{
@@ -243,7 +239,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 					if( dl->lIndexValue == wvi )
 					{
 						// Send back descriptor.
-						e->opaque = i;
+						e->opaque = (uint8_t*)dl->addr;
 						e->is_descriptor = 1;
 						uint16_t swLen = s->wLength;
 						uint16_t elLen = dl->length;
@@ -258,36 +254,31 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			{
 				//Set address.
 				ist->my_address = wvi;
-				e->opaque = 0;
 			}
 			else
 			{
-				e->opaque = 0;
 			}
 		}
-		else
+		else if( e->opaque )
 		{
 			// Continuing data.
-			if( e->opaque == 2 )
-			{
-				uint8_t * start = &scratchpad[e->count<<3];
-				int l = length-3;
-				int i;
-				for( i = 0; i < l; i++ )
-					start[i] = data[i+1];//((intptr_t)data)>>(i*8);
-				e->count ++;
+			uint8_t * start = &e->opaque[e->count<<3];
+			int l = length-3;
+			int i;
+			for( i = 0; i < l; i++ )
+				start[i] = data[i+1];//((intptr_t)data)>>(i*8);
+			e->count ++;
 
-				if( e->count >= SCRATCHPAD_SIZE )
+			if( e->count >= SCRATCHPAD_SIZE )
+			{
+				// If the last 4 bytes are 0x1234abcd, then we can go!
+				uint32_t * last4 = (uint32_t*)(start + 4);					
+				if( *last4 == 0x1234abcd )
 				{
-					// If the last 4 bytes are 0x1234abcd, then we can go!
-					uint32_t * last4 = (uint32_t*)(start + 4);					
-					if( *last4 == 0x1234abcd )
-					{
-						*last4 = 0;
-						runwordpad = 0x200; // Request exectution
-					}
-					e->opaque = 0;
+					*last4 = 0;
+					runwordpad = 0x200; // Request exectution
 				}
+				e->opaque = 0;
 			}
 			// Allow user code to receive data.
 		}
