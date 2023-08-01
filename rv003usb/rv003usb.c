@@ -45,24 +45,6 @@ void usb_setup()
 	NVIC_EnableIRQ( EXTI7_0_IRQn );
 }
 
-void usb_handle_user_in( struct usb_endpoint * e, uint8_t * scratchpad, int endp, uint32_t sendtok, struct rv003usb_internal * ist ) __attribute((weak,alias("usb_handle_user_in_default")));
-void usb_handle_control_out( struct usb_endpoint * e, uint8_t * data, int len )  __attribute((weak,alias("usb_handle_control_out_default")));
-void usb_handle_control_out_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )  __attribute((weak,alias("usb_handle_control_out_start_default")));
-void usb_handle_control_in_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )  __attribute((weak,alias("usb_handle_control_in_start_default")));
-
-void usb_handle_user_in_default( struct usb_endpoint * e, uint8_t * scratchpad, int endp, uint32_t sendtok, struct rv003usb_internal * ist )
-{
-	usb_send_empty( sendtok );
-}
-
-void usb_handle_control_out_default( struct usb_endpoint * e, uint8_t * data, int len )
-{
-	e->count++;
-}
-
-void usb_handle_control_out_start_default( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB ) { }
-void usb_handle_control_in_start_default( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB ) { }
-
 
 void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
 {
@@ -75,8 +57,12 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 
 	if( endp || !e->is_descriptor )
 	{
-		usb_handle_user_in( e, sendnow, endp, sendtok, ist );
+#if RV003USB_HANDLE_IN_REQUEST
+		usb_handle_user_in_request( e, sendnow, endp, sendtok, ist );
 		return;
+#else 
+		goto no_data;
+#endif
 	}
 
 	tosend = 0;
@@ -100,13 +86,15 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 
 	if( !tosend || !sendnow )
 	{
-		usb_send_empty( sendtok );
+		goto no_data;
 	}
 	else
 	{
 		usb_send_data( sendnow, tosend, 0, sendtok );
 	}
 	return;
+no_data:
+	usb_send_empty( sendtok );
 }
 
 void usb_pid_handle_out( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
@@ -120,8 +108,8 @@ void usb_pid_handle_out( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t 
 void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, uint32_t length, struct rv003usb_internal * ist )
 {
 	//Received data from host.
-	int cep = ist->current_endpoint;
-	struct usb_endpoint * e = &ist->eps[cep];
+	int epno = ist->current_endpoint;
+	struct usb_endpoint * e = &ist->eps[epno];
 
 	// Alrady received this packet.
 	if( e->toggle_out != which_data )
@@ -131,71 +119,74 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 
 	e->toggle_out = !e->toggle_out;
 
-	if( cep == 0 )
+	if( epno || e->opaque )
 	{
-		if( ist->setup_request )
+#if RV003USB_HANDLE_USER_DATA
+		usb_handle_user_data( e, epno, data + 1, length - 3, ist );
+#endif
+	}
+	else if( ist->setup_request )
+	{
+		struct usb_urb * s = __builtin_assume_aligned( (struct usb_urb *)(data+1), 4 );
+
+		uint32_t wvi = s->lValueLSBIndexMSB;
+		//Send just a data packet.
+		e->count = 0;
+		e->opaque = 0;
+		e->is_descriptor = 0;
+		ist->setup_request = 0;
+		e->max_len = 0;
+
+#if RV003USB_HID_FEATURES
+		if( s->wRequestTypeLSBRequestMSB == 0x01a1 )
 		{
-			struct usb_urb * s = __builtin_assume_aligned( (struct usb_urb *)(data+1), 4 );
-
-			uint32_t wvi = s->lValueLSBIndexMSB;
-			//Send just a data packet.
-			e->count = 0;
-			e->opaque = 0;
-			e->is_descriptor = 0;
-			ist->setup_request = 0;
-			e->max_len = 0;
-
-			if( s->wRequestTypeLSBRequestMSB == 0x01a1 )
+			// Class read request.
+			// The host wants to read back from us. hid_get_feature_report
+			usb_handle_hid_get_report_start( e, s->wLength, wvi );
+			e->opaque = 1;
+		}
+		else if( s->wRequestTypeLSBRequestMSB == 0x0921 )
+		{
+			// Class request (Will be writing)  This is hid_send_feature_report
+			usb_handle_hid_set_report_start( e, s->wLength, wvi );
+			e->opaque = 0xff;
+		}
+		else
+#endif
+		if( (s->wRequestTypeLSBRequestMSB & 0xff80) == 0x0680 )
+		{
+			int i;
+			const struct descriptor_list_struct * dl;
+			for( i = 0; i < DESCRIPTOR_LIST_ENTRIES; i++ )
 			{
-				// Class read request.
-				// The host wants to read back from us. hid_get_feature_report
-				usb_handle_control_in_start( e, s->wLength, wvi );
-				e->opaque = 1;
+				dl = &descriptor_list[i];
+				if( dl->lIndexValue == wvi )
+					break;
 			}
-			else if( s->wRequestTypeLSBRequestMSB == 0x0921 )
-			{
-				// Class request (Will be writing)  This is hid_send_feature_report
-				usb_handle_control_out_start( e, s->wLength, wvi );
-				e->opaque = 0xff;
-			}
-			else if( (s->wRequestTypeLSBRequestMSB & 0xff80) == 0x0680 )
-			{
-				int i;
-				const struct descriptor_list_struct * dl;
-				for( i = 0; i < DESCRIPTOR_LIST_ENTRIES; i++ )
-				{
-					dl = &descriptor_list[i];
-					if( dl->lIndexValue == wvi )
-						break;
-				}
 
-				if( i == DESCRIPTOR_LIST_ENTRIES )
-				{
-					//??? Somehow fail?  Is 'nak' the right thing? I don't know what to do here.
-					goto just_ack;
-				}
-
-				// Send back descriptor.
-				e->opaque = i;
-				e->is_descriptor = 1;
-				uint16_t swLen = s->wLength;
-				uint16_t elLen = dl->length;
-				e->max_len = (swLen < elLen)?swLen:elLen;
-			}
-			else if( s->wRequestTypeLSBRequestMSB == 0x0500 )
+			if( i == DESCRIPTOR_LIST_ENTRIES )
 			{
-				//Set address.
-				ist->my_address = wvi;
+				//??? Somehow fail?  Is 'nak' the right thing? I don't know what to do here.
+				goto just_ack;
 			}
+
+			// Send back descriptor.
+			e->opaque = i;
+			e->is_descriptor = 1;
+			uint16_t swLen = s->wLength;
+			uint16_t elLen = dl->length;
+			e->max_len = (swLen < elLen)?swLen:elLen;
+		}
+		else if( s->wRequestTypeLSBRequestMSB == 0x0500 )
+		{
+			//Set address.
+			ist->my_address = wvi;
 		}
 		else
 		{
-			// Continuing data.
-			if( e->opaque == 0xff  )
-			{
-				usb_handle_control_out( e, data + 1, length - 3 );
-			}
-			// Allow user code to receive data.
+#if RV003USB_OTHER_CONTROL
+			usb_handle_other_control_message( e, s );
+#endif
 		}
 	}
 just_ack:
@@ -230,6 +221,7 @@ void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, uint32_
 	e->toggle_in = 1;
 	e->toggle_out = 0;
 	e->count = 0;
+	e->opaque = 0;
 }
 #endif
 

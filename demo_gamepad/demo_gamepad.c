@@ -10,7 +10,7 @@ int main()
 	while(1);
 }
 
-void usb_handle_user_in( struct usb_endpoint * e, uint8_t * scratchpad, int endp, uint32_t sendtok, struct rv003usb_internal * ist )
+void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, int endp, uint32_t sendtok, struct rv003usb_internal * ist )
 {
 	if( endp )
 	{

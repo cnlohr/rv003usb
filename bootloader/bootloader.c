@@ -158,7 +158,7 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	// have to do anything with it, though.
 	if( endp )
 	{
-		usb_send_nak( sendtok );
+		usb_send_empty( sendtok );
 		return;
 	}
 
@@ -182,7 +182,7 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 
 	if( !tosend || !tsend )
 	{
-		usb_send_nak( sendtok );
+		usb_send_empty( sendtok );
 	}
 	else
 	{

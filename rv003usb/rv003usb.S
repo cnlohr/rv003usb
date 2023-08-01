@@ -477,6 +477,7 @@ usb_pid_handle_setup:
 	c.sw a1, (ENDP_OFFSET+8)(a2) //e->toggle_in = 1;
 	c.li a1, 0
 	c.sw a1, (ENDP_OFFSET+0)(a2)  //e->count = 0;
+	c.sw a1, (ENDP_OFFSET+4)(a2)  //e->opaque = 0;
 	c.sw a1, (ENDP_OFFSET+12)(a2) //e->toggle_out = 0;
 	c.j done_usb_message_in	
 

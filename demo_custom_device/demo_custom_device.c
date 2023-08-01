@@ -14,11 +14,11 @@ int main()
 
 	while(1)
 	{
-		//printf( "%lu %lu %lu %08lx\n", rv003usb_internal_data.delta_se0_cyccount, rv003usb_internal_data.last_se0_cyccount, rv003usb_internal_data.se0_windup, RCC->CTLR );
+		printf( "%lu %lu %lu %08lx\n", rv003usb_internal_data.delta_se0_cyccount, rv003usb_internal_data.last_se0_cyccount, rv003usb_internal_data.se0_windup, RCC->CTLR );
 	}
 }
 
-void usb_handle_user_in( struct usb_endpoint * e, uint8_t * scratchpad, int endp, uint32_t sendtok, struct rv003usb_internal * ist )
+void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, int endp, uint32_t sendtok, struct rv003usb_internal * ist )
 {
 	// Make sure we only deal with control messages.  Like get/set feature reports.
 	if( endp )
@@ -42,7 +42,7 @@ void usb_handle_user_in( struct usb_endpoint * e, uint8_t * scratchpad, int endp
 	}
 }
 
-void usb_handle_control_out( struct usb_endpoint * e, uint8_t * data, int len )
+void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_t * data, int len, struct rv003usb_internal * ist )
 {
 	int offset = e->count<<3;
 	int torx = e->max_len - offset;
@@ -54,14 +54,14 @@ void usb_handle_control_out( struct usb_endpoint * e, uint8_t * data, int len )
 	}
 }
 
-void usb_handle_control_in_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )
+void usb_handle_hid_get_report_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )
 {
 	e->count = 0;
 	if( reqLen > sizeof( scratch ) ) reqLen = sizeof( scratch );
 	e->max_len = reqLen;
 }
 
-void usb_handle_control_out_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )
+void usb_handle_hid_set_report_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )
 {
 	e->count = 0;
 	if( reqLen > sizeof( scratch ) ) reqLen = sizeof( scratch );

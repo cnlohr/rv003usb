@@ -16,6 +16,13 @@
 
 #define USE_RV003_C 1
 
+
+#define RV003USB_HANDLE_IN_REQUEST 1
+#define RV003USB_OTHER_CONTROL 0
+#define RV003USB_HANDLE_USER_DATA 1
+#define RV003USB_HID_FEATURES 1
+
+
 #ifndef __ASSEMBLER__
 
 #include <tinyusb_hid.h>

@@ -88,11 +88,21 @@ extern uint32_t * always0;
 
 // If you are using the .c functionality, be sure to #define USE_RV003_C 1
 // usb_hande_interrupt_in is OBLIGATED to call usb_send_data or usb_send_empty.
-void usb_hande_user_in( struct usb_endpoint * e, uint8_t * scratchpad, int endp, uint32_t sendtok, struct rv003usb_internal * ist );
+// Enable with RV003USB_HANDLE_IN_REQUEST=1
+void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, int endp, uint32_t sendtok, struct rv003usb_internal * ist );
 
-void usb_handle_control_out_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB );
-void usb_handle_control_out( struct usb_endpoint * e, uint8_t * data, int len );
-void usb_handle_control_in_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB );
+// Enable with RV003USB_HID_FEATURES=1
+void usb_handle_hid_set_report_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB );
+void usb_handle_hid_get_report_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB );
+
+// Enable with RV003USB_OTHER_CONTROL=1
+void usb_handle_other_control_message( struct usb_endpoint * e, struct usb_urb * s );
+
+// Received data from the host which is not an internal control message, i.e.
+// this could be going to an endpoint or be data coming in for an unidentified
+// control message.
+// Enable with RV003USB_HANDLE_USER_DATA=1
+void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_t * data, int len, struct rv003usb_internal * ist );
 
 
 // Note: This checks addr & endp to make sure they are valid.
