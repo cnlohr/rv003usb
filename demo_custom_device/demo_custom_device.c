@@ -23,7 +23,7 @@ void usb_handle_user_in( struct usb_endpoint * e, uint8_t * scratchpad, int endp
 	// Make sure we only deal with control messages.  Like get/set feature reports.
 	if( endp )
 	{
-		usb_send_nak( sendtok );
+		usb_send_empty( sendtok );
 	}
 	else
 	{
@@ -31,7 +31,7 @@ void usb_handle_user_in( struct usb_endpoint * e, uint8_t * scratchpad, int endp
 		int remain = (int)e->max_len - (int)offset;
 		if( remain <= 0 )
 		{
-			usb_send_nak( sendtok );
+			usb_send_empty( sendtok );
 		}
 		else
 		{
