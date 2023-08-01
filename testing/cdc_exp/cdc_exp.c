@@ -3,9 +3,6 @@
 #include <string.h>
 #include "rv003usb.h"
 
-
-
-
 #define NUMUEVENTS 32
 uint32_t events[4*NUMUEVENTS];
 volatile uint8_t eventhead, eventtail;
@@ -32,8 +29,6 @@ int main()
 {
 	SystemInit();
 	usb_setup();
-	LogUEvent( 0, 0, 1, 1 );
-	LogUEvent( 0, 0, 1, 1 );
 	while(1)
 	{
 		uint32_t * ue = GetUEvent();

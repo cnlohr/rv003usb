@@ -18,7 +18,7 @@
 
 
 #define RV003USB_HANDLE_IN_REQUEST 1
-#define RV003USB_OTHER_CONTROL 0
+#define RV003USB_OTHER_CONTROL 1
 #define RV003USB_HANDLE_USER_DATA 1
 #define RV003USB_HID_FEATURES 1
 
@@ -141,6 +141,8 @@ const static struct descriptor_list_struct {
 	{0x00000200, config_descriptor, sizeof(config_descriptor)},
 	// interface number // 2200 for hid descriptors.
 	{0x00002200, special_hid_desc, sizeof(special_hid_desc)},
+	{0x00002100, config_descriptor + 18, 9 }, // Not sure why, this seems to be useful for Windows + Android.
+
 	{0x00000300, (const uint8_t *)&string0, 4},
 	{0x04090301, (const uint8_t *)&string1, sizeof(STR_MANUFACTURER)},
 	{0x04090302, (const uint8_t *)&string2, sizeof(STR_PRODUCT)},	

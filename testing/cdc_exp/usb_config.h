@@ -122,7 +122,6 @@ static const uint8_t config_descriptor[] = {
 };
 
 
-static const uint8_t test_desc1[] = { 2, 3, 0x01, 0x00 };
 static const uint8_t test_desc2[] = { 2, 3, 0x02, 0x00 };
 
 // keyboard example at:
@@ -131,9 +130,9 @@ static const uint8_t test_desc2[] = { 2, 3, 0x02, 0x00 };
 
 //Ever wonder how you have more than 6 keys down at the same time on a USB keyboard?  It's easy. Enumerate two keyboards!
 
-#define STR_MANUFACTURER u""
-#define STR_PRODUCT      u""
-#define STR_SERIAL       u""
+#define STR_MANUFACTURER u"cnlohr"
+#define STR_PRODUCT      u"CDC Tester"
+#define STR_SERIAL       u"0000"
 
 struct usb_string_descriptor_struct {
 	uint8_t bLength;
@@ -172,6 +171,10 @@ const static struct descriptor_list_struct {
 } descriptor_list[] = {
 	{0x00000100, device_descriptor, sizeof(device_descriptor)},
 	{0x00000200, config_descriptor, sizeof(config_descriptor)},
+
+	//{0x00002200, test_desc2, sizeof(test_desc2)},
+	//{0x00002100, config_descriptor + 44, 7 },
+
 	{0x00000300, (const uint8_t *)&string0, 4},
 	{0x04090301, (const uint8_t *)&string1, sizeof(STR_MANUFACTURER)},
 	{0x04090302, (const uint8_t *)&string2, sizeof(STR_PRODUCT)},	
