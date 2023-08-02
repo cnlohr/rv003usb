@@ -6,8 +6,10 @@
 //#define WS2812BSIMPLE_IMPLEMENTATION
 //#include "ws2812b_simple.h"
 
+#define WSRAW
+#define WS2812B_ALLOW_INTERRUPT_NESTING
 #define WS2812DMA_IMPLEMENTATION
-#define DMALEDS 4
+#define DMALEDS 96 // Provide enough of a buffer things don't get messed up (actually uses 768 bytes)
 #include "ws2812b_dma_spi_led_driver.h"
 
 // Allow reading and writing to the scratchpad via HID control messages.
@@ -17,13 +19,9 @@ uint8_t ledat;
 
 static uint8_t frame;
 
-uint32_t WS2812BLEDCallback( int ledno )
+uint32_t WS2812BLEDCallback( int wordno )
 {
-	uint8_t * ll = &scratch[ledat];
-	ledat += 3;
-	uint32_t l = ll[0] | (ll[1]<<8) | (ll[2]<<16);
-//	l = frame | (frame<<8) |(frame<<16);
-	return l;
+	return ((uint32_t*)scratch)[wordno+1];
 }
 
 
@@ -75,7 +73,7 @@ int main()
 			ledat = 3;
 			if( scratch[1] == 0xa4 )
 			{
-				WS2812BDMAStart( 6*3 );
+				WS2812BDMAStart( 254/4 );
 			}
 			start_leds = 0;
 			frame++;
