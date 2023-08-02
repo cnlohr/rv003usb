@@ -3,16 +3,22 @@
 #include <string.h>
 #include "rv003usb.h"
 
+#define WSRAW
+#define WS2812B_ALLOW_INTERRUPT_NESTING
 #define WS2812DMA_IMPLEMENTATION
+#define DMALEDS 96 // Provide enough of a buffer things don't get messed up (actually uses 768 bytes)
 #include "ws2812b_dma_spi_led_driver.h"
 
 // Allow reading and writing to the scratchpad via HID control messages.
 uint8_t scratch[255];
+uint8_t start_leds = 0;
+uint8_t ledat;
 
-uint32_t WS2812BLEDCallback( int ledno )
+static uint8_t frame;
+
+uint32_t WS2812BLEDCallback( int wordno )
 {
-	uint8_t * k = &scratch[ledno * 3];
-	return k[0] | (k[1]<<8) | (k[2]<<16);
+	return ((uint32_t*)scratch)[wordno+1];
 }
 
 
@@ -44,8 +50,11 @@ int main()
 	SystemInit();
 
 	usb_setup();
-	
-	WS2812BDMAInit();
+
+	GPIOD->CFGLR = ( ( GPIOD->CFGLR ) & (~( 0xf << (4*2) )) ) | 
+		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*2);
+
+	WS2812BDMAInit();// Use DMA and SPI to stream out WS2812B LED Data via the MOSI pin.
 
 	while(1)
 	{
@@ -54,6 +63,17 @@ int main()
 		if( ue )
 		{
 			printf( "%lu %lx %lx %lx\n", ue[0], ue[1], ue[2], ue[3] );
+		}
+		if( start_leds )
+		{
+			//WS2812BSimpleSend( GPIOC, 6, scratch + 3, 6*3 );
+			ledat = 3;
+			if( scratch[1] == 0xa4 )
+			{
+				WS2812BDMAStart( 254/4 );
+			}
+			start_leds = 0;
+			frame++;
 		}
 	}
 }
@@ -65,6 +85,9 @@ void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, 
 	{
 		usb_send_empty( sendtok );
 	}
+
+	// this can't be called.
+/*
 	else
 	{
 		int offset = (e->count)<<3;
@@ -80,11 +103,12 @@ void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, 
 			// Don't advance, that will be done by ACK packets.
 		}
 	}
+*/
 }
 
 void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_t * data, int len, struct rv003usb_internal * ist )
 {
-	LogUEvent( SysTick->CNT, current_endpoint, e->count, 0xaaaaaaaa );
+	//LogUEvent( SysTick->CNT, current_endpoint, e->count, 0xaaaaaaaa );
 	int offset = e->count<<3;
 	int torx = e->max_len - offset;
 	if( torx > len ) torx = len;
@@ -94,21 +118,20 @@ void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_
 		e->count++;
 		if( ( e->count << 3 ) >= e->max_len )
 		{
-			WS2812BDMAStart( e->max_len/3 );
+			start_leds = e->max_len;
 		}
 	}
 }
 
 void usb_handle_hid_get_report_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )
 {
-	e->count = 0;
 	if( reqLen > sizeof( scratch ) ) reqLen = sizeof( scratch );
+	e->opaque = scratch;
 	e->max_len = reqLen;
 }
 
 void usb_handle_hid_set_report_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )
 {
-	e->count = 0;
 	if( reqLen > sizeof( scratch ) ) reqLen = sizeof( scratch );
 	e->max_len = reqLen;
 }
@@ -117,7 +140,6 @@ void usb_handle_hid_set_report_start( struct usb_endpoint * e, int reqLen, uint3
 void usb_handle_other_control_message( struct usb_endpoint * e, struct usb_urb * s )
 {
 	LogUEvent( SysTick->CNT, s->wRequestTypeLSBRequestMSB, s->lValueLSBIndexMSB, s->wLength );
-	e->opaque = 1;
 }
 
 

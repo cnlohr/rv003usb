@@ -3,6 +3,9 @@
 #include <stdint.h>
 
 // We borrow the combined hidapi.c from minichlink.
+//
+// This is for total perf testing.
+
 #include "hidapi.c"
 
 int main()
@@ -29,6 +32,8 @@ int main()
 		// But we can fill in random for the rest.
 		for( i = 1; i < sizeof( buffer0 ); i ++ )
 			buffer0[i] = rand(); 
+
+		if( buffer0[1] == 0xa4 ) buffer0[1]++;
 
 		retrysend:
 		r = hid_send_feature_report( hd, buffer0, sizeof(buffer0) );

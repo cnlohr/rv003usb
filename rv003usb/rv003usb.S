@@ -13,7 +13,7 @@
 #define nx6p3delay( n, freereg ) li freereg, ((n)+1); 1: c.addi freereg, -1; c.bnez freereg, 1b
 
 //See DEBUG_TIMING note in .c file.
-#ifdef DEBUG_TIMING
+#ifdef RV003USB_DEBUG_TIMING
 #define DEBUG_TICK_SETUP la x4, (TIM1_BASE + 0x24) 	// for debug
 #define DEBUG_TICK_MARK .balign 4; sw x0, 0(x4)
 #define	RESTORE_DEBUG_MARKER(x) lw	x4, x(sp)
@@ -435,24 +435,25 @@ void usb_pid_handle_ack( uint32_t dummy, uint8_t * data, uint32_t dummy1, uint32
 {
 	struct usb_endpoint * e = &ist->eps[ist->current_endpoint];
 	e->toggle_in = !e->toggle_in;
-	e->count_in++;
+	e->count++;
 	return;
 }
 */
+
 usb_pid_handle_ack:
 	c.lw a2, 0(a4) //ist->current_endpoint -> endp;
 	c.slli a2, 5
 	c.add a2, a4
 	c.addi a2, ENDP_OFFSET // usb_endpoint eps[ENDPOINTS];
 
-	c.lw a0, (2*4)(a2) // toggle_in=!toggle_in
+	c.lw a0, (EP_TOGGLE_IN_OFFSET)(a2) // toggle_in=!toggle_in
 	c.li a1, 1
 	c.xor a0, a1
-	c.sw a0, (2*4)(a2)
+	c.sw a0, (EP_TOGGLE_IN_OFFSET)(a2)
 
-	c.lw a0, 0(a2) // count_in
+	c.lw a0, (EP_COUNT_OFFSET)(a2) // count_in
 	c.addi a0, 1
-	c.sw a0, 0(a2)
+	c.sw a0, (EP_COUNT_OFFSET)(a2)
 
 	c.j done_usb_message_in
 
@@ -474,11 +475,11 @@ usb_pid_handle_setup:
 	c.sw a1, SETUP_REQUEST_OFFSET(a4) //ist->setup_request = 1;
 	c.slli a2, 3+2
 	c.add a2, a4
-	c.sw a1, (ENDP_OFFSET+8)(a2) //e->toggle_in = 1;
+	c.sw a1, (ENDP_OFFSET+EP_TOGGLE_IN_OFFSET)(a2) //e->toggle_in = 1;
 	c.li a1, 0
-	c.sw a1, (ENDP_OFFSET+0)(a2)  //e->count = 0;
-	c.sw a1, (ENDP_OFFSET+4)(a2)  //e->opaque = 0;
-	c.sw a1, (ENDP_OFFSET+12)(a2) //e->toggle_out = 0;
+	c.sw a1, (ENDP_OFFSET+EP_COUNT_OFFSET)(a2)  //e->count = 0;
+	c.sw a1, (ENDP_OFFSET+EP_OPAQUE_OFFSET)(a2)  //e->opaque = 0;
+	c.sw a1, (ENDP_OFFSET+EP_TOGGLE_OUT_OFFSET)(a2) //e->toggle_out = 0;
 	c.j done_usb_message_in	
 
 #endif

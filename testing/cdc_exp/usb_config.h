@@ -4,7 +4,7 @@
 //Defines the number of endpoints for this device. (Always add one for EP0). For two EPs, this should be 3.
 #define ENDPOINTS 4
 
-#define DEBUG_TIMING
+//#define RV003USB_DEBUG_TIMING
 
 #define DEBUG_PIN 2
 #define USB_DM 3
@@ -171,10 +171,8 @@ const static struct descriptor_list_struct {
 } descriptor_list[] = {
 	{0x00000100, device_descriptor, sizeof(device_descriptor)},
 	{0x00000200, config_descriptor, sizeof(config_descriptor)},
-
 	//{0x00002200, test_desc2, sizeof(test_desc2)},
 	//{0x00002100, config_descriptor + 44, 7 },
-
 	{0x00000300, (const uint8_t *)&string0, 4},
 	{0x04090301, (const uint8_t *)&string1, sizeof(STR_MANUFACTURER)},
 	{0x04090302, (const uint8_t *)&string2, sizeof(STR_PRODUCT)},	

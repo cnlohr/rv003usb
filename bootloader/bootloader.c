@@ -9,9 +9,9 @@
 #define INSTANCE_DESCRIPTORS
 #include "rv003usb.h"
 
-// To use time debugging, enable thsi here, and DEBUG_TIMING in the .S
+// To use time debugging, enable thsi here, and RV003USB_DEBUG_TIMING in the .S
 // You must update in tandem
-//#define DEBUG_TIMING
+//#define RV003USB_DEBUG_TIMING
 
 // If you don't want to automatically boot into the application, set
 // this flag:
@@ -35,7 +35,7 @@ int main()
 	// Enable GPIOs, TIMERs
 	RCC->APB2PCENR = RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOC | RCC_APB2Periph_TIM1 | RCC_APB2Periph_GPIOA  | RCC_APB2Periph_AFIO | RCC_APB2Periph_TIM1;
 
-#ifdef DEBUG_TIMING
+#ifdef RV003USB_DEBUG_TIMING
 	// GPIO C0 Push-Pull
 	GPIOC->CFGLR = (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*0) |
 	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF)<<(4*3) | // PC3 = T1C3
@@ -43,7 +43,7 @@ int main()
 	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*2);
 #endif
 
-#ifdef DEBUG_TIMING
+#ifdef RV003USB_DEBUG_TIMING
 	{
 		// PC4 is MCO (for watching timing)
 		GPIOC->CFGLR &= ~(GPIO_CFGLR_MODE4 | GPIO_CFGLR_CNF4);
@@ -149,30 +149,20 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	struct usb_endpoint * e = &ist->eps[endp];
 
 	int tosend = 0;
-	uint8_t * sendnow = data-1;
+	const uint8_t * sendnow = data-1;
 	uint8_t sendtok = e->toggle_in?0b01001011:0b11000011;
 	
 	// Handle IN (sending data back to PC)
 	// Do this down here.
 	// We do this because we are required to have an in-endpoint.  We don't
 	// have to do anything with it, though.
-	if( endp )
+	if( endp ) //XXX TODO: This can be reworked - if it's anything other than "is_descriptor" then send nak.
 	{
 		usb_send_empty( sendtok );
 		return;
 	}
 
-	uint8_t * tsend = 0;
-
-	if( e->is_descriptor )
-	{
-		const struct descriptor_list_struct * dl = &descriptor_list[e->opaque];
-		tsend = ((uint8_t*)dl->addr);
-	}
-	else if( e->opaque == 1 )
-	{
-		tsend = scratchpad;
-	}
+	const uint8_t * tsend = e->opaque;
 
 	int offset = (e->count)<<3;
 	tosend = e->max_len - offset;
@@ -213,7 +203,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			uint32_t wvi = s->lValueLSBIndexMSB;
 			//Send just a data packet.
 			e->count = 0;
-			e->is_descriptor = 0;
+			e->opaque = 0;
 			ist->setup_request = 0;
 			e->max_len = 0;
 
@@ -224,14 +214,14 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 				if( wlen > sizeof(scratchpad) ) wlen = SCRATCHPAD_SIZE;
 				// The host wants to read back from us.
 				e->max_len = wlen;
-				e->opaque = 1;
+				e->opaque = scratchpad;
 			}
 			else if( s->wRequestTypeLSBRequestMSB == 0x0921 )
 			{
 				// Class write request.
 				e->max_len = SCRATCHPAD_SIZE;
 				runwordpad = 1; //request stoppage.
-				e->opaque = 2;
+				e->opaque = scratchpad;
 			}
 			else if( (s->wRequestTypeLSBRequestMSB & 0xff80) == 0x0680 )
 			{
@@ -243,8 +233,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 					if( dl->lIndexValue == wvi )
 					{
 						// Send back descriptor.
-						e->opaque = i;
-						e->is_descriptor = 1;
+						e->opaque = (uint8_t*)dl->addr;
 						uint16_t swLen = s->wLength;
 						uint16_t elLen = dl->length;
 						e->max_len = (swLen < elLen)?swLen:elLen;
@@ -258,36 +247,31 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			{
 				//Set address.
 				ist->my_address = wvi;
-				e->opaque = 0;
 			}
 			else
 			{
-				e->opaque = 0;
 			}
 		}
-		else
+		else if( e->opaque )
 		{
 			// Continuing data.
-			if( e->opaque == 2 )
-			{
-				uint8_t * start = &scratchpad[e->count<<3];
-				int l = length-3;
-				int i;
-				for( i = 0; i < l; i++ )
-					start[i] = data[i+1];//((intptr_t)data)>>(i*8);
-				e->count ++;
+			uint8_t * start = &e->opaque[e->count<<3];
+			int l = length-3;
+			int i;
+			for( i = 0; i < l; i++ )
+				start[i] = data[i+1];//((intptr_t)data)>>(i*8);
+			e->count ++;
 
-				if( e->count >= SCRATCHPAD_SIZE )
+			if( e->count >= SCRATCHPAD_SIZE )
+			{
+				// If the last 4 bytes are 0x1234abcd, then we can go!
+				uint32_t * last4 = (uint32_t*)(start + 4);					
+				if( *last4 == 0x1234abcd )
 				{
-					// If the last 4 bytes are 0x1234abcd, then we can go!
-					uint32_t * last4 = (uint32_t*)(start + 4);					
-					if( *last4 == 0x1234abcd )
-					{
-						*last4 = 0;
-						runwordpad = 0x200; // Request exectution
-					}
-					e->opaque = 0;
+					*last4 = 0;
+					runwordpad = 0x200; // Request exectution
 				}
+				e->opaque = 0;
 			}
 			// Allow user code to receive data.
 		}
