@@ -13,7 +13,7 @@
 #define nx6p3delay( n, freereg ) li freereg, ((n)+1); 1: c.addi freereg, -1; c.bnez freereg, 1b
 
 //See DEBUG_TIMING note in .c file.
-#ifdef DEBUG_TIMING
+#ifdef RV003USB_DEBUG_TIMING
 #define DEBUG_TICK_SETUP la x4, (TIM1_BASE + 0x24) 	// for debug
 #define DEBUG_TICK_MARK .balign 4; sw x0, 0(x4)
 #define	RESTORE_DEBUG_MARKER(x) lw	x4, x(sp)

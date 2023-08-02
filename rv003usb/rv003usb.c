@@ -23,6 +23,47 @@ void usb_setup()
 	// Enable GPIOs, TIMERs
 	RCC->APB2PCENR |= LOCAL_EXP( RCC_APB2Periph_GPIO, USB_PORT )| RCC_APB2Periph_AFIO;
 
+#ifdef RV003USB_DEBUG_TIMING
+	{
+		RCC->APB2PCENR |= RCC_APB2Periph_GPIOC | RCC_APB2Periph_TIM1;
+
+		GPIOC->CFGLR = (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*0) |
+			           (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF)<<(4*3) | // PC3 = T1C3
+			           (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF)<<(4*4) |
+			           (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*2);
+
+		// PC4 is MCO (for watching timing)
+		GPIOC->CFGLR &= ~(GPIO_CFGLR_MODE4 | GPIO_CFGLR_CNF4);
+		GPIOC->CFGLR |= GPIO_CFGLR_CNF4_1 | GPIO_CFGLR_MODE4_0 | GPIO_CFGLR_MODE4_1;
+		RCC->CFGR0 = (RCC->CFGR0 & ~RCC_CFGR0_MCO) | RCC_CFGR0_MCO_SYSCLK;
+
+		// PWM is used for debug timing. 
+		TIM1->PSC = 0x0000;
+
+		// Auto Reload - sets period
+		TIM1->ATRLR = 0xffff;
+
+		// Reload immediately
+		TIM1->SWEVGR |= TIM_UG;
+
+		// Enable CH4 output, positive pol
+		TIM1->CCER |= TIM_CC3E | TIM_CC3NP;
+
+		// CH2 Mode is output, PWM1 (CC1S = 00, OC1M = 110)
+		TIM1->CHCTLR2 |= TIM_OC3M_2 | TIM_OC3M_1;
+
+		// Set the Capture Compare Register value to 50% initially
+		TIM1->CH3CVR = 2;
+		
+		// Enable TIM1 outputs
+		TIM1->BDTR |= TIM_MOE;
+		
+		// Enable TIM1
+		TIM1->CTLR1 |= TIM_CEN;
+	}
+#endif
+
+
 	// GPIO D3 for input pin change.
 	LOCAL_EXP( GPIO, USB_PORT )->CFGLR = 
 		( LOCAL_EXP( GPIO, USB_PORT )->CFGLR & 
@@ -55,15 +96,16 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	uint8_t * sendnow = data-1;
 	int sendtok = e->toggle_in?0b01001011:0b11000011;
 
-	if( endp || !e->is_descriptor )
-	{
+	TIM1->CNT = 0;
+	TIM1->CNT = 0;
+	TIM1->CNT = 0;
 #if RV003USB_HANDLE_IN_REQUEST
+	if( e->custom || endp )
+	{
 		usb_handle_user_in_request( e, sendnow, endp, sendtok, ist );
 		return;
-#else 
-		goto no_data;
-#endif
 	}
+#endif
 
 	tosend = 0;
 	sendnow = data-1;
@@ -80,15 +122,12 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	sendnow = tsend + offset;
 	if( tosend <= 0 )
 	{
-		goto no_data;
+		usb_send_empty( sendtok );
 	}
 	else
 	{
 		usb_send_data( sendnow, tosend, 0, sendtok );
 	}
-	return;
-no_data:
-	usb_send_empty( sendtok );
 }
 
 void usb_pid_handle_out( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
@@ -127,7 +166,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 		//Send just a data packet.
 		e->count = 0;
 		e->opaque = 0;
-		e->is_descriptor = 0;
+		e->custom = 0;
 		e->max_len = 0;
 		ist->setup_request = 0;
 
@@ -159,7 +198,6 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 				if( dl->lIndexValue == wvi )
 				{
 					e->opaque = (uint8_t*)dl->addr;
-					e->is_descriptor = 1;
 					uint16_t swLen = s->wLength;
 					uint16_t elLen = dl->length;
 					e->max_len = (swLen < elLen)?swLen:elLen;

@@ -29,12 +29,12 @@ int main()
 	// GPIO C0 Push-Pull
 	GPIOC->CFGLR = (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*0) |
 	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF)<<(4*3) | // PC3 = T1C3
-#ifdef DEBUG_TIMING
+#ifdef RV003USB_DEBUG_TIMING
 	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF)<<(4*4) | // PC4 = T1C4
 #endif
 	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*2);
 
-#ifdef DEBUG_TIMING
+#ifdef RV003USB_DEBUG_TIMING
 	{
 		// PC4 is MCO (for watching timing)
 		GPIOC->CFGLR &= ~(GPIO_CFGLR_MODE4 | GPIO_CFGLR_CNF4);

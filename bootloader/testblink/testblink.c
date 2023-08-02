@@ -13,6 +13,5 @@ void Scratchpad( uint8_t * buffer, uint32_t * keeprunning )
 	{
 		GPIOC->BSHR = 1<<16;
 	}
-
 }
 

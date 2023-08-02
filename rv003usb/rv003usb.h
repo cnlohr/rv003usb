@@ -23,7 +23,7 @@
 #define EP_COUNT_OFFSET         0
 #define EP_TOGGLE_IN_OFFSET     4
 #define EP_TOGGLE_OUT_OFFSET    8
-#define EP_IS_DESCR_OFFSET      12
+#define EP_IS_CUSTOM_OFFSET     12
 #define EP_MAX_LEN_OFFSET       16
 #define EP_OPAQUE_OFFSET        28
 #else
@@ -52,7 +52,7 @@ struct usb_endpoint  // Make the size of this a power of 2.
 	TURBO8TYPE count;	    // ack count / in count
 	TURBO8TYPE toggle_in;   // DATA0 or DATA1?
 	TURBO8TYPE toggle_out;  // Out PC->US
-	TURBO8TYPE is_descriptor;
+	TURBO8TYPE custom;      // Anything nonzero will incur the custom call.
 	TURBO16TYPE max_len;
 	TURBO16TYPE reserved1;
 	uint32_t    reserved2; 

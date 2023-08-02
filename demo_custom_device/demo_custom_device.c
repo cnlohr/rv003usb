@@ -3,12 +3,28 @@
 #include <string.h>
 #include "rv003usb.h"
 
-#define WS2812BSIMPLE_IMPLEMENTATION
-#include "ws2812b_simple.h"
+//#define WS2812BSIMPLE_IMPLEMENTATION
+//#include "ws2812b_simple.h"
+
+#define WS2812DMA_IMPLEMENTATION
+#define DMALEDS 4
+#include "ws2812b_dma_spi_led_driver.h"
 
 // Allow reading and writing to the scratchpad via HID control messages.
 uint8_t scratch[255];
 uint8_t start_leds = 0;
+uint8_t ledat;
+
+static uint8_t frame;
+
+uint32_t WS2812BLEDCallback( int ledno )
+{
+	uint8_t * ll = &scratch[ledat];
+	ledat += 3;
+	uint32_t l = ll[0] | (ll[1]<<8) | (ll[2]<<16);
+//	l = frame | (frame<<8) |(frame<<16);
+	return l;
+}
 
 
 #define NUMUEVENTS 32
@@ -43,6 +59,8 @@ int main()
 	GPIOD->CFGLR = ( ( GPIOD->CFGLR ) & (~( 0xf << (4*2) )) ) | 
 		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*2);
 
+	WS2812BDMAInit();// Use DMA and SPI to stream out WS2812B LED Data via the MOSI pin.
+
 	while(1)
 	{
 		//printf( "%lu %lu %lu %08lx\n", rv003usb_internal_data.delta_se0_cyccount, rv003usb_internal_data.last_se0_cyccount, rv003usb_internal_data.se0_windup, RCC->CTLR );
@@ -53,20 +71,28 @@ int main()
 		}
 		if( start_leds )
 		{
-			//WS2812BSimpleSend( GPIOC, 6, scratch, start_leds );
+			//WS2812BSimpleSend( GPIOC, 6, scratch + 3, 6*3 );
+			ledat = 3;
+			if( scratch[1] == 0xa4 )
+			{
+				WS2812BDMAStart( 6*3 );
+			}
 			start_leds = 0;
+			frame++;
 		}
 	}
 }
 
 void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, int endp, uint32_t sendtok, struct rv003usb_internal * ist )
 {
-	GPIOD->BSHR = 1<<2;
 	// Make sure we only deal with control messages.  Like get/set feature reports.
 	if( endp )
 	{
 		usb_send_empty( sendtok );
 	}
+
+	// this can't be called.
+/*
 	else
 	{
 		int offset = (e->count)<<3;
@@ -82,8 +108,7 @@ void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, 
 			// Don't advance, that will be done by ACK packets.
 		}
 	}
-	GPIOD->BSHR = 1<<(2+16);
-
+*/
 }
 
 void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_t * data, int len, struct rv003usb_internal * ist )
@@ -107,11 +132,7 @@ void usb_handle_hid_get_report_start( struct usb_endpoint * e, int reqLen, uint3
 {
 	if( reqLen > sizeof( scratch ) ) reqLen = sizeof( scratch );
 	e->opaque = scratch;
-	e->is_descriptor = 0;
 	e->max_len = reqLen;
-	GPIOD->BSHR = 1<<2;
-	GPIOD->BSHR = 1<<(2+16);
-
 }
 
 void usb_handle_hid_set_report_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )

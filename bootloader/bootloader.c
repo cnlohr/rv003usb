@@ -9,9 +9,9 @@
 #define INSTANCE_DESCRIPTORS
 #include "rv003usb.h"
 
-// To use time debugging, enable thsi here, and DEBUG_TIMING in the .S
+// To use time debugging, enable thsi here, and RV003USB_DEBUG_TIMING in the .S
 // You must update in tandem
-//#define DEBUG_TIMING
+//#define RV003USB_DEBUG_TIMING
 
 // If you don't want to automatically boot into the application, set
 // this flag:
@@ -35,7 +35,7 @@ int main()
 	// Enable GPIOs, TIMERs
 	RCC->APB2PCENR = RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOC | RCC_APB2Periph_TIM1 | RCC_APB2Periph_GPIOA  | RCC_APB2Periph_AFIO | RCC_APB2Periph_TIM1;
 
-#ifdef DEBUG_TIMING
+#ifdef RV003USB_DEBUG_TIMING
 	// GPIO C0 Push-Pull
 	GPIOC->CFGLR = (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*0) |
 	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF)<<(4*3) | // PC3 = T1C3
@@ -43,7 +43,7 @@ int main()
 	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*2);
 #endif
 
-#ifdef DEBUG_TIMING
+#ifdef RV003USB_DEBUG_TIMING
 	{
 		// PC4 is MCO (for watching timing)
 		GPIOC->CFGLR &= ~(GPIO_CFGLR_MODE4 | GPIO_CFGLR_CNF4);
@@ -156,18 +156,13 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	// Do this down here.
 	// We do this because we are required to have an in-endpoint.  We don't
 	// have to do anything with it, though.
-	if( endp )
+	if( endp ) //XXX TODO: This can be reworked - if it's anything other than "is_descriptor" then send nak.
 	{
 		usb_send_empty( sendtok );
 		return;
 	}
 
-	const uint8_t * tsend = 0;
-
-	if( e->is_descriptor )
-	{
-		tsend = e->opaque;
-	}
+	const uint8_t * tsend = e->opaque;
 
 	int offset = (e->count)<<3;
 	tosend = e->max_len - offset;
@@ -208,7 +203,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			uint32_t wvi = s->lValueLSBIndexMSB;
 			//Send just a data packet.
 			e->count = 0;
-			e->is_descriptor = 0;
+			e->opaque = 0;
 			ist->setup_request = 0;
 			e->max_len = 0;
 
@@ -220,7 +215,6 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 				// The host wants to read back from us.
 				e->max_len = wlen;
 				e->opaque = scratchpad;
-				e->is_descriptor = 1;
 			}
 			else if( s->wRequestTypeLSBRequestMSB == 0x0921 )
 			{
@@ -240,7 +234,6 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 					{
 						// Send back descriptor.
 						e->opaque = (uint8_t*)dl->addr;
-						e->is_descriptor = 1;
 						uint16_t swLen = s->wLength;
 						uint16_t elLen = dl->length;
 						e->max_len = (swLen < elLen)?swLen:elLen;
