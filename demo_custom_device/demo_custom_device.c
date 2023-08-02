@@ -3,9 +3,6 @@
 #include <string.h>
 #include "rv003usb.h"
 
-//#define WS2812BSIMPLE_IMPLEMENTATION
-//#include "ws2812b_simple.h"
-
 #define WSRAW
 #define WS2812B_ALLOW_INTERRUPT_NESTING
 #define WS2812DMA_IMPLEMENTATION
