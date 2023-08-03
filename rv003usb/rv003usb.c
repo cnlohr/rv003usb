@@ -35,10 +35,6 @@ uint32_t * GetUEvent()
 	return &events[event*4];
 }
 
-#else
-
-#define LogUEvent( a, b, c,  d )
-
 #endif
 
 
