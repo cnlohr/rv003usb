@@ -221,17 +221,6 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			usb_handle_hid_set_report_start( e, wLength, wvi );
 		}
 		else
-#else
-		if( reqShl == (0x01a1>>1) )
-		{
-			e->opaque = (uint8_t*)always0;
-			e->max_len = wLength;
-		}
-		else if( reqShl == (0x0921>>1) )
-		{
-			// Do nothing.
-		}
-		else
 #endif
 		if( reqShl == (0x0680>>1) ) // GET_DESCRIPTOR = 6 (msb)
 		{
@@ -253,6 +242,8 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 		{
 			ist->my_address = wvi;
 		}
+#if 0
+		// These are optional for the most part.
 		else if( reqShl == (0x0080>>1) ) // GET_STATUS = 0x00 ,always reply with { 0x00, 0x00 } 
 		{
 			e->opaque = (uint8_t*)always0;
@@ -263,6 +254,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			e->opaque = (uint8_t*)always0;
 			e->max_len = wLength;
 		}
+#endif
 		//  You could handle SET_CONFIGURATION == 0x0900 here if you wanted.
 		//  Can also handle GET_CONFIGURATION == 0x0880 to which we send back { 0x00 }, or the interface number.  (But no one does this).
 		//  You could handle SET_INTERFACE == 0x1101 here if you wanted.

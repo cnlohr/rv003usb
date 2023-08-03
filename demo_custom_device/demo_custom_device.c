@@ -25,7 +25,6 @@ uint32_t WS2812BLEDCallback( int wordno )
 int main()
 {
 	SystemInit();
-	Delay_Us(100000);
 	usb_setup();
 
 	GPIOD->CFGLR = ( ( GPIOD->CFGLR ) & (~( 0xf << (4*2) )) ) | 
@@ -33,15 +32,16 @@ int main()
 
 	WS2812BDMAInit();// Use DMA and SPI to stream out WS2812B LED Data via the MOSI pin.
 
-	printf( "Starting\n" );
 	while(1)
 	{
 		//printf( "%lu %lu %lu %08lx\n", rv003usb_internal_data.delta_se0_cyccount, rv003usb_internal_data.last_se0_cyccount, rv003usb_internal_data.se0_windup, RCC->CTLR );
+#if RV003USB_EVENT_DEBUGGING
 		uint32_t * ue = GetUEvent();
 		if( ue )
 		{
 			printf( "%lu %lx %lx %lx\n", ue[0], ue[1], ue[2], ue[3] );
 		}
+#endif
 		if( start_leds )
 		{
 			//WS2812BSimpleSend( GPIOC, 6, scratch + 3, 6*3 );
