@@ -2,24 +2,23 @@
 
 Ever wanted a 10 cent USB-capable processor? Well, look no further. RV003USB allows you to, in firmware connect a 10 cent RISC-V to a computer with USB. It is fundamentally just a pin-change interrupt routine that runs in assembly, and some C code to handle higher level functionality.
 
-## It's small!
+### It's small!
 
 The bootloader version of the tool can create a HID device, enumerate and allow execution of code on-device in 1,920 bytes of code.  Basic HID setups are approximately 2kB, like the Joystick demo.
 
-## It's simple!
+### It's simple!
 
 The core assembly code is very basic, having both an [interrupt](https://github.com/cnlohr/rv003usb/blob/master/rv003usb/rv003usb.S#L43) and [code to send](https://github.com/cnlohr/rv003usb/blob/master/rv003usb/rv003usb.S#L547).   And only around [250 lines of C](https://github.com/cnlohr/rv003usb/blob/master/rv003usb/rv003usb.c) code to facilitate the rest of the USB protocol.    
 
-## It's adaptable!
+### It's adaptable!
 
 The [core assembly](https://github.com/cnlohr/rv003usb/blob/master/rv003usb/rv003usb.S) code is standardized, and there is also [a c file](https://github.com/cnlohr/rv003usb/blob/master/rv003usb/rv003usb.c) code, to handle different functionality with hid feature requests, control setup events, interrupt endpoints (send and receive) are all done in.
 
 It shows both how to be a normal USB device, as well as how to write programs to run on your PC that can talk to your USB device.
 
-## It's built on ch32v003fun
+### It's built on ch32v003fun
 
 [ch32v003fun](https://github.com/cnlohr/ch32v003fun) is a minimal development SDK of sorts for the CH32V003, allowing for maximum flexability without needing lots of code surrounding a HAL.
-
 
 ## General developer notes
 
