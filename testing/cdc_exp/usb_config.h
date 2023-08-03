@@ -103,7 +103,7 @@ static const uint8_t config_descriptor[] = {
 	2,			// n endpoints	
 	0x0A,		// interface class = CDC-Data
 	0x00,		//interface sub-class = unused
-	0x32,		// interface protocol code class = None
+	0x32,		// interface protocol code class = None  <<<<<<<<< THIS IS MEGA SUS.
 	0,			// interface descriptor string index
 
 	7,            // endpoint descriptor (For endpoint 1)
