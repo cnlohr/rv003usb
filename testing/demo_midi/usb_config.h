@@ -56,27 +56,6 @@ static const uint8_t config_descriptor[] = {
 	0x80,                     // bmAttributes (was 0xa0)
 	0x64,                     // bMaxPower (200mA)
 
-
-#if 0
-	9,			/* sizeof(usbDescrInterface): length of descriptor in bytes */
-	TUSB_DESC_INTERFACE,	/* descriptor type */
-	0,			/* index of this interface */
-	0,			/* alternate setting for this interface */
-	0,			/* endpoints excl 0: number of endpoint descriptors to follow */
-	1,			/* */
-	1,			/* */
-	0,			/* */
-	0,			/* string index for interface */
-
-	9,			/* sizeof(usbDescrCDC_HeaderFn): length of descriptor in bytes */
-	36,			/* descriptor type */
-	1,			/* header functional descriptor */
-	0x0, 0x01,		/* bcdADC */
-	9, 0,			/* wTotalLength */
-	1,			/* */
-	1,			/* */
-#endif
-
 	9,                        // bLength
 	TUSB_DESC_INTERFACE,      // bDescriptorType
 	0,                        // bInterfaceNumber
@@ -163,7 +142,7 @@ static const uint8_t config_descriptor[] = {
 	0x1,                // bEndpointAddress
 	3,                  // bmAttributes = Interrupt
 	8, 0,               // wMaxPacketSize 
-	10,                 // bIntervall
+	1,                  // bIntervall
 	0,                  // bRefresh
 	0,                  // bSynchAddress
 
@@ -182,7 +161,7 @@ static const uint8_t config_descriptor[] = {
 	0x82,               // bEndpointAddress
 	3,                  // bmAttributes: 2: Bulk, 3: Interrupt endpoint
 	8, 0,               // wMaxPacketSize
-	10,                  // bIntervall in ms
+	1,                  // bIntervall in ms
 	0,                  // bRefresh (unused)
 	0,                  // bSyncAddress
 
@@ -203,7 +182,7 @@ static const uint8_t config_descriptor[] = {
 //Ever wonder how you have more than 6 keys down at the same time on a USB keyboard?  It's easy. Enumerate two keyboards!
 
 #define STR_MANUFACTURER u"CNLohr"
-#define STR_PRODUCT      u"RV003USB Demo Gamepad"
+#define STR_PRODUCT      u"RV003USB Example MIDI Device"
 #define STR_SERIAL       u"000"
 
 struct usb_string_descriptor_struct {

@@ -43,7 +43,7 @@ void usb_handle_other_control_message( struct usb_endpoint * e, struct usb_urb *
 
 void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_t * data, int len, struct rv003usb_internal * ist )
 {
-	LogUEvent( SysTick->CNT, current_endpoint, len, 0xaaaaaaaaa );
+	LogUEvent( SysTick->CNT, current_endpoint, len, 0xaaaaaaaa );
 }
 
 
