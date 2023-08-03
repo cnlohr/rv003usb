@@ -16,7 +16,7 @@ void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, 
 	{
 		static uint8_t tsajoystick[8] = { 0x00, 0x01, 0x10, 0x00 };
 		tsajoystick[0]++;  // Go left->right fast
-		tsajoystick[2]^=1; // Alter button 1.
+		tsajoystick[2] = tsajoystick[0] & 0x80; // Alter button 1.
 		usb_send_data( tsajoystick, 3, 0, sendtok );
 	}
 	else

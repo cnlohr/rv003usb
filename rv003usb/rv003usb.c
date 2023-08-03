@@ -11,6 +11,38 @@
 
 #define ENDPOINT0_SIZE 8 //Fixed for USB 1.1, Low Speed.
 
+#if RV003USB_EVENT_DEBUGGING
+
+#define NUMUEVENTS 32
+uint32_t events[4*NUMUEVENTS];
+volatile uint8_t eventhead, eventtail;
+void LogUEvent( uint32_t a, uint32_t b, uint32_t c, uint32_t d )
+{
+	int event = (eventhead + 1) & (NUMUEVENTS-1);
+	uint32_t * e = &events[event*4];
+	e[0] = a;
+	e[1] = b;
+	e[2] = c;
+	e[3] = d;
+	eventhead = event;
+}
+
+uint32_t * GetUEvent()
+{
+	int event = eventtail;
+	if( eventhead == event ) return 0;
+	eventtail = ( event + 1 ) & (NUMUEVENTS-1);
+	return &events[event*4];
+}
+
+#else
+
+#define LogUEvent( a, b, c,  d )
+
+#endif
+
+
+
 struct rv003usb_internal rv003usb_internal_data;
 
 #define LOCAL_CONCAT(A, B) A##B
@@ -163,6 +195,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 		struct usb_urb * s = __builtin_assume_aligned( (struct usb_urb *)(data+1), 4 );
 
 		uint32_t wvi = s->lValueLSBIndexMSB;
+		uint32_t wLength = s->wLength;
 		//Send just a data packet.
 		e->count = 0;
 		e->opaque = 0;
@@ -174,17 +207,29 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 
 		uint32_t reqShl = s->wRequestTypeLSBRequestMSB >> 1;
 
+		LogUEvent( 0, s->wRequestTypeLSBRequestMSB, wvi, s->wLength );
 #if RV003USB_HID_FEATURES
 		if( reqShl == (0x01a1>>1) )
 		{
 			// Class read request.
 			// The host wants to read back from us. hid_get_feature_report
-			usb_handle_hid_get_report_start( e, s->wLength, wvi );
+			usb_handle_hid_get_report_start( e, wLength, wvi );
 		}
 		else if( reqShl == (0x0921>>1) )
 		{
 			// Class request (Will be writing)  This is hid_send_feature_report
-			usb_handle_hid_set_report_start( e, s->wLength, wvi );
+			usb_handle_hid_set_report_start( e, wLength, wvi );
+		}
+		else
+#else
+		if( reqShl == (0x01a1>>1) )
+		{
+			e->opaque = (uint8_t*)always0;
+			e->max_len = wLength;
+		}
+		else if( reqShl == (0x0921>>1) )
+		{
+			// Do nothing.
 		}
 		else
 #endif
@@ -198,7 +243,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 				if( dl->lIndexValue == wvi )
 				{
 					e->opaque = (uint8_t*)dl->addr;
-					uint16_t swLen = s->wLength;
+					uint16_t swLen = wLength;
 					uint16_t elLen = dl->length;
 					e->max_len = (swLen < elLen)?swLen:elLen;
 				}
@@ -211,12 +256,12 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 		else if( reqShl == (0x0080>>1) ) // GET_STATUS = 0x00 ,always reply with { 0x00, 0x00 } 
 		{
 			e->opaque = (uint8_t*)always0;
-			e->max_len = 2;
+			e->max_len = wLength;
 		}
-		else if( reqShl == (0x0a21>>1) ) // GET_INTERFACE = 0x00 ,always reply with { 0x00 } 
+		else if( reqShl == (0x0a21>>1) ) // GET_INTERFACE = 0x00, always reply with { 0x00 } 
 		{
 			e->opaque = (uint8_t*)always0;
-			e->max_len = 1;
+			e->max_len = wLength;
 		}
 		//  You could handle SET_CONFIGURATION == 0x0900 here if you wanted.
 		//  Can also handle GET_CONFIGURATION == 0x0880 to which we send back { 0x00 }, or the interface number.  (But no one does this).

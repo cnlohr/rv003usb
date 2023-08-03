@@ -7,7 +7,16 @@ int main()
 {
 	SystemInit();
 	usb_setup();
-	while(1);
+	while(1)
+	{
+#if RV003USB_EVENT_DEBUGGING
+		uint32_t * ue = GetUEvent();
+		if( ue )
+		{
+			printf( "%lu %lx %lx %lx\n", ue[0], ue[1], ue[2], ue[3] );
+		}
+#endif
+	}
 }
 
 void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, int endp, uint32_t sendtok, struct rv003usb_internal * ist )

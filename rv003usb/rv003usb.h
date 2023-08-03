@@ -125,6 +125,16 @@ void usb_send_empty( uint32_t token );
 
 void usb_setup();
 
+
+#if RV003USB_EVENT_DEBUGGING
+void LogUEvent( uint32_t a, uint32_t b, uint32_t c, uint32_t d );
+uint32_t * GetUEvent();
+#else
+#define LogUEvent( a, b, c,  d )
+#define GetUEvent() 0
+#endif
+
+
 #endif
 
 #endif

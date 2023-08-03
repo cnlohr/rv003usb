@@ -11,7 +11,7 @@
 
 // Allow reading and writing to the scratchpad via HID control messages.
 uint8_t scratch[255];
-uint8_t start_leds = 0;
+volatile uint8_t start_leds = 0;
 uint8_t ledat;
 
 static uint8_t frame;
@@ -22,33 +22,10 @@ uint32_t WS2812BLEDCallback( int wordno )
 }
 
 
-#define NUMUEVENTS 32
-uint32_t events[4*NUMUEVENTS];
-volatile uint8_t eventhead, eventtail;
-void LogUEvent( uint32_t a, uint32_t b, uint32_t c, uint32_t d )
-{
-	int event = (eventhead + 1) & (NUMUEVENTS-1);
-	uint32_t * e = &events[event*4];
-	e[0] = a;
-	e[1] = b;
-	e[2] = c;
-	e[3] = d;
-	eventhead = event;
-}
-
-uint32_t * GetUEvent()
-{
-	int event = eventtail;
-	if( eventhead == event ) return 0;
-	eventtail = ( event + 1 ) & (NUMUEVENTS-1);
-	return &events[event*4];
-}
-
-
 int main()
 {
 	SystemInit();
-
+	Delay_Us(100000);
 	usb_setup();
 
 	GPIOD->CFGLR = ( ( GPIOD->CFGLR ) & (~( 0xf << (4*2) )) ) | 
@@ -56,6 +33,7 @@ int main()
 
 	WS2812BDMAInit();// Use DMA and SPI to stream out WS2812B LED Data via the MOSI pin.
 
+	printf( "Starting\n" );
 	while(1)
 	{
 		//printf( "%lu %lu %lu %08lx\n", rv003usb_internal_data.delta_se0_cyccount, rv003usb_internal_data.last_se0_cyccount, rv003usb_internal_data.se0_windup, RCC->CTLR );
