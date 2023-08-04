@@ -40,8 +40,13 @@
 #define U16_TO_U8S_BE(u16)    TU_U16_HIGH(u16), TU_U16_LOW(u16)
 #define U16_TO_U8S_LE(u16)    TU_U16_LOW(u16), TU_U16_HIGH(u16)
 
+#ifndef TU_ATTR_PACKED
 #define TU_ATTR_PACKED __attribute__((packed))
+#endif
+#ifndef TU_BIT
 #define TU_BIT( x ) (1<<(x))
+#endif
+
 //--------------------------------------------------------------------+
 // Common Definitions
 //--------------------------------------------------------------------+

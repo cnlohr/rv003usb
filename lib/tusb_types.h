@@ -34,6 +34,34 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+
+/*------------------------------------------------------------------*/
+/* From Linux
+ *------------------------------------------------------------------*/
+
+
+#define USB_DIR_OUT			0		/* to device */
+#define USB_DIR_IN			0x80		/* to host */
+
+#define USB_TYPE_MASK			(0x03 << 5)
+#define USB_TYPE_STANDARD		(0x00 << 5)
+#define USB_TYPE_CLASS			(0x01 << 5)
+#define USB_TYPE_VENDOR			(0x02 << 5)
+#define USB_TYPE_RESERVED		(0x03 << 5)
+
+
+/*
+ * USB recipients, the third of three bRequestType fields
+ */
+#define USB_RECIP_MASK			0x1f
+#define USB_RECIP_DEVICE		0x00
+#define USB_RECIP_INTERFACE		0x01
+#define USB_RECIP_ENDPOINT		0x02
+#define USB_RECIP_OTHER			0x03
+/* From Wireless USB 1.0 */
+#define USB_RECIP_PORT			0x04
+#define USB_RECIP_RPIPE		0x05
+
 #define TU_ATTR_PACKED __attribute__((packed))
 #ifndef TU_BIT
 #define TU_BIT(n)             (1U << (n))

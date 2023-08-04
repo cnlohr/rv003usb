@@ -124,9 +124,6 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	uint8_t * sendnow = data-1;
 	int sendtok = e->toggle_in?0b01001011:0b11000011;
 
-	TIM1->CNT = 0;
-	TIM1->CNT = 0;
-	TIM1->CNT = 0;
 #if RV003USB_HANDLE_IN_REQUEST
 	if( e->custom || endp )
 	{
@@ -180,7 +177,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 
 	e->toggle_out = !e->toggle_out;
 
-	if( epno || !ist->setup_request )
+	if( epno || ( !ist->setup_request && length > 3 )  )
 	{
 #if RV003USB_HANDLE_USER_DATA
 		usb_handle_user_data( e, epno, data + 1, length - 3, ist );
