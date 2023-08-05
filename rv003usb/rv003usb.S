@@ -396,8 +396,6 @@ crc_for_tokens_would_be_bad_maybe_data:
 
 done_usb_message:
 done_usb_message_in:
-
-
 	lw	s0, 24(sp)
 	lw	s1, 28(sp)
 	lw	t0, 32(sp)

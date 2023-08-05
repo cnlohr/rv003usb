@@ -132,6 +132,13 @@ uint32_t REMOTE_NDIS_QUERY_CMPLT_OID_GEN_SUPPORTED_LIST[] = {
 	0x01020103, // OID_802_3_XMIT_MORE_COLLISIONS
 };
 
+uint32_t REMOTE_NDIS_QUERY_CMPLT_property[] = {
+	RNDIS_MSG_QUERY_C, 0x00000018,
+	0xaaaaaaaa, RNDIS_STATUS_SUCCESS,
+	0x00000004, 0x00000010,
+	0xaaaaaaaa,
+};
+
 uint32_t RNDIS_SCRATCH[36]; // First 4 bytes are confirmation.
 volatile uint32_t RNDIS_OUT;
 uint32_t * ep0replyBack;  // Note: Must be aligned.s
@@ -162,14 +169,30 @@ void ProcessRNDISControl()
 
 			case RNDIS_MSG_QUERY: // 4
 				//temp = scratch[3];  // OID we are interested in.
-				printf( "Starting %08x < %08x\n", (unsigned)scratch, (unsigned)REMOTE_NDIS_QUERY_CMPLT_OID_GEN_SUPPORTED_LIST );
-				memcpy( scratch, REMOTE_NDIS_QUERY_CMPLT_OID_GEN_SUPPORTED_LIST, sizeof(REMOTE_NDIS_QUERY_CMPLT_OID_GEN_SUPPORTED_LIST) );
-				scratch[2] = reply;
-				LogUEvent( 33, RNDIS_OUT, ep0replylenBack, 0 );
-				RNDIS_OUT = sizeof( REMOTE_NDIS_QUERY_CMPLT_OID_GEN_SUPPORTED_LIST );
-				printf( "Continuing %08x\n", (unsigned)RNDIS_OUT );
+				switch( scratch[3] )
+				{
+				case OID_GEN_SUPPORTED_LIST:
+					memcpy( scratch, REMOTE_NDIS_QUERY_CMPLT_OID_GEN_SUPPORTED_LIST, sizeof(REMOTE_NDIS_QUERY_CMPLT_OID_GEN_SUPPORTED_LIST) );
+					scratch[2] = reply;
+					LogUEvent( 33, RNDIS_OUT, ep0replylenBack, 0 );
+					RNDIS_OUT = sizeof( REMOTE_NDIS_QUERY_CMPLT_OID_GEN_SUPPORTED_LIST );
+					break;
+				default:
+				case OID_GEN_LINK_SPEED:
+				case OID_GEN_MAXIMUM_FRAME_SIZE:
+				case OID_GEN_MEDIA_CONNECT_STATUS:
+					memcpy( scratch, REMOTE_NDIS_QUERY_CMPLT_property, sizeof(REMOTE_NDIS_QUERY_CMPLT_property) );
+					scratch[2] = reply;
+					scratch[6] = 0; // default
+					if( scratch[3] == OID_GEN_LINK_SPEED )
+						scratch[6] = 10000;
+					if( scratch[3] == OID_GEN_MAXIMUM_FRAME_SIZE )
+						scratch[6] = 4096;
+					LogUEvent( 11111, RNDIS_OUT, ep0replylenBack, 0 );
+					RNDIS_OUT = sizeof( REMOTE_NDIS_QUERY_CMPLT_property );
+					break;
+				}
 				break;
-
 			default:
 				LogUEvent( 8889, scratch[0], scratch[1], scratch[2] );
 				break;
@@ -187,12 +210,13 @@ void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, 
 			uint32_t pair[2];
 			static uint32_t paired;
 			paired++;
-			pair[0] = paired;
+			pair[0] = 0x01;
 			pair[1] = 0;
 			usb_send_data( pair, 8, 0, sendtok );
 			LogUEvent( 0, 0x33333333, pair[0], pair[1] );
-			ep0replyBack = (void*)(RNDIS_SCRATCH + 4);
+			ep0replyBack = (void*)(&RNDIS_SCRATCH[1]);
 			ep0replylenBack = RNDIS_OUT;
+			LogUEvent( 0, 0x34443333, RNDIS_SCRATCH[0], RNDIS_SCRATCH[1] );
 			RNDIS_OUT = 0;
 			return;
 		}
@@ -218,7 +242,7 @@ void usb_handle_other_control_message( struct usb_endpoint * e, struct usb_urb *
 	}
 	else if( s->wRequestTypeLSBRequestMSB == ( ( USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE ) | ( CDC_REQUEST_SEND_ENCAPSULATED_COMMAND << 8 ) ) )
 	{
-		// 0x021
+		// 0x021 -> Incoming data.
 		e->opaque = (void*)RNDIS_SCRATCH;
 		e->max_len = s->wLength;
 		ist->setup_request = 2;
