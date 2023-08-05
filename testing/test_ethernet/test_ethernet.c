@@ -14,11 +14,13 @@ int main()
 	usb_setup();
 	while(1)
 	{
-		uint32_t * ue = GetUEvent();
-		if( ue )
+		do
 		{
+			uint32_t * ue = GetUEvent();
+			if( !ue )
+				break;
 			printf( "%lu %lx %lx %lx\n", ue[0], ue[1], ue[2], ue[3] );
-		}
+		} while(1);
 
 		ProcessRNDISControl();
 	}
@@ -51,7 +53,7 @@ int main()
 #define RNDIS_DF_RAW_DATA		0x00000004U
 
 // https://learn.microsoft.com/en-us/previous-versions/ff570621(v=vs.85)
-//https://www.utasker.com/docs/uTasker/uTaskerRNDIS.pdf
+// https://www.utasker.com/docs/uTasker/uTaskerRNDIS.pdf
 uint32_t REMOTE_NDIS_INITIALIZE_CMPLT[13] = {
 	RNDIS_MSG_INIT_C, 52,
 	0xaaaaaaaa, RNDIS_STATUS_SUCCESS,
@@ -129,93 +131,85 @@ uint32_t REMOTE_NDIS_QUERY_CMPLT_OID_GEN_SUPPORTED_LIST[] = {
 	0x01020102, // OID_802_3_XMIT_ONE_COLLISION
 	0x01020103, // OID_802_3_XMIT_MORE_COLLISIONS
 };
-uint32_t RNDIS_SCRATCH[36];
-uint32_t RNDIS_IN;
-uint32_t RNDIS_OUT;
+
+uint32_t RNDIS_SCRATCH[36]; // First 4 bytes are confirmation.
+volatile uint32_t RNDIS_OUT;
+uint32_t * ep0replyBack;  // Note: Must be aligned.s
+volatile int32_t ep0replylenBack;
+
 
 void ProcessRNDISControl()
 {
+	uint32_t RNDIS_IN = RNDIS_SCRATCH[0];
+	uint32_t * scratch = &RNDIS_SCRATCH[1];
+
 	if( RNDIS_IN )
 	{
-		LogUEvent( 8888, RNDIS_SCRATCH[0], RNDIS_SCRATCH[1], RNDIS_SCRATCH[2] );
-		uint32_t reply = RNDIS_SCRATCH[2];
-		uint32_t temp = 0;
-		switch( RNDIS_SCRATCH[0] )
+		LogUEvent( 8888, RNDIS_SCRATCH[0], scratch[0], RNDIS_SCRATCH[2] );
+		uint32_t reply = scratch[2];
+		switch( scratch[0] )
 		{
-			case RNDIS_MSG_INIT:
-				memcpy( RNDIS_SCRATCH, REMOTE_NDIS_INITIALIZE_CMPLT, sizeof( REMOTE_NDIS_INITIALIZE_CMPLT ) );
-				RNDIS_SCRATCH[2] = reply;
+			case RNDIS_MSG_INIT: // 2
+				memcpy( scratch, REMOTE_NDIS_INITIALIZE_CMPLT, sizeof( REMOTE_NDIS_INITIALIZE_CMPLT ) );
+				scratch[2] = reply;
 				RNDIS_OUT = sizeof( REMOTE_NDIS_INITIALIZE_CMPLT );
 				break;
-
-			case RNDIS_MSG_SET:
-				memcpy( RNDIS_SCRATCH, REMOTE_NDIS_SET_CMPLT, sizeof( REMOTE_NDIS_SET_CMPLT ) );
-				RNDIS_SCRATCH[2] = reply;
+			case RNDIS_MSG_SET: // 5
+				memcpy( scratch, REMOTE_NDIS_SET_CMPLT, sizeof( REMOTE_NDIS_SET_CMPLT ) );
+				scratch[2] = reply;
 				RNDIS_OUT = sizeof( REMOTE_NDIS_SET_CMPLT );
 				break;
 
-			case RNDIS_MSG_QUERY:
-				temp = RNDIS_SCRATCH[3];  // OID we are interested in.
-				memcpy( RNDIS_SCRATCH, REMOTE_NDIS_QUERY_CMPLT_OID_GEN_SUPPORTED_LIST, sizeof( REMOTE_NDIS_QUERY_CMPLT_OID_GEN_SUPPORTED_LIST ) );
-				RNDIS_SCRATCH[2] = reply;
+			case RNDIS_MSG_QUERY: // 4
+				//temp = scratch[3];  // OID we are interested in.
+				printf( "Starting %08x < %08x\n", (unsigned)scratch, (unsigned)REMOTE_NDIS_QUERY_CMPLT_OID_GEN_SUPPORTED_LIST );
+				memcpy( scratch, REMOTE_NDIS_QUERY_CMPLT_OID_GEN_SUPPORTED_LIST, sizeof(REMOTE_NDIS_QUERY_CMPLT_OID_GEN_SUPPORTED_LIST) );
+				scratch[2] = reply;
+				LogUEvent( 33, RNDIS_OUT, ep0replylenBack, 0 );
 				RNDIS_OUT = sizeof( REMOTE_NDIS_QUERY_CMPLT_OID_GEN_SUPPORTED_LIST );
-				LogUEvent( 8889, RNDIS_SCRATCH[2], RNDIS_SCRATCH[3], RNDIS_OUT );
+				printf( "Continuing %08x\n", (unsigned)RNDIS_OUT );
 				break;
 
+			default:
+				LogUEvent( 8889, scratch[0], scratch[1], scratch[2] );
+				break;
 		}
-		RNDIS_IN = 0;
+		RNDIS_SCRATCH[0] = 0;
 	}
 }
-
-uint32_t * ep0replyBack;
-int32_t ep0replylenBack;
 
 void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, int endp, uint32_t sendtok, struct rv003usb_internal * ist )
 {
 	if( endp == 1 )
 	{
-		if( RNDIS_OUT )
+		if( RNDIS_OUT && ep0replylenBack == 0 )
 		{
-			usb_send_data( "\x01\00\x00\x00\x00\x00\x00\x00", 8, 0, sendtok );
-			LogUEvent( 0, 0x33333333, 0, 0 );
-
-			ep0replyBack = RNDIS_SCRATCH;
+			uint32_t pair[2];
+			static uint32_t paired;
+			paired++;
+			pair[0] = paired;
+			pair[1] = 0;
+			usb_send_data( pair, 8, 0, sendtok );
+			LogUEvent( 0, 0x33333333, pair[0], pair[1] );
+			ep0replyBack = (void*)(RNDIS_SCRATCH + 4);
 			ep0replylenBack = RNDIS_OUT;
 			RNDIS_OUT = 0;
-
-/*
-			int tsend = (ep1replylen > 8 )? 8 : ep1replylen;
-			usb_send_data( ep1reply, tsend, 0, sendtok );
-			LogUEvent( 1111, endp, ep1reply[0], ep1reply[1] );
-			ep1reply += tsend/4;
-			ep1replylen -= tsend;
-			e->count++;
-*/
 			return;
 		}
+	}
+	else if( endp == 3 )
+	{
+		usb_send_empty( sendtok );
+		return;
 	}
 	else
 	{
 		LogUEvent( SysTick->CNT, endp, 0, -1 );
-		usb_send_empty( sendtok );
 	}
-/*
-	if( endp )
-	{
-		static uint8_t tsajoystick[8] = { 0x00, 0x01, 0x10, 0x00 };
-		tsajoystick[0]++;  // Go left->right fast
-		tsajoystick[2]^=1; // Alter button 1.
-		usb_send_data( tsajoystick, 3, 0, sendtok );
-	}
-	else
-	{
-		// If it's a control transfer, nak it.
-		usb_send_empty( sendtok );
-	}
-*/
+	usb_send_empty( sendtok );
 }
 
-void usb_handle_other_control_message( struct usb_endpoint * e, struct usb_urb * s )
+void usb_handle_other_control_message( struct usb_endpoint * e, struct usb_urb * s, struct rv003usb_internal * ist )
 {
 	if( s->wRequestTypeLSBRequestMSB == 0x80a1)
 	{
@@ -224,17 +218,20 @@ void usb_handle_other_control_message( struct usb_endpoint * e, struct usb_urb *
 	}
 	else if( s->wRequestTypeLSBRequestMSB == ( ( USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE ) | ( CDC_REQUEST_SEND_ENCAPSULATED_COMMAND << 8 ) ) )
 	{
+		// 0x021
+		e->opaque = (void*)RNDIS_SCRATCH;
 		e->max_len = s->wLength;
-		e->opaque = 1;
+		ist->setup_request = 2;
+		LogUEvent( 0, 0x5555, (unsigned)e->opaque, e->max_len );
 	}
 	else if( s->wRequestTypeLSBRequestMSB == ( ( USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE ) | ( CDC_REQUEST_GET_ENCAPSULATED_RESPONSE << 8 ) ) )
 	{
 		// 0x1a1
 		// See https://android.googlesource.com/kernel/msm/+/android-5.0.2_r0.2/drivers/usb/gadget/f_rndis.c
 		// and see https://www.utasker.com/docs/uTasker/uTaskerRNDIS.pdf
-		e->opaque = ep0replyBack;
+		e->opaque = (void*)ep0replyBack;
 		e->max_len = ep0replylenBack;
-		LogUEvent( 0, 0xaaaa5555, ep0replyBack, ep0replylenBack );
+		LogUEvent( 0, 0xaaaa5555, (unsigned)ep0replyBack, ep0replylenBack );
 		ep0replyBack = 0;
 		ep0replylenBack = 0;
 	}
@@ -243,68 +240,7 @@ void usb_handle_other_control_message( struct usb_endpoint * e, struct usb_urb *
 
 void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_t * data, int len, struct rv003usb_internal * ist )
 {
-	static int copyp2;
-	if( e->opaque == 1 )
-	{
-/*
-		if( e->count == 0 )
-		{
-			switch( ((uint32_t*)data)[0] )
-			{
-			case RNDIS_MSG_INIT:
-				ep1reply = &REMOTE_NDIS_INITIALIZE_CMPLT[0];
-				ep1replylen = sizeof(REMOTE_NDIS_INITIALIZE_CMPLT);
-				break;
-			case RNDIS_MSG_SET:
-				ep1reply = &REMOTE_NDIS_SET_CMPLT[0];
-				ep1replylen = sizeof(REMOTE_NDIS_SET_CMPLT);
-				break;
-			case RNDIS_MSG_QUERY:
-				ep1reply = &REMOTE_NDIS_QUERY_CMPLT[0];
-				ep1replylen = sizeof(REMOTE_NDIS_QUERY_CMPLT);
-				copyp2 = 1; // for OID
-				break;
-			default:
-				LogUEvent( 7777, current_endpoint, ((uint32_t*)data)[0], ((uint32_t*)data)[1] );
-				ep1replylen = 0;
-				break;
-			}
-		}
-		else if( e->count == 1 )
-		{
-			if( ep1reply )
-				ep1reply[2] = ((uint32_t*)data)[0];
-		}
-		else if( e->count == 2 )
-		{
-			if( queryreply )
-			{
-				uint32_t oid = ((uint32_t*)data)[0];
-				ep1reply[4] = oid;
-				if( oid == 
-				copyp2 = 0;
-			}
-		}
-*/
-		int rem = e->max_len - (e->count<<3);
-		int place = e->count << 1;
-		if( rem > 0 && place < sizeof(RNDIS_SCRATCH) )
-		{
-			RNDIS_SCRATCH[place] = ((uint32_t*)data)[0];
-			RNDIS_SCRATCH[place+1] = ((uint32_t*)data)[1];
-		}
-		//LogUEvent( 1010, rem, place, 0 );
-		if( rem <= 8 )
-		{
-			RNDIS_IN = e->max_len >> 2;
-			e->opaque = 0;
-		}
-		//LogUEvent( 9999, e->count, ((uint32_t*)data)[0], ((uint32_t*)data)[1] );
-	}
-	else
-	{
-		LogUEvent( SysTick->CNT, current_endpoint, ((uint32_t*)data)[0], ((uint32_t*)data)[1] );
-	}
+	LogUEvent( SysTick->CNT, current_endpoint, ((uint32_t*)data)[0], ((uint32_t*)data)[1] );
 	e->count++;
 }
 

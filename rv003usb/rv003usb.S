@@ -331,6 +331,7 @@ se0_complete:
 	// packet type.
 	addi  a1, sp, DATA_PTR_OFFSET
 	XW_C_LBU(a0, a1, 0);	//lbu  a0, 0(a1)
+	c.addi a1, 1
 
 	// 0010 => 01001011 => ACK
 	// 0011 => 11000011 => DATA0
@@ -358,7 +359,7 @@ may_be_a_token:
 	// Our CRC is 0, so we might be a token.
 
 	// Do token-y things.
-	lhu  a2, 1(a1)
+	XW_C_LHU( a2, a1, 0 )
 	andi a0, a2, 0x7f // addr
 	c.srli a2, 7
 	c.andi a2, 0xf    // endp
@@ -385,6 +386,7 @@ crc_for_tokens_would_be_bad_maybe_data:
 	c.bnez a3, done_usb_message_in
 	// Good CRC!!
 	sub a3, t2, a1 //a3 = # of bytes read..
+	c.addi a3, 1
 	addi a5, a5, (0b01001011-0b11000011)
 	c.li a2, 0
 	c.beqz a5, usb_pid_handle_data

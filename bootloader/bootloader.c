@@ -149,7 +149,7 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	struct usb_endpoint * e = &ist->eps[endp];
 
 	int tosend = 0;
-	const uint8_t * sendnow = data-1;
+	const uint8_t * sendnow;
 	uint8_t sendtok = e->toggle_in?0b01001011:0b11000011;
 	
 	// Handle IN (sending data back to PC)
@@ -198,7 +198,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 		e->toggle_out = !e->toggle_out;
 		if( ist->setup_request )
 		{
-			struct usb_urb * s = __builtin_assume_aligned( (struct usb_urb *)(data+1), 4 );
+			struct usb_urb * s = __builtin_assume_aligned( (struct usb_urb *)(data), 4 );
 
 			uint32_t wvi = s->lValueLSBIndexMSB;
 			//Send just a data packet.
@@ -259,7 +259,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			int l = length-3;
 			int i;
 			for( i = 0; i < l; i++ )
-				start[i] = data[i+1];//((intptr_t)data)>>(i*8);
+				start[i] = data[i];//((intptr_t)data)>>(i*8);
 			e->count ++;
 
 			if( e->count >= SCRATCHPAD_SIZE )

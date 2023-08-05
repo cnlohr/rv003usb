@@ -2,7 +2,7 @@
 #define _USB_CONFIG_H
 
 //Defines the number of endpoints for this device. (Always add one for EP0). For two EPs, this should be 3.
-#define ENDPOINTS 2
+#define ENDPOINTS 4
 
 #define RV003USB_EVENT_DEBUGGING 1
 
@@ -15,10 +15,11 @@
 #define REALLY_TINY_COMP_FLASH 1
 #define USE_RV003_C 1
 
-#define RV003USB_HANDLE_IN_REQUEST 1
-#define RV003USB_OTHER_CONTROL 1
-#define RV003USB_HANDLE_USER_DATA 1
-#define RV003USB_HID_FEATURES 0
+#define RV003USB_HANDLE_IN_REQUEST   1
+#define RV003USB_OTHER_CONTROL       1
+#define RV003USB_HANDLE_USER_DATA    1
+#define RV003USB_HID_FEATURES        0
+#define RV003USB_SUPPORT_CONTROL_OUT 1
 
 #ifndef __ASSEMBLER__
 
@@ -213,7 +214,7 @@ static const uint8_t config_descriptor[] = {
 //Ever wonder how you have more than 6 keys down at the same time on a USB keyboard?  It's easy. Enumerate two keyboards!
 
 #define STR_MANUFACTURER u"CNLohr"
-#define STR_PRODUCT      u"RV003USB Example MIDI Device"
+#define STR_PRODUCT      u"RNDIS Test"
 #define STR_SERIAL       u"000"
 #define STR_INTERFACE    u"cneth"
 struct usb_string_descriptor_struct {
