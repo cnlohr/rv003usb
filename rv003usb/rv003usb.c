@@ -263,6 +263,9 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 					e->max_len = (swLen < elLen)?swLen:elLen;
 				}
 			}
+#if RV003USB_EVENT_DEBUGGING
+			if( !e->max_len ) LogUEvent( 1234, dl->lIndexValue, dl->length, 0 );
+#endif
 		}
 		else if( reqShl == (0x0500>>1) ) // SET_ADDRESS = 0x05
 		{
