@@ -270,6 +270,7 @@ void ProcessRNDISControl()
 					case OID_GEN_XMIT_OK:             scratch[6] = 7788;  break;
 					default:
 						LogUEvent( 11111, oid, 0, 0 );
+					case OID_GEN_HARDWARE_STATUS: // 0 = NdisHardwareStatusReady
 					case OID_GEN_RCV_OK: // Ignored
 					case OID_GEN_VENDOR_DESCRIPTION:
 					case OID_GEN_MEDIA_CONNECT_STATUS: // 0 = NdisMediaStateConnected

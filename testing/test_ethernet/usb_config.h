@@ -35,7 +35,7 @@ static const uint8_t device_descriptor[] = {
 	0x03, //Device Protocol  (000 = use config descriptor)
 	0x08, //Max packet size for EP0 (This has to be 8 because of the USB Low-Speed Standard)
 	0x09, 0x12, //ID Vendor
-	0x03, 0xc5, //ID Product
+	0x03, 0xc7, //ID Product
 	0x02, 0x00, //ID Rev
 	1, //Manufacturer string
 	2, //Product string
@@ -178,9 +178,9 @@ static const uint8_t config_descriptor[] = {
   /* CDC Data Interface (alternative active) */\
   9, TUSB_DESC_INTERFACE, (uint8_t)((_itfnum)+1), 1, 2, TUSB_CLASS_CDC_DATA, 0, 0, 0,\
   /* Endpoint In */\
-  7, TUSB_DESC_ENDPOINT, _epin, TXFER, U16_TO_U8S_LE(_epsize), 0,\
+  7, TUSB_DESC_ENDPOINT, _epin, TXFER, U16_TO_U8S_LE(_epsize), 1,\
   /* Endpoint Out */\
-  7, TUSB_DESC_ENDPOINT, _epout, TXFER, U16_TO_U8S_LE(_epsize), 0
+  7, TUSB_DESC_ENDPOINT, _epout, TXFER, U16_TO_U8S_LE(_epsize), 1
 
 
 #define ITF_NUM_CDC 0
