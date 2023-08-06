@@ -11,7 +11,7 @@
 
 // To use time debugging, enable thsi here, and RV003USB_DEBUG_TIMING in the .S
 // You must update in tandem
-//#define RV003USB_DEBUG_TIMING
+//#define RV003USB_DEBUG_TIMING 1
 
 // If you don't want to automatically boot into the application, set
 // this flag:
@@ -35,7 +35,7 @@ int main()
 	// Enable GPIOs, TIMERs
 	RCC->APB2PCENR = RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOC | RCC_APB2Periph_TIM1 | RCC_APB2Periph_GPIOA  | RCC_APB2Periph_AFIO | RCC_APB2Periph_TIM1;
 
-#ifdef RV003USB_DEBUG_TIMING
+#if defined( RV003USB_DEBUG_TIMING ) && RV003USB_DEBUG_TIMING
 	// GPIO C0 Push-Pull
 	GPIOC->CFGLR = (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*0) |
 	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF)<<(4*3) | // PC3 = T1C3
@@ -43,7 +43,7 @@ int main()
 	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*2);
 #endif
 
-#ifdef RV003USB_DEBUG_TIMING
+#if defined( RV003USB_DEBUG_TIMING ) && RV003USB_DEBUG_TIMING
 	{
 		// PC4 is MCO (for watching timing)
 		GPIOC->CFGLR &= ~(GPIO_CFGLR_MODE4 | GPIO_CFGLR_CNF4);
@@ -79,7 +79,6 @@ int main()
 	// GPIO D3 for input pin change.
 	GPIOD->CFGLR =
 		(GPIO_CNF_IN_PUPD)<<(4*1) |  // Keep SWIO enabled.
-//		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*DEBUG_PIN) |
 		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DM) |  //PD3 = GPIOD IN
 		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DP) |  //PD4 = GPIOD IN
 		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_DPU);
@@ -149,7 +148,7 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	struct usb_endpoint * e = &ist->eps[endp];
 
 	int tosend = 0;
-	const uint8_t * sendnow = data-1;
+	const uint8_t * sendnow;
 	uint8_t sendtok = e->toggle_in?0b01001011:0b11000011;
 	
 	// Handle IN (sending data back to PC)
@@ -198,7 +197,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 		e->toggle_out = !e->toggle_out;
 		if( ist->setup_request )
 		{
-			struct usb_urb * s = __builtin_assume_aligned( (struct usb_urb *)(data+1), 4 );
+			struct usb_urb * s = __builtin_assume_aligned( (struct usb_urb *)(data), 4 );
 
 			uint32_t wvi = s->lValueLSBIndexMSB;
 			//Send just a data packet.
@@ -259,7 +258,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			int l = length-3;
 			int i;
 			for( i = 0; i < l; i++ )
-				start[i] = data[i+1];//((intptr_t)data)>>(i*8);
+				start[i] = data[i];//((intptr_t)data)>>(i*8);
 			e->count ++;
 
 			if( e->count >= SCRATCHPAD_SIZE )

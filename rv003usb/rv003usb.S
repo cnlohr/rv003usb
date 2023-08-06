@@ -12,8 +12,8 @@
 // This is 6 * n + 3 cylces
 #define nx6p3delay( n, freereg ) li freereg, ((n)+1); 1: c.addi freereg, -1; c.bnez freereg, 1b
 
-//See DEBUG_TIMING note in .c file.
-#ifdef RV003USB_DEBUG_TIMING
+//See RV003USB_DEBUG_TIMING note in .c file.
+#if defined( RV003USB_DEBUG_TIMING ) && RV003USB_DEBUG_TIMING
 #define DEBUG_TICK_SETUP la x4, (TIM1_BASE + 0x24) 	// for debug
 #define DEBUG_TICK_MARK .balign 4; sw x0, 0(x4)
 #define	RESTORE_DEBUG_MARKER(x) lw	x4, x(sp)
@@ -331,6 +331,7 @@ se0_complete:
 	// packet type.
 	addi  a1, sp, DATA_PTR_OFFSET
 	XW_C_LBU(a0, a1, 0);	//lbu  a0, 0(a1)
+	c.addi a1, 1
 
 	// 0010 => 01001011 => ACK
 	// 0011 => 11000011 => DATA0
@@ -358,7 +359,7 @@ may_be_a_token:
 	// Our CRC is 0, so we might be a token.
 
 	// Do token-y things.
-	lhu  a2, 1(a1)
+	XW_C_LHU( a2, a1, 0 )
 	andi a0, a2, 0x7f // addr
 	c.srli a2, 7
 	c.andi a2, 0xf    // endp
@@ -385,6 +386,7 @@ crc_for_tokens_would_be_bad_maybe_data:
 	c.bnez a3, done_usb_message_in
 	// Good CRC!!
 	sub a3, t2, a1 //a3 = # of bytes read..
+	c.addi a3, 1
 	addi a5, a5, (0b01001011-0b11000011)
 	c.li a2, 0
 	c.beqz a5, usb_pid_handle_data
@@ -394,8 +396,6 @@ crc_for_tokens_would_be_bad_maybe_data:
 
 done_usb_message:
 done_usb_message_in:
-
-
 	lw	s0, 24(sp)
 	lw	s1, 28(sp)
 	lw	t0, 32(sp)
@@ -429,7 +429,7 @@ interrupt_complete:
 ///////////////////////////////////////////////////////////////////////////////
 // High level functions.
 
-#ifdef REALLY_TINY_COMP_FLASH
+#ifdef RV003USB_OPTIMIZE_FLASH
 /*
 void usb_pid_handle_ack( uint32_t dummy, uint8_t * data, uint32_t dummy1, uint32_t dummy2, struct rv003usb_internal * ist  )
 {

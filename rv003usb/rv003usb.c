@@ -5,7 +5,7 @@
 #include "rv003usb.h"
 #include "usb_config.h"
 
-#if defined(USE_RV003_C) && USE_RV003_C
+#if !defined(RV003USB_CUSTOM_C) || RV003USB_CUSTOM_C == 0
 
 #include "ch32v003fun.h"
 
@@ -18,13 +18,13 @@ uint32_t events[4*NUMUEVENTS];
 volatile uint8_t eventhead, eventtail;
 void LogUEvent( uint32_t a, uint32_t b, uint32_t c, uint32_t d )
 {
-	int event = (eventhead + 1) & (NUMUEVENTS-1);
+	int event = eventhead;
 	uint32_t * e = &events[event*4];
 	e[0] = a;
 	e[1] = b;
 	e[2] = c;
 	e[3] = d;
-	eventhead = event;
+	eventhead = (event + 1) & (NUMUEVENTS-1);
 }
 
 uint32_t * GetUEvent()
@@ -51,7 +51,7 @@ void usb_setup()
 	// Enable GPIOs, TIMERs
 	RCC->APB2PCENR |= LOCAL_EXP( RCC_APB2Periph_GPIO, USB_PORT )| RCC_APB2Periph_AFIO;
 
-#ifdef RV003USB_DEBUG_TIMING
+#if defined( RV003USB_DEBUG_TIMING ) && RV003USB_DEBUG_TIMING
 	{
 		RCC->APB2PCENR |= RCC_APB2Periph_GPIOC | RCC_APB2Periph_TIM1;
 
@@ -121,22 +121,20 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	struct usb_endpoint * e = &ist->eps[endp];
 
 	int tosend = 0;
-	uint8_t * sendnow = data-1;
+	uint8_t * sendnow;
 	int sendtok = e->toggle_in?0b01001011:0b11000011;
 
-	TIM1->CNT = 0;
-	TIM1->CNT = 0;
-	TIM1->CNT = 0;
 #if RV003USB_HANDLE_IN_REQUEST
 	if( e->custom || endp )
 	{
+		// Can re-use data-stack as scratchpad.
+		sendnow = __builtin_assume_aligned( data, 4 );
 		usb_handle_user_in_request( e, sendnow, endp, sendtok, ist );
 		return;
 	}
 #endif
 
 	tosend = 0;
-	sendnow = data-1;
 
 	// Handle IN (sending data back to PC)
 	// Do this down here.
@@ -172,6 +170,9 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 	int epno = ist->current_endpoint;
 	struct usb_endpoint * e = &ist->eps[epno];
 
+	length -= 3;
+	uint8_t * data_in = __builtin_assume_aligned( data, 4 );
+
 	// Alrady received this packet.
 	if( e->toggle_out != which_data )
 	{
@@ -180,15 +181,41 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 
 	e->toggle_out = !e->toggle_out;
 
-	if( epno || !ist->setup_request )
-	{
 #if RV003USB_HANDLE_USER_DATA
-		usb_handle_user_data( e, epno, data + 1, length - 3, ist );
-#endif
-	}
-	else if( ist->setup_request )
+	if( epno || ( !ist->setup_request && length > 3 )  )
 	{
-		struct usb_urb * s = __builtin_assume_aligned( (struct usb_urb *)(data+1), 4 );
+		usb_handle_user_data( e, epno, data_in, length, ist );
+	}
+	else
+#endif
+
+	if( ist->setup_request )
+	{
+		// For receiving CONTROL-OUT messages into RAM.  NOTE: MUST be ALIGNED to 4, and be allocated round_up( payload, 8 ) + 4
+		// opaque points to [length received, but uninitialized before complete][data...]
+#if RV003USB_SUPPORT_CONTROL_OUT
+		if( ist->setup_request == 2 )
+		{
+			// This mode is where we record control-in data into a pointer and mark it as 
+			int offset = e->count << 3;
+			uint32_t * base = __builtin_assume_aligned( e->opaque, 4 );
+			uint32_t * dout = __builtin_assume_aligned( ((uint8_t*)base) + offset + 4, 4 );
+			uint32_t * din = __builtin_assume_aligned( data_in, 4 );
+			if( offset < e->max_len )
+			{
+				dout[0] = din[0];
+				dout[1] = din[1];
+				e->count++;
+				if( offset + 8 >= e->max_len )
+				{
+					base[0] = e->max_len;
+				}
+			}
+			goto just_ack;
+		}
+#endif
+
+		struct usb_urb * s = __builtin_assume_aligned( (struct usb_urb *)(data_in), 4 );
 
 		uint32_t wvi = s->lValueLSBIndexMSB;
 		uint32_t wLength = s->wLength;
@@ -201,9 +228,12 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 
 		//int bRequest = s->wRequestTypeLSBRequestMSB >> 8;
 
+		// We shift down because we don't care if USB_RECIP_INTERFACE is set or not.
+		// Otherwise we have to write extra code to handle each case if it's set or
+		// not set, but in general, there's never a situation where we realy care.
 		uint32_t reqShl = s->wRequestTypeLSBRequestMSB >> 1;
 
-		LogUEvent( 0, s->wRequestTypeLSBRequestMSB, wvi, s->wLength );
+		//LogUEvent( 0, s->wRequestTypeLSBRequestMSB, wvi, s->wLength );
 #if RV003USB_HID_FEATURES
 		if( reqShl == (0x01a1>>1) )
 		{
@@ -259,7 +289,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 		else
 		{
 #if RV003USB_OTHER_CONTROL
-			usb_handle_other_control_message( e, s );
+			usb_handle_other_control_message( e, s, ist );
 #endif
 		}
 	}
@@ -272,7 +302,7 @@ just_ack:
 }
 
 
-#if defined( REALLY_TINY_COMP_FLASH ) && REALLY_TINY_COMP_FLASH
+#if defined( RV003USB_OPTIMIZE_FLASH ) && RV003USB_OPTIMIZE_FLASH
 
 // Do not compile ACK commands.
 

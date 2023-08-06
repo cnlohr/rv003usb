@@ -4,22 +4,16 @@
 //Defines the number of endpoints for this device. (Always add one for EP0). For two EPs, this should be 3.
 #define ENDPOINTS 4
 
-//#define RV003USB_DEBUG_TIMING
-
-#define DEBUG_PIN 2
 #define USB_DM 3
 #define USB_DP 4
 #define USB_DPU 5
 #define USB_PORT D
 
-#define REALLY_TINY_COMP_FLASH 1
-#define USE_RV003_C 1
-
 #define RV003USB_HANDLE_IN_REQUEST 1
-#define RV003USB_OTHER_CONTROL 1
-#define RV003USB_HANDLE_USER_DATA 1
-#define RV003USB_HID_FEATURES 0
-
+#define RV003USB_OTHER_CONTROL     1
+#define RV003USB_HANDLE_USER_DATA  1
+#define RV003USB_HID_FEATURES      0
+#define RV003USB_EVENT_DEBUGGING   1
 
 #ifndef __ASSEMBLER__
 
@@ -35,7 +29,7 @@ static const uint8_t device_descriptor[] = {
 	0x10, 0x01, //Spec
 	0xEF, //Device Class
 	0x02, //Device Subclass
-	0x01, //Device Protocol  (000 = use config descriptor)
+	0x01, //Device Protocol
 	0x08, //Max packet size for EP0 (This has to be 8 because of the USB Low-Speed Standard)
 	0x09, 0x12, //ID Vendor
 	0x03, 0xc0, //ID Product
@@ -121,15 +115,6 @@ static const uint8_t config_descriptor[] = {
 	1,            // Interval
 };
 
-
-static const uint8_t test_desc2[] = { 2, 3, 0x02, 0x00 };
-
-// keyboard example at:
-//From http://codeandlife.com/2012/06/18/usb-hid-keyboard-with-v-usb/
-
-
-//Ever wonder how you have more than 6 keys down at the same time on a USB keyboard?  It's easy. Enumerate two keyboards!
-
 #define STR_MANUFACTURER u"cnlohr"
 #define STR_PRODUCT      u"CDC Tester"
 #define STR_SERIAL       u"0000"
@@ -171,8 +156,7 @@ const static struct descriptor_list_struct {
 } descriptor_list[] = {
 	{0x00000100, device_descriptor, sizeof(device_descriptor)},
 	{0x00000200, config_descriptor, sizeof(config_descriptor)},
-	//{0x00002200, test_desc2, sizeof(test_desc2)},
-	//{0x00002100, config_descriptor + 44, 7 },
+
 	{0x00000300, (const uint8_t *)&string0, 4},
 	{0x04090301, (const uint8_t *)&string1, sizeof(STR_MANUFACTURER)},
 	{0x04090302, (const uint8_t *)&string2, sizeof(STR_PRODUCT)},	
