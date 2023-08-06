@@ -11,7 +11,7 @@
 
 // To use time debugging, enable thsi here, and RV003USB_DEBUG_TIMING in the .S
 // You must update in tandem
-//#define RV003USB_DEBUG_TIMING
+//#define RV003USB_DEBUG_TIMING 1
 
 // If you don't want to automatically boot into the application, set
 // this flag:
@@ -35,7 +35,7 @@ int main()
 	// Enable GPIOs, TIMERs
 	RCC->APB2PCENR = RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOC | RCC_APB2Periph_TIM1 | RCC_APB2Periph_GPIOA  | RCC_APB2Periph_AFIO | RCC_APB2Periph_TIM1;
 
-#ifdef RV003USB_DEBUG_TIMING
+#if defined( RV003USB_DEBUG_TIMING ) && RV003USB_DEBUG_TIMING
 	// GPIO C0 Push-Pull
 	GPIOC->CFGLR = (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*0) |
 	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF)<<(4*3) | // PC3 = T1C3
@@ -43,7 +43,7 @@ int main()
 	               (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*2);
 #endif
 
-#ifdef RV003USB_DEBUG_TIMING
+#if defined( RV003USB_DEBUG_TIMING ) && RV003USB_DEBUG_TIMING
 	{
 		// PC4 is MCO (for watching timing)
 		GPIOC->CFGLR &= ~(GPIO_CFGLR_MODE4 | GPIO_CFGLR_CNF4);
@@ -79,7 +79,6 @@ int main()
 	// GPIO D3 for input pin change.
 	GPIOD->CFGLR =
 		(GPIO_CNF_IN_PUPD)<<(4*1) |  // Keep SWIO enabled.
-//		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*DEBUG_PIN) |
 		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DM) |  //PD3 = GPIOD IN
 		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DP) |  //PD4 = GPIOD IN
 		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_DPU);

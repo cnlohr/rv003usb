@@ -16,6 +16,7 @@
 #define RV003USB_SUPPORT_CONTROL_OUT 0
 #define RV003USB_EVENT_DEBUGGING     0
 #define RV003USB_DEBUG_TIMING        0
+#define RV003USB_CUSTOM_C            0
 */
 
 #ifndef __ASSEMBLER__
@@ -26,7 +27,6 @@ struct usb_endpoint;
 struct rv003usb_internal;
 struct usb_urb;
 
-// If you are using the .c functionality, be sure to #define USE_RV003_C 1
 // usb_hande_interrupt_in is OBLIGATED to call usb_send_data or usb_send_empty.
 // Enable with RV003USB_HANDLE_IN_REQUEST=1
 void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, int endp, uint32_t sendtok, struct rv003usb_internal * ist );
@@ -43,6 +43,10 @@ void usb_handle_other_control_message( struct usb_endpoint * e, struct usb_urb *
 // control message.
 // Enable with RV003USB_HANDLE_USER_DATA=1
 void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_t * data, int len, struct rv003usb_internal * ist );
+
+// If you want to use custom functions for the level 2 stack, then say
+// RV003USB_CUSTOM_C
+// This is mostly useful on things like bootloaders.
 
 
 // Note: This checks addr & endp to make sure they are valid.
@@ -79,7 +83,7 @@ uint32_t * GetUEvent();
 
 #define USB_DMASK ((1<<(USB_DM)) | 1<<(USB_DP))
 
-#ifdef  REALLY_TINY_COMP_FLASH
+#ifdef  RV003USB_OPTIMIZE_FLASH
 #define MY_ADDRESS_OFFSET_BYTES 4
 #define LAST_SE0_OFFSET         16
 #define DELTA_SE0_OFFSET        20
@@ -105,7 +109,7 @@ uint32_t * GetUEvent();
 #define EMPTY_SEND_BUFFER (uint8_t*)1
 
 // This can be undone once support for fast-c.lbu / c.sbu is made available.
-#ifdef  REALLY_TINY_COMP_FLASH
+#ifdef  RV003USB_OPTIMIZE_FLASH
 #define TURBO8TYPE uint32_t
 #define TURBO16TYPE uint32_t
 #else
@@ -127,7 +131,7 @@ struct usb_endpoint
 };  // CAREFUL! sizeof pacekt 
 
 // Make the size of this a power of 2, otherwise it will be slow to access.
-#ifdef REALLY_TINY_COMP_FLASH
+#ifdef RV003USB_OPTIMIZE_FLASH
 _Static_assert( (sizeof(struct usb_endpoint) == 32), "usb_endpoint must be pow2 sized" );
 #else
 _Static_assert( (sizeof(struct usb_endpoint) == 16), "usb_endpoint must be pow2 sized" );

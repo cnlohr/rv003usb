@@ -4,17 +4,13 @@
 //Defines the number of endpoints for this device. (Always add one for EP0). For two EPs, this should be 3.
 #define ENDPOINTS 4
 
-#define RV003USB_EVENT_DEBUGGING 1
-
-#define DEBUG_PIN 2
 #define USB_DM 3
 #define USB_DP 4
 #define USB_DPU 5
 #define USB_PORT D
 
-#define REALLY_TINY_COMP_FLASH 1
-#define USE_RV003_C 1
-
+#define RV003USB_EVENT_DEBUGGING     1
+#define RV003USB_OPTIMIZE_FLASH      1
 #define RV003USB_HANDLE_IN_REQUEST   1
 #define RV003USB_OTHER_CONTROL       1
 #define RV003USB_HANDLE_USER_DATA    1

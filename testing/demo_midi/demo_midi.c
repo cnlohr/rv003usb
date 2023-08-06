@@ -36,7 +36,7 @@ void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, 
 */
 }
 
-void usb_handle_other_control_message( struct usb_endpoint * e, struct usb_urb * s )
+void usb_handle_other_control_message( struct usb_endpoint * e, struct usb_urb * s, struct rv003usb_internal * ist )
 {
 	LogUEvent( SysTick->CNT, s->wRequestTypeLSBRequestMSB, s->lValueLSBIndexMSB, s->wLength );
 }

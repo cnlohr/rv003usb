@@ -5,7 +5,7 @@
 #include "rv003usb.h"
 #include "usb_config.h"
 
-#if defined(USE_RV003_C) && USE_RV003_C
+#if !defined(RV003USB_CUSTOM_C) || RV003USB_CUSTOM_C == 0
 
 #include "ch32v003fun.h"
 
@@ -51,7 +51,7 @@ void usb_setup()
 	// Enable GPIOs, TIMERs
 	RCC->APB2PCENR |= LOCAL_EXP( RCC_APB2Periph_GPIO, USB_PORT )| RCC_APB2Periph_AFIO;
 
-#ifdef RV003USB_DEBUG_TIMING
+#if defined( RV003USB_DEBUG_TIMING ) && RV003USB_DEBUG_TIMING
 	{
 		RCC->APB2PCENR |= RCC_APB2Periph_GPIOC | RCC_APB2Periph_TIM1;
 
@@ -302,7 +302,7 @@ just_ack:
 }
 
 
-#if defined( REALLY_TINY_COMP_FLASH ) && REALLY_TINY_COMP_FLASH
+#if defined( RV003USB_OPTIMIZE_FLASH ) && RV003USB_OPTIMIZE_FLASH
 
 // Do not compile ACK commands.
 
