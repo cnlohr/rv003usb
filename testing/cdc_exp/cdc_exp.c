@@ -29,7 +29,7 @@ void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, 
 	}
 	else
 	{
-		// If it's a control transfer, nak it.
+		// If it's a control transfer, don't send anything.
 		usb_send_empty( sendtok );
 	}
 }
