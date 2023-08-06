@@ -308,27 +308,34 @@ void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, 
 			return;
 		}
 	}
-	else if( endp == 3 )
+	if( endp == 3 )
 	{
 		static uint32_t pkt[] =  {
 
 			RNDIS_MSG_PACKET,
-			0x50, // total len
-			0x2C, // offset
-			0x24, // length
+			0x70, // total len
+			0x24, // offsetc
+			0x44, // length
 			0, 0, 0, // OOB
 			0, 0, // Per-packet.
 			0, 0, 
 			0xffffffff,
-			0xffffffff,
-			0xffffffff,
-			0xffffffff,
-			0xffffffff,
-			0xffffffff,
-			0xffffffff,
-			0xffffffff,
-			0xffffffff,
-
+			0x2222ffff,
+			0x22222222,
+			0x00450008,
+			0x84463200,
+			0x11010000,
+			0xa8c08ac9, // 192.168
+			0x00e00809, // 8.8 in IP
+			0x3ee1fc00,
+			0x1e00eb14,
+			0xfe5e0128,
+			0x01000000,
+			0x00000000,
+			0x77040000,
+			0x00646170,
+			0x01000100,
+			0x01000100,
 		};
 			
 		if( trigger_tx_packet )
@@ -341,7 +348,7 @@ void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, 
 			}
 			else
 			{
-				LogUEvent( 0, 0, pkt[trigger_tx_packet],pkt[trigger_tx_packet+1]);
+				LogUEvent( 0, trigger_tx_packet, pkt[ts],pkt[ts+1]);
 				usb_send_data( pkt + trigger_tx_packet, 8, 0, sendtok );
 				trigger_tx_packet += 2;
 			}
