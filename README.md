@@ -20,11 +20,11 @@ It shows both how to be a normal USB device, as well as how to write programs to
 
 Here are the following demos and their statuses...
 
-| Example      | Description | Windows Support | Linux Support | Android |
-| ------------ | ----------- | --------------- | ------------- | ------- |
+| Example      | Description | Windows Support | Linux Support |
+| ------------ | ----------- | --------------- | ------------- |
 | [demo_gamepad](https://github.com/cnlohr/rv003usb/tree/master/demo_gamepad) | Extremely simple example, 2-axis gamepad + 8 buttons | :white_check_mark: | :white_check_mark: | :question: |
 | [demo_composite_hid](https://github.com/cnlohr/rv003usb/tree/master/demo_composite_hid) | Mouse and Keyboard in one device | :white_check_mark: | :white_check_mark: | :question: |
-| [demo_hidapi](https://github.com/cnlohr/rv003usb/tree/master/demo_hidapi) | Write code to directly talk to your project with fully-formed messages. | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| [demo_hidapi](https://github.com/cnlohr/rv003usb/tree/master/demo_hidapi) | Write code to directly talk to your project with fully-formed messages. (Works on [Android](https://github.com/cnlohr/androidusbtest)) | :white_check_mark: | :white_check_mark: |
 | [bootloader](https://github.com/cnlohr/rv003usb/tree/master/bootloader) | CH32V003 Self-bootloader, able to flash itself with minichlink | :white_check_mark: | :white_check_mark: | :question: |
 
 And the following largely incomplete, but proof-of-concept projects:
