@@ -103,9 +103,11 @@ static const uint8_t config_descriptor[] = {
   /* CDC Data Interface */\
   9, TUSB_DESC_INTERFACE, (uint8_t)((_itfnum)+1), 0, 2, TUSB_CLASS_CDC_DATA, 0, 0, 0,\
   /* Endpoint In */\
-  7, TUSB_DESC_ENDPOINT, _epin, TXFER, U16_TO_U8S_LE(_epsize), 1,\
+  7, TUSB_DESC_ENDPOINT, _epin, TXFER, U16_TO_U8S_LE(_epsize), 2,\
   /* Endpoint Out */\
-  7, TUSB_DESC_ENDPOINT, _epout, TXFER, U16_TO_U8S_LE(_epsize), 1
+  7, TUSB_DESC_ENDPOINT, _epout, TXFER, U16_TO_U8S_LE(_epsize), 2
+
+
   TUD_RNDIS_DESCRIPTOR(ITF_NUM_CDC, STRID_INTERFACE, EPNUM_NET_NOTIF, 8, EPNUM_NET_OUT, EPNUM_NET_IN, CFG_TUD_NET_ENDPOINT_SIZE),
 
 #else

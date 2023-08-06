@@ -14,7 +14,7 @@ int main()
 	SystemInit();
 	usb_setup();
 
-	uint32_t next_event = SysTick->CNT + 480000000;
+	uint32_t next_event = SysTick->CNT + 48000000;
 
 	while(1)
 	{
@@ -29,7 +29,7 @@ int main()
 		if( (int32_t)( SysTick->CNT - next_event ) > 0 )
 		{
 			trigger_tx_packet = 1;
-			next_event = SysTick->CNT + 480000000;
+			next_event = SysTick->CNT + 48000000;
 		}
 
 		ProcessRNDISControl();
@@ -169,7 +169,7 @@ const uint32_t REMOTE_NDIS_QUERY_CMPLT_OID_GEN_SUPPORTED_LIST[] = {
 };
 
 const uint32_t REMOTE_NDIS_RESET_CMPLT[] = {
-	RNDIS_MSG_KEEPALIVE_C, 0x00000010,
+	RNDIS_MSG_RESET_C, 0x00000010,
 	RNDIS_STATUS_SUCCESS, 0
 };
 
@@ -267,10 +267,10 @@ void ProcessRNDISControl()
 					case OID_GEN_LINK_SPEED:          scratch[6] = 80; break; // 8Kbps
 					case OID_GEN_MAXIMUM_TOTAL_SIZE:  scratch[6] = 1024+12;  break;
 					case OID_GEN_MAXIMUM_FRAME_SIZE:  scratch[6] = 1024;  break;
+					case OID_GEN_XMIT_OK:             scratch[6] = 7788;  break;
 					default:
 						LogUEvent( 11111, oid, 0, 0 );
-					case OID_GEN_RCV_OK:
-					case OID_GEN_XMIT_OK:
+					case OID_GEN_RCV_OK: // Ignored
 					case OID_GEN_VENDOR_DESCRIPTION:
 					case OID_GEN_MEDIA_CONNECT_STATUS: // 0 = NdisMediaStateConnected
 						scratch[6] = 0; // default
@@ -320,15 +320,15 @@ void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, 
 			0, 0, // Per-packet.
 			0, 0, 
 			0xffffffff,
-			0x2222ffff,
+			0x3333ffff,
 			0x22222222,
 			0x00450008,
 			0x84463200,
 			0x11010000,
-			0xa8c08ac9, // 192.168
-			0x00e00809, // 8.8 in IP
-			0x3ee1fc00,
-			0x1e00eb14,
+			0x8989fefe, // 192.168
+			0xffff8989, // 8.8 in IP
+			0x3ee1ffff,
+			0x1e00e46c,
 			0xfe5e0128,
 			0x01000000,
 			0x00000000,
@@ -345,11 +345,11 @@ void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, 
 			if( ts >= sizeof(pkt)/4 ) 
 			{
 				usb_send_empty( sendtok );
+				trigger_tx_packet = 1;
 			}
 			else
 			{
-				LogUEvent( 0, trigger_tx_packet, pkt[ts],pkt[ts+1]);
-				usb_send_data( pkt + trigger_tx_packet, 8, 0, sendtok );
+				usb_send_data( pkt + ts, 8, 0, sendtok );
 				trigger_tx_packet += 2;
 			}
 		}
