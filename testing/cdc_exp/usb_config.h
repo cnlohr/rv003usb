@@ -20,6 +20,12 @@
 #include <tusb_types.h>
 #include <cdc.h>
 
+
+#define USE_CLASS	 TUSB_CLASS_CDC
+#define USE_SUBCLASS CDC_COMM_SUBCLASS_ABSTRACT_CONTROL_MODEL
+#define USE_PROTOCOL CDC_COMM_PROTOCOL_ATCOMMAND
+
+
 #ifdef INSTANCE_DESCRIPTORS
 
 //Taken from http://www.usbmadesimple.co.uk/ums_ms_desc_dev.htm
@@ -27,9 +33,9 @@ static const uint8_t device_descriptor[] = {
 	18, //Length
 	TUSB_DESC_DEVICE,  //Type (Device)
 	0x10, 0x01, //Spec
-	0xEF, //Device Class
-	0x02, //Device Subclass
-	0x01, //Device Protocol
+	USE_CLASS, //Device Class
+	USE_SUBCLASS, //Device Subclass
+	USE_PROTOCOL, //Device Protocol
 	0x08, //Max packet size for EP0 (This has to be 8 because of the USB Low-Speed Standard)
 	0x09, 0x12, //ID Vendor
 	0x03, 0xc0, //ID Product
@@ -58,9 +64,9 @@ static const uint8_t config_descriptor[] = {
 	0,                        // bInterfaceNumber (unused, would normally be used for HID)
 	0,                        // bAlternateSetting
 	1,                        // bNumEndpoints
-	TUSB_CLASS_CDC,           // bInterfaceClass    (CDC)
-	CDC_COMM_SUBCLASS_ABSTRACT_CONTROL_MODEL,  // bInterfaceSubClass (ABSTRACT CONTROL MODEL)
-	CDC_COMM_PROTOCOL_ATCOMMAND,               // bInterfaceProtocol (V25TER_PROTOCOL)
+	USE_CLASS,           // bInterfaceClass    (CDC)
+	USE_SUBCLASS,  // bInterfaceSubClass (ABSTRACT CONTROL MODEL)
+	USE_PROTOCOL,               // bInterfaceProtocol (V25TER_PROTOCOL)
 	0x00,                     // iInterface (For getting the other descriptor)
 
 	0x05,
