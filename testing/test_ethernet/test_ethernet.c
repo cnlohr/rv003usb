@@ -5,13 +5,17 @@
 #include "cdc.h"
 #include "rv003usb.h"
 
-
 void ProcessRNDISControl();
+
+int trigger_tx_packet;
 
 int main()
 {
 	SystemInit();
 	usb_setup();
+
+	uint32_t next_event = SysTick->CNT + 480000000;
+
 	while(1)
 	{
 		do
@@ -21,6 +25,12 @@ int main()
 				break;
 			printf( "%lu %lx %lx %lx\n", ue[0], ue[1], ue[2], ue[3] );
 		} while(1);
+
+		if( (int32_t)( SysTick->CNT - next_event ) > 0 )
+		{
+			trigger_tx_packet = 1;
+			next_event = SysTick->CNT + 480000000;
+		}
 
 		ProcessRNDISControl();
 	}
@@ -101,6 +111,9 @@ uint32_t REMOTE_NDIS_SET_CMPLT[4] = {
 #define OID_802_3_CURRENT_ADDRESS         0x01010102
 #define OID_802_3_MAXIMUM_LIST_SIZE       0x01010104
 #define OID_802_3_PERMANENT_ADDRESS       0x01010101
+#define OID_GEN_RCV_OK                    0x00020102
+#define OID_GEN_XMIT_OK                   0x00020101 
+
 
 // from uTaskerRNDIS.doc
 const uint32_t REMOTE_NDIS_QUERY_CMPLT_OID_GEN_SUPPORTED_LIST[] = {
@@ -108,6 +121,8 @@ const uint32_t REMOTE_NDIS_QUERY_CMPLT_OID_GEN_SUPPORTED_LIST[] = {
 	0xaaaaaaaa, RNDIS_STATUS_SUCCESS,
 	0x00000064, 0x00000010,
 	OID_GEN_SUPPORTED_LIST, /* Can be replaced*/
+
+
 	0x00010102, // OID_GEN_HARDWARE_STATUS
 	0x00010103, // OID_GEN_MEDIA_SUPPORTED
 	0x00010104, // OID_GEN_MEDIA_IN_USE
@@ -132,8 +147,38 @@ const uint32_t REMOTE_NDIS_QUERY_CMPLT_OID_GEN_SUPPORTED_LIST[] = {
 	0x01010104, // OID_802_3_MAXIMUM_LIST_SIZE
 	0x01020101, // OID_802_3_RCV_ERROR_ALIGNMENT [start of Ethernet statistics]
 	0x01020102, // OID_802_3_XMIT_ONE_COLLISION
-	0x01020103, // OID_802_3_XMIT_MORE_COLLISIONS
+	0x01020103, // OID_802_3_XMIT_MORE_COLLISIONS*/
+#if 0
+	RNDIS_MSG_QUERY_C, 0x00000048,
+	0xaaaaaaaa, RNDIS_STATUS_SUCCESS,
+	0x00000030, 0x00000010,
+	OID_GEN_SUPPORTED_LIST, /* Can be replaced*/
+	OID_802_3_CURRENT_ADDRESS,
+	OID_802_3_PERMANENT_ADDRESS,
+	OID_GEN_SUPPORTED_LIST,
+	OID_802_3_MAXIMUM_LIST_SIZE,
+	OID_GEN_LINK_SPEED,
+	OID_GEN_MAXIMUM_TOTAL_SIZE,
+	OID_GEN_MAXIMUM_FRAME_SIZE,
+	OID_GEN_MEDIA_CONNECT_STATUS,
+	OID_GEN_RCV_OK,
+	OID_GEN_XMIT_OK,
+	OID_GEN_VENDOR_DESCRIPTION
+#endif
+
 };
+
+const uint32_t REMOTE_NDIS_RESET_CMPLT[] = {
+	RNDIS_MSG_KEEPALIVE_C, 0x00000010,
+	RNDIS_STATUS_SUCCESS, 0
+};
+
+
+const uint32_t REMOTE_NDIS_KEEPALIVE_CMPLT[] = {
+	RNDIS_MSG_KEEPALIVE_C, 0x00000010,
+	0xaaaaaaaa, RNDIS_STATUS_SUCCESS
+};
+
 
 const uint32_t REMOTE_NDIS_QUERY_CMPLT_property[] = {
 	RNDIS_MSG_QUERY_C, 0x00000018,
@@ -172,11 +217,26 @@ void ProcessRNDISControl()
 				RNDIS_OUT = sizeof( REMOTE_NDIS_INITIALIZE_CMPLT );
 				break;
 			case RNDIS_MSG_SET: // 5
-				memcpy( scratch, REMOTE_NDIS_SET_CMPLT, sizeof( REMOTE_NDIS_SET_CMPLT ) );
-				scratch[2] = reply;
-				RNDIS_OUT = sizeof( REMOTE_NDIS_SET_CMPLT );
+				switch( scratch[3] )
+				{
+				case OID_GEN_CURRENT_PACKET_FILTER:
+				default:
+					LogUEvent( 1234, scratch[3], scratch[6], scratch[7] );
+					memcpy( scratch, REMOTE_NDIS_SET_CMPLT, sizeof( REMOTE_NDIS_SET_CMPLT ) );
+					scratch[2] = reply;
+					RNDIS_OUT = sizeof( REMOTE_NDIS_SET_CMPLT );
+				}
 				break;
-
+			case RNDIS_MSG_RESET: // 6
+				memcpy( scratch, REMOTE_NDIS_RESET_CMPLT, sizeof(REMOTE_NDIS_RESET_CMPLT) );
+				//scratch[2] = reply;
+				RNDIS_OUT = sizeof( REMOTE_NDIS_RESET_CMPLT );
+				break;
+			case RNDIS_MSG_KEEPALIVE: // 8
+				memcpy( scratch, REMOTE_NDIS_KEEPALIVE_CMPLT, sizeof(REMOTE_NDIS_KEEPALIVE_CMPLT) );
+				scratch[2] = reply;
+				RNDIS_OUT = sizeof( REMOTE_NDIS_KEEPALIVE_CMPLT );
+				break;
 			case RNDIS_MSG_QUERY: // 4
 			{
 				uint32_t oid = scratch[3];
@@ -187,7 +247,8 @@ void ProcessRNDISControl()
 				case OID_802_3_PERMANENT_ADDRESS:
 					memcpy( scratch, REMOTE_NDIS_QUERY_CMPLT_OID_802_3_CURRENT_ADDRESS, sizeof(REMOTE_NDIS_QUERY_CMPLT_OID_802_3_CURRENT_ADDRESS) );
 					scratch[2] = reply;
-					LogUEvent( 33, RNDIS_OUT, ep0replylenBack, 0 );
+					scratch[6] = 0x22222222;//(ESIG->UID0 & (~1)) | 2;
+					scratch[7] = 0x22222222;//ESIG->UID1;
 					RNDIS_OUT = sizeof( REMOTE_NDIS_QUERY_CMPLT_OID_802_3_CURRENT_ADDRESS );
 					break;
 				case OID_GEN_SUPPORTED_LIST:
@@ -197,17 +258,23 @@ void ProcessRNDISControl()
 					RNDIS_OUT = sizeof( REMOTE_NDIS_QUERY_CMPLT_OID_GEN_SUPPORTED_LIST );
 					break;
 				default:
-					LogUEvent( 11111, scratch[3], scratch[6], 0 );
 					memcpy( scratch, REMOTE_NDIS_QUERY_CMPLT_property, sizeof(REMOTE_NDIS_QUERY_CMPLT_property) );
 					scratch[2] = reply;
 					switch( oid )
 					{
-					case OID_802_3_MAXIMUM_LIST_SIZE: scratch[6] = 1; break;
-					case OID_GEN_LINK_SPEED:          scratch[6] = 10000; break;
-					case OID_GEN_MAXIMUM_FRAME_SIZE:  scratch[6] = 4096;  break;
-					default: 					      scratch[6] = 0; // default
+					case OID_GEN_VENDOR_ID:           scratch[6] = 0xff; break;
+					case OID_802_3_MAXIMUM_LIST_SIZE: scratch[6] = 0; break;
+					case OID_GEN_LINK_SPEED:          scratch[6] = 80; break; // 8Kbps
+					case OID_GEN_MAXIMUM_TOTAL_SIZE:  scratch[6] = 1024+12;  break;
+					case OID_GEN_MAXIMUM_FRAME_SIZE:  scratch[6] = 1024;  break;
+					default:
+						LogUEvent( 11111, oid, 0, 0 );
+					case OID_GEN_RCV_OK:
+					case OID_GEN_XMIT_OK:
+					case OID_GEN_VENDOR_DESCRIPTION:
+					case OID_GEN_MEDIA_CONNECT_STATUS: // 0 = NdisMediaStateConnected
+						scratch[6] = 0; // default
 					}
-					// REMOTE_NDIS_QUERY_CMPLT_OID_802_3_MAXIMUM_LIST_SIZE is 
 					RNDIS_OUT = sizeof( REMOTE_NDIS_QUERY_CMPLT_property );
 					break;
 				}
@@ -243,12 +310,47 @@ void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, 
 	}
 	else if( endp == 3 )
 	{
-		usb_send_empty( sendtok );
+		static uint32_t pkt[] =  {
+
+			RNDIS_MSG_PACKET,
+			0x50, // total len
+			0x2C, // offset
+			0x24, // length
+			0, 0, 0, // OOB
+			0, 0, // Per-packet.
+			0, 0, 
+			0xffffffff,
+			0xffffffff,
+			0xffffffff,
+			0xffffffff,
+			0xffffffff,
+			0xffffffff,
+			0xffffffff,
+			0xffffffff,
+			0xffffffff,
+
+		};
+			
+		if( trigger_tx_packet )
+		{
+			uint32_t ts = trigger_tx_packet - 1;
+
+			if( ts >= sizeof(pkt)/4 ) 
+			{
+				usb_send_empty( sendtok );
+			}
+			else
+			{
+				LogUEvent( 0, 0, pkt[trigger_tx_packet],pkt[trigger_tx_packet+1]);
+				usb_send_data( pkt + trigger_tx_packet, 8, 0, sendtok );
+				trigger_tx_packet += 2;
+			}
+		}
+		else
+		{
+			usb_send_empty( sendtok );
+		}
 		return;
-	}
-	else
-	{
-		LogUEvent( SysTick->CNT, endp, 0, -1 );
 	}
 	usb_send_empty( sendtok );
 }
@@ -283,7 +385,7 @@ void usb_handle_other_control_message( struct usb_endpoint * e, struct usb_urb *
 
 void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_t * data, int len, struct rv003usb_internal * ist )
 {
-	LogUEvent( SysTick->CNT, current_endpoint, ((uint32_t*)data)[0], ((uint32_t*)data)[1] );
+	//LogUEvent( SysTick->CNT, current_endpoint, ((uint32_t*)data)[0], ((uint32_t*)data)[1] );
 	e->count++;
 }
 
