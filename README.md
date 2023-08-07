@@ -20,7 +20,7 @@ It shows both how to be a normal USB device, as well as how to write programs to
 
 Here are the following demos and their statuses...
 
-| Example      | Description | Windows Support | Linux Support |
+| Example      | Description | ❖ | 🐧 |
 | ------------ | ----------- | --------------- | ------------- |
 | [demo_gamepad](https://github.com/cnlohr/rv003usb/tree/master/demo_gamepad) | Extremely simple example, 2-axis gamepad + 8 buttons | `✅` | `✅` | :question: |
 | [demo_composite_hid](https://github.com/cnlohr/rv003usb/tree/master/demo_composite_hid) | Mouse and Keyboard in one device | `✅` | `✅` | :question: |
