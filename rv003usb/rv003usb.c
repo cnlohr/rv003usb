@@ -49,7 +49,7 @@ void usb_setup()
 	rv003usb_internal_data.se0_windup = 0;
 
 	// Enable GPIOs, TIMERs
-	RCC->APB2PCENR |= LOCAL_EXP( RCC_APB2Periph_GPIO, USB_PORT )| RCC_APB2Periph_AFIO;
+	RCC->APB2PCENR |= LOCAL_EXP( RCC_APB2Periph_GPIO, USB_PORT ) | RCC_APB2Periph_AFIO;
 
 #if defined( RV003USB_DEBUG_TIMING ) && RV003USB_DEBUG_TIMING
 	{
@@ -97,8 +97,8 @@ void usb_setup()
 		( LOCAL_EXP( GPIO, USB_PORT )->CFGLR & 
 			(~( ( ( 0xf << (USB_DM*4)) | ( 0xf << (USB_DPU*4)) | ( 0xf << (USB_DP*4)) ) )) )
 		 |
-		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DM) |  //PD3 = GPIOD IN
-		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DP) |  //PD4 = GPIOD IN
+		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DM) | 
+		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DP) |
 		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_DPU);
 
 	int port_id = (((intptr_t)LOCAL_EXP( GPIO, USB_PORT )-(intptr_t)GPIOA)>>10);
@@ -108,7 +108,7 @@ void usb_setup()
 	EXTI->FTENR = 1<<USB_DP;  // Rising edge trigger
 
 	// This drive pull-up high, which will tell the host that we are going on-bus.
-	GPIOD->BSHR = 1<<USB_DPU;
+	LOCAL_EXP( GPIO, USB_PORT )->BSHR = 1<<USB_DPU;
 
 	// enable interrupt
 	NVIC_EnableIRQ( EXTI7_0_IRQn );

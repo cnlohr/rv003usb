@@ -7,6 +7,10 @@
 #define INDR_OFFSET 8
 #define BSHR_OFFSET 16
 
+
+#define LOCAL_CONCAT(A, B) A##B
+#define LOCAL_EXP(A, B) LOCAL_CONCAT(A,B)
+
 #define SYSTICK_CNT 0xE000F008
 
 // This is 6 * n + 3 cylces

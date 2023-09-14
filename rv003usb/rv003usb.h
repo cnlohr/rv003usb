@@ -3,7 +3,11 @@
 
 #include "usb_config.h"
 
-#define USB_GPIO_BASE GPIOD_BASE
+
+#define LOCAL_CONCAT_BASE(A, B) A##B##_BASE
+#define LOCAL_EXP_BASE(A, B) LOCAL_CONCAT_BASE(A,B)
+
+#define USB_GPIO_BASE LOCAL_EXP_BASE( GPIO, USB_PORT )
 
 // Public stuff:
 
