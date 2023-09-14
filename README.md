@@ -20,20 +20,20 @@ It shows both how to be a normal USB device, as well as how to write programs to
 
 Here are the following demos and their statuses...
 
-| Example      | Description | Windows Support | Linux Support |
+| Example      | Description | ❖ | 🐧 |
 | ------------ | ----------- | --------------- | ------------- |
-| [demo_gamepad](https://github.com/cnlohr/rv003usb/tree/master/demo_gamepad) | Extremely simple example, 2-axis gamepad + 8 buttons | ✅ | ✅ | :question: |
-| [demo_composite_hid](https://github.com/cnlohr/rv003usb/tree/master/demo_composite_hid) | Mouse and Keyboard in one device | ✅ | ✅ | :question: |
-| [demo_hidapi](https://github.com/cnlohr/rv003usb/tree/master/demo_hidapi) | Write code to directly talk to your project with fully-formed messages. (Works on [Android](https://github.com/cnlohr/androidusbtest)) | ✅ | ✅ |
-| [bootloader](https://github.com/cnlohr/rv003usb/tree/master/bootloader) | CH32V003 Self-bootloader, able to flash itself with minichlink | ✅ | ✅ | :question: |
+| [demo_gamepad](https://github.com/cnlohr/rv003usb/tree/master/demo_gamepad) | Extremely simple example, 2-axis gamepad + 8 buttons | `✅` | `✅` |
+| [demo_composite_hid](https://github.com/cnlohr/rv003usb/tree/master/demo_composite_hid) | Mouse and Keyboard in one device | `✅` | `✅` |
+| [demo_hidapi](https://github.com/cnlohr/rv003usb/tree/master/demo_hidapi) | Write code to directly talk to your project with fully-formed messages. (Works on [Android](https://github.com/cnlohr/androidusbtest)) | `✅` | `✅` |
+| [bootloader](https://github.com/cnlohr/rv003usb/tree/master/bootloader) | CH32V003 Self-bootloader, able to flash itself with minichlink | `✅` | `✅` |
 
 And the following largely incomplete, but proof-of-concept projects:
 
-| Example      | Description | Windows Support | Linux Support |
+| Example      | Description | ❖ | 🐧 |
 | ------------ | ----------- | --------------- | ------------- |
-| [cdc_exp](https://github.com/cnlohr/rv003usb/tree/master/testing/cdc_exp) | Enumerate as a USB Serial port and send and receive Data (incomplete, very simple) | :warning: | ✅ | :question: |
-| [demo_midi](https://github.com/cnlohr/rv003usb/tree/master/testing/demo_midi) | MIDI-IN and MIDI-OUT | ✅ | ✅ |
-| [test_ethernet](https://github.com/cnlohr/rv003usb/tree/master/testing/test_ethernet) | RNDIS Device | :no_entry: | ✅ |
+| [cdc_exp](https://github.com/cnlohr/rv003usb/tree/master/testing/cdc_exp) | Enumerate as a USB Serial port and send and receive Data (incomplete, very simple) | `⚠️` | `✅` | :question: |
+| [demo_midi](https://github.com/cnlohr/rv003usb/tree/master/testing/demo_midi) | MIDI-IN and MIDI-OUT | `✅` | `✅` |
+| [test_ethernet](https://github.com/cnlohr/rv003usb/tree/master/testing/test_ethernet) | RNDIS Device | `⛔` | `✅` |
 
 Note: CDC In windows likely CAN work, but I can't figure out how to do it.  Linux explicitly blacklists all low-speed USB Ethernet that I could find.  The MIDI example only demonstrates MIDI-OUT.
 
@@ -51,26 +51,26 @@ You are allowed to use interrupts and have critical sections, however, you shoul
 
 This project is not ready for prime time, though it is sort of in a beta phase.  Proof of concept works, lots of demos work.  Maybe you can help out!
 
-:white_check_mark: Able to go on-bus and receive USB frames  
-:white_check_mark: Compute CRC in-line while receiving data  
-:white_check_mark: Bit Stuffing (Works, tested)  
-:white_check_mark: Sending USB Frames  
-:white_check_mark: High Level USB Stack in C  
-:white_check_mark: Make USB timing more precise.  
-:white_check_mark: Use SE0 1ms ticks to tune HSItrim  
-:white_check_mark: Rework sending code to send tokens/data separately.  
-:white_check_mark: Fix CRC Code  
-:white_check_mark: Make minichlink able to use bootloader.  
-:white_check_mark: Optimize high-level stack.  
-:white_check_mark: Fit in bootloader (NOTE: Need to tighten more)  
-:white_check_mark: Do basic retiming, at least in preamble to improve timing.  
-:white_check_mark: Use HID custom messages.  
-:white_check_mark: Improve sync sled.  I.e. coarse and fine sledding.  
-:white_check_mark: Abort on non-8-bit-aligned-frames.  
-:white_square_button: Make more demos  
-:white_square_button: API For self-flashing + printf from bootloader  
-:white_square_button: Improve timing on send, for CRC bits.  Currently we are off by about 6 cycles total.  
-:grey_exclamation: Further optimize Send/Receive PHY code. (Please help)  
-:warning: Enable improved retiming (Requires a few more cycles) (Please help!)  
-:warning: Arduino support (someone else will have to take this on)  
+`✅` Able to go on-bus and receive USB frames  
+`✅` Compute CRC in-line while receiving data  
+`✅` Bit Stuffing (Works, tested)  
+`✅` Sending USB Frames  
+`✅` High Level USB Stack in C  
+`✅` Make USB timing more precise.  
+`✅` Use SE0 1ms ticks to tune HSItrim  
+`✅` Rework sending code to send tokens/data separately.  
+`✅` Fix CRC Code  
+`✅` Make minichlink able to use bootloader.  
+`✅` Optimize high-level stack.  
+`✅` Fit in bootloader (NOTE: Need to tighten more)  
+`✅` Do basic retiming, at least in preamble to improve timing.  
+`✅` Use HID custom messages.  
+`✅` Improve sync sled.  I.e. coarse and fine sledding.  
+`✅` Abort on non-8-bit-aligned-frames.  
+`🔳` Make more demos  
+`🔳` API For self-flashing + printf from bootloader  
+`🔳` Improve timing on send, for CRC bits.  Currently we are off by about 6 cycles total.  
+`❕` Further optimize Send/Receive PHY code. (Please help)  
+`⚠️` Enable improved retiming (Requires a few more cycles) (Please help!)  
+`⚠️`  Arduino support (someone else will have to take this on)  
 
