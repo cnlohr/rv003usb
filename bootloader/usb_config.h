@@ -7,7 +7,7 @@
 #define USB_DM 3
 #define USB_DP 4
 #define USB_DPU 5
-#define USB_PORT GPIOD
+#define USB_PORT D
 
 #define RV003USB_OPTIMIZE_FLASH 1
 
