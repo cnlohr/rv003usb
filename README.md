@@ -22,6 +22,8 @@ It shows both how to be a normal USB device, as well as how to write programs to
 
 The reason why D+/D- is "flipped" here verses `usb_config.h` is because for USB low-speed, the D+/D- lines are swapped. It is frustratingly unintuitive.
 
+As-written you **cannot** use PD6,7 or PC6,7 in any combination with the USB stack.  You must use other pins.
+
  * `U1` is a CH32V003
  * `J1` is a USB type C connector.
  * `R1` 1.5k 5% is required under all configurations, though it may connect D- to DPU or VCC if the intent is for the part to always be on-bus.
