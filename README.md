@@ -28,6 +28,8 @@ The reason why D+/D- is "flipped" here verses `usb_config.h` is because for USB 
  * `U2`, `C1`, `C2` are used to run the CH32V003 at 3.3V.  For USB it should not be run beyond 3.6V.
  * `R2`, `R3` 5.1k resistors are only needed if using a type C connector.  If using a USB C host the host will not provide power without these.
 
+It even supports the SOIC-8 - see this thread: https://github.com/cnlohr/rv003usb/issues/25#issuecomment-1779130408
+
 Optionally 33 or 47 ohm resistors may be placed in-series with D+ and D- to the port to reduce noise and help protect the chip.
 
 ### It's got demos!
