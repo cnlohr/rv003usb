@@ -18,6 +18,55 @@ void midi_send(uint8_t * msg, uint8_t len)
 }
 #define midi_send_ready() (midi_in.len == 0)
 
+// Set up PC2 to PC5 as inputs
+void keyboard_init( void )
+{
+	// Enable GPIOC
+	RCC->APB2PCENR |= RCC_APB2Periph_GPIOC;
+
+	// Clear old values
+	GPIOC->CFGLR &= ~(0xf<<(4*2) | 0xf<<(4*3) | 0xf<<(4*4) | 0xf<<(4*5));
+
+	// Set up C2, C3, C4, C5 as input with pull-up/down
+	GPIOC->CFGLR |= (GPIO_Speed_In | GPIO_CNF_IN_PUPD) << (4*2) |
+					(GPIO_Speed_In | GPIO_CNF_IN_PUPD) << (4*3) |
+					(GPIO_Speed_In | GPIO_CNF_IN_PUPD) << (4*4) |
+					(GPIO_Speed_In | GPIO_CNF_IN_PUPD) << (4*5);
+
+	// Set output high for pull-up
+	GPIOC->BSHR = GPIO_BSHR_BS2 |
+				  GPIO_BSHR_BS3 |
+				  GPIO_BSHR_BS4 |
+				  GPIO_BSHR_BS5;
+
+}
+
+void scan_keyboard(void)
+{
+	static uint8_t keystate = 0;
+	uint8_t midi_msg[4] = {0x09, 0x90, 0x40, 0x7F}; // note on
+	uint16_t input = GPIOC->INDR;
+
+	// check keys on pins C2 to C5
+	for (uint8_t i = 2; i <= 5; i++) {
+		uint8_t mask = (1<<i);
+
+		if ((input & mask) != (keystate & mask)) {
+			// note number
+			midi_msg[2] = 0x40+i;
+			if (input & mask) {
+				midi_msg[3] = 0x00; // note off
+			} else {
+				midi_msg[3] = 0x7F; // note on
+			}
+			while (!midi_send_ready()) {};
+			midi_send(midi_msg, 4);
+		}
+	}
+	keystate = input;
+}
+
+
 // Output a variable-period square wave on PC0 and PC1
 void tim2_init( void )
 {
@@ -91,28 +140,15 @@ void midi_receive(uint8_t * msg)
 	}
 }
 
-
 int main()
 {
 	SystemInit();
+	keyboard_init();
 	tim2_init();
 	usb_setup();
 	while(1)
 	{
-
-		Delay_Ms(100);
-
-		if (midi_send_ready()) {
-			uint8_t midi[4] = {0x09, 0x90, 0x40, 0x7F}; // note on
-			midi_send(midi, 4);
-		}
-
-		Delay_Ms(100);
-
-		if (midi_send_ready()) {
-			uint8_t midi[4] = {0x09, 0x90, 0x40, 0x00}; // note off
-			midi_send(midi, 4);
-		}
+		scan_keyboard();
 	}
 }
 
