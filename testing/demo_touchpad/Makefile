@@ -1,3 +1,4 @@
+
 all : flash
 
 TARGET:=demo_touchpad
