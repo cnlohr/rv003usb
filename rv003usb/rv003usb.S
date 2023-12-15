@@ -23,7 +23,7 @@
 #define	RESTORE_DEBUG_MARKER(x) lw	x4, x(sp)
 #define SAVE_DEBUG_MARKER(x)	sw	x4, x(sp)
 #else
-#define DEBUG_TICK_SETUP la x4, (TIM1_BASE + 0x44) 	// for debug (Go nowhere)
+#define DEBUG_TICK_SETUP la x4, (TIM1_BASE + 0x58) 	// for debug (Go nowhere)
 #define DEBUG_TICK_MARK .balign 4; sw x0, 0(x4)
 #define	RESTORE_DEBUG_MARKER(x) lw	x4, x(sp)
 #define SAVE_DEBUG_MARKER(x)	sw	x4, x(sp)
