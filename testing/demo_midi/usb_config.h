@@ -2,7 +2,7 @@
 #define _USB_CONFIG_H
 
 //Defines the number of endpoints for this device. (Always add one for EP0). For two EPs, this should be 3.
-#define ENDPOINTS 2
+#define ENDPOINTS 3
 
 #define USB_DM 3
 #define USB_DP 4
@@ -28,12 +28,12 @@ static const uint8_t device_descriptor[] = {
 	18, //Length
 	TUSB_DESC_DEVICE,  //Type (Device)
 	0x10, 0x01, //Spec
-	TUSB_CLASS_HID, //Device Class
+	0x0, //Device Class
 	0x0, //Device Subclass
 	0x0, //Device Protocol  (000 = use config descriptor)
 	0x08, //Max packet size for EP0 (This has to be 8 because of the USB Low-Speed Standard)
 	0x09, 0x12, //ID Vendor
-	0x03, 0xc0, //ID Product
+	0x03, 0xe0, //ID Product
 	0x02, 0x00, //ID Rev
 	1, //Manufacturer string
 	2, //Product string
@@ -154,7 +154,7 @@ static const uint8_t config_descriptor[] = {
 	// B.5.1 Standard Bulk IN Endpoint Descriptor
 	9,                  // bLength
 	TUSB_DESC_ENDPOINT,
-	0x82,               // bEndpointAddress
+	0x81,               // bEndpointAddress
 	3,                  // bmAttributes: 2: Bulk, 3: Interrupt endpoint
 	8, 0,               // wMaxPacketSize
 	1,                  // bIntervall in ms
