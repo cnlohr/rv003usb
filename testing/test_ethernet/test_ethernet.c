@@ -321,13 +321,13 @@ void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, 
 			0, 0, // Per-packet.
 			0, 0, 
 			0xffffffff,
-			0x3333ffff,
+			0x3322ffff,
 			0x22222222,
 			0x00450008,
 			0x84463200,
-			0x11010000,
-			0x8989fefe, // 192.168
-			0xffff8989, // 8.8 in IP
+			0x11100000,
+			0xa8c0fefe, // 192.168
+			0xffff0104, // 8.8 in IP
 			0x3ee1ffff,
 			0x1e00e46c,
 			0xfe5e0128,
