@@ -53,7 +53,7 @@ And the following largely incomplete, but proof-of-concept projects:
 | ------------ | ----------- | --------------- | ------------- |
 | [cdc_exp](https://github.com/cnlohr/rv003usb/tree/master/testing/cdc_exp) | Enumerate as a USB Serial port and send and receive Data (incomplete, very simple) | `⚠️` | `✅` | :question: |
 | [demo_midi](https://github.com/cnlohr/rv003usb/tree/master/testing/demo_midi) | MIDI-IN and MIDI-OUT | `✅` | `✅` |
-| [test_ethernet](https://github.com/cnlohr/rv003usb/tree/master/testing/test_ethernet) | RNDIS Device | `⛔` | `✅` |
+| [test_ethernet](https://github.com/cnlohr/rv003usb/tree/master/testing/test_ethernet) | RNDIS Device (note: VERY SLOW) | `⚠️` | `✅` |
 
 Note: CDC In windows likely CAN work, but I can't figure out how to do it.  Linux explicitly blacklists all low-speed USB Ethernet that I could find.  The MIDI example only demonstrates MIDI-OUT.
 
