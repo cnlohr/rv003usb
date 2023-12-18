@@ -1,4 +1,5 @@
 # Notes
 
-This example is of a simple joystick/gamepad.  8 buttons, and 2 axes.  So it only needs 2 bytes to represent itself.  It doesn't do anything useful with the inputs, just randomly presses the first butotn and sweeps the X axis stick left to right.
+Connect a piezo buzzer between pins C0 and C1 to hear a square wave when MIDI OUT is sent (only listens to channel 1).
 
+Connect push switches to ground on pins C2, C3, C4 and C5 to make a simple keyboard that sends notes on MIDI IN.
