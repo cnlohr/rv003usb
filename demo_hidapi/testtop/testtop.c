@@ -8,6 +8,8 @@
 
 #include "hidapi.c"
 
+#include "os_generic.h"
+
 int main()
 {
 	hid_device * hd = hid_open( 0x1209, 0xd003, L"CUSTOMDEVICE000"); // third parameter is "serial"
@@ -25,6 +27,11 @@ int main()
 	int i;
 	int j;
 	int retries = 0;
+	double dStart = OGGetAbsoluteTime();
+	double dSecond = dStart;
+	double dStartSend = 0.0;
+	double dSendTotal = 0;
+	double dRecvTotal = 0;
 	for( j = 0; ; j++ )
 	{
 		buffer0[0] = 0xaa; // First byte must match the ID.
@@ -36,7 +43,10 @@ int main()
 		if( buffer0[1] == 0xa4 ) buffer0[1]++;
 
 		retrysend:
+		
+		dStartSend = OGGetAbsoluteTime();
 		r = hid_send_feature_report( hd, buffer0, sizeof(buffer0) );
+		dSendTotal += OGGetAbsoluteTime() - dStartSend;
 		if( r != sizeof(buffer0) )
 		{
 			fprintf( stderr, "Warning: HID Send fault (%d) Retrying\n", r );
@@ -51,7 +61,9 @@ int main()
 		memset( buffer1, 0xff, sizeof( buffer1 ) );
 		buffer1[0] = 0xaa; // First byte must be ID.
 
+		double dStartRecv = OGGetAbsoluteTime();
 		r = hid_get_feature_report( hd, buffer1, sizeof(buffer1) );
+		dRecvTotal += OGGetAbsoluteTime() - dStartRecv;
 
 		printf( ">" ); fflush( stdout);
 
@@ -65,6 +77,12 @@ int main()
 				printf( "[%d] %02x>%02x %s", i, buffer0[i], buffer1[i], (buffer1[i] != buffer0[i])?"MISMATCH ":""  );
 			printf( "\n" );
 			break;
+		}
+		
+		if( dStartRecv - dSecond > 1.0 )
+		{
+			printf( "\n%2.3f KB/s PC->003 / %2.3f KB/s 003->PC\n", j * .249 / dSendTotal, j * .249 / dRecvTotal );
+			dSecond++;
 		}
 	}
 
