@@ -261,7 +261,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 				start[i] = data[i];//((intptr_t)data)>>(i*8);
 			e->count ++;
 
-			if( start + length >= scratchpad + SCRATCHPAD_SIZE )
+			if( start + length - 3 >= scratchpad + SCRATCHPAD_SIZE )
 			{
 				// If the last 4 bytes are 0x1234abcd, then we can go!
 				uint32_t * last4 = (uint32_t*)(start + 4);					
