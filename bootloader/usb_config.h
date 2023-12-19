@@ -39,7 +39,7 @@ static const uint8_t special_hid_desc[] = {
   HID_USAGE_PAGE ( HID_USAGE_PAGE_DESKTOP      )                 ,
   HID_USAGE      ( 0xff  )                 , // Needed?
   HID_COLLECTION ( HID_COLLECTION_APPLICATION )                 ,
-	HID_REPORT_SIZE ( 8 ),
+    HID_REPORT_SIZE ( 8 ),
     HID_REPORT_COUNT ( 127 ) ,
     HID_REPORT_ID    ( 0xaa                                   )
     HID_USAGE        ( 0xff              ) ,
