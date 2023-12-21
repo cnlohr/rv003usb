@@ -39,10 +39,11 @@ static const uint8_t special_hid_desc[] = {
   HID_USAGE_PAGE ( HID_USAGE_PAGE_DESKTOP      )                 ,
   HID_USAGE      ( 0xff  )                 , // Needed?
   HID_COLLECTION ( HID_COLLECTION_APPLICATION )                 ,
+    HID_REPORT_SIZE ( 8 ),
+    HID_REPORT_COUNT ( 127 ) ,
     HID_REPORT_ID    ( 0xaa                                   )
     HID_USAGE        ( 0xff              ) ,
     HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE    ) ,
-    HID_REPORT_COUNT ( 128 ) ,
   HID_COLLECTION_END
 };
 
@@ -85,7 +86,7 @@ static const uint8_t config_descriptor[] = {  //Mostly stolen from a USB mouse I
 	0x05, //Endpoint Descriptor (Must be 5)
 	0x81, //Endpoint Address
 	0x03, //Attributes
-	0x40,	0x00, //Size
+	0x08,	0x00, //Size
 	0xff, //Interval
 };
 
