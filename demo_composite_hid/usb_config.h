@@ -47,7 +47,7 @@ static const uint8_t mouse_hid_desc[] = {  //From http://eleccelerator.com/tutor
 		HID_COLLECTION ( HID_COLLECTION_PHYSICAL ),   //   COLLECTION (Physical)
 			HID_USAGE_PAGE( HID_USAGE_PAGE_BUTTON ),  //     USAGE_PAGE (Button)
 			HID_USAGE_MIN( 1 ),                       //     USAGE_MINIMUM (Button 1)
-			HID_USAGE_MIN( 3 ),                       //     USAGE_MAXIMUM (Button 3)
+			HID_USAGE_MAX( 3 ),                       //     USAGE_MAXIMUM (Button 3)
 			HID_LOGICAL_MIN( 0 ),                     //     LOGICAL_MINIMUM (0)
 			HID_LOGICAL_MAX( 1 ),                     //     LOGICAL_MAXIMUM (1)
 			HID_REPORT_COUNT( 3 ),                    //     REPORT_COUNT (3)
