@@ -22,6 +22,8 @@
 #define RV003USB_EVENT_DEBUGGING     0
 #define RV003USB_DEBUG_TIMING        0
 #define RV003USB_CUSTOM_C            0
+
+#define RV003USB_USER_DATA_HANDLES_TOKEN 0
 */
 
 #ifndef __ASSEMBLER__

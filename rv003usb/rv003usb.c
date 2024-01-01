@@ -185,6 +185,9 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 	if( epno || ( !ist->setup_request && length > 3 )  )
 	{
 		usb_handle_user_data( e, epno, data_in, length, ist );
+#if RV003USB_USER_DATA_HANDLES_TOKEN
+		return;
+#endif
 	}
 	else
 #endif
