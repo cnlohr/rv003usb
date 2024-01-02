@@ -79,8 +79,10 @@ int main()
 	}
 #endif
 
+	// GPIO reset.
+	LOCAL_EXP(GPIO,USB_PORT)->CFGLR &= ~( 0xF<<(4*USB_DM) | 0xF<<(4*USB_DP) | 0xF<<(4*USB_DPU) );
 	// GPIO setup.
-	LOCAL_EXP(GPIO,USB_PORT)->CFGLR =
+	LOCAL_EXP(GPIO,USB_PORT)->CFGLR |=
 		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DM) | 
 		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DP) | 
 		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_DPU);
