@@ -9,6 +9,9 @@
 #define INSTANCE_DESCRIPTORS
 #include "rv003usb.h"
 
+#define LOCAL_CONCAT(A, B) A##B
+#define LOCAL_EXP(A, B) LOCAL_CONCAT(A,B)
+
 // To use time debugging, enable thsi here, and RV003USB_DEBUG_TIMING in the .S
 // You must update in tandem
 //#define RV003USB_DEBUG_TIMING 1
@@ -76,20 +79,19 @@ int main()
 	}
 #endif
 
-	// GPIO D3 for input pin change.
-	GPIOD->CFGLR =
-		(GPIO_CNF_IN_PUPD)<<(4*1) |  // Keep SWIO enabled.
-		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DM) |  //PD3 = GPIOD IN
-		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DP) |  //PD4 = GPIOD IN
+	// GPIO setup.
+	LOCAL_EXP(GPIO,USB_PORT)->CFGLR =
+		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DM) | 
+		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DP) | 
 		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_DPU);
 
-	// Configure the IO as an interrupt.
-	AFIO->EXTICR = 3<<(USB_DP*2); //PORTD.3 (3 out front says PORTD, 3 in back says 3)
-	EXTI->INTENR = 1<<USB_DP; // Enable EXT3
-	EXTI->FTENR = 1<<USB_DP;  // Rising edge trigger
+	// Configure USB_DP (D-) as an interrupt on falling edge.
+	AFIO->EXTICR = LOCAL_EXP(GPIO_PortSourceGPIO,USB_PORT)<<(USB_DP*2); // Configure EXTI interrupt for USB_DP
+	EXTI->INTENR = 1<<USB_DP; // Enable EXTI interrupt
+	EXTI->FTENR = 1<<USB_DP;  // Enable falling edge trigger for USB_DP (D-)
 
-	// This drive GPIO5 high, which will tell the host that we are going on-bus.
-	GPIOD->BSHR = 1<<USB_DPU;
+	// This drives USB_DPU (D- Pull-Up) high, which will tell the host that we are going on-bus.
+	LOCAL_EXP(GPIO,USB_PORT)->BSHR = 1<<USB_DPU;
 
 	// enable interrupt
 	NVIC_EnableIRQ( EXTI7_0_IRQn );

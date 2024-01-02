@@ -4,10 +4,22 @@
 //Defines the number of endpoints for this device. (Always add one for EP0). For two EPs, this should be 3.  For one, 2.
 #define ENDPOINTS 2
 
-#define USB_DM 3
-#define USB_DP 4
-#define USB_DPU 5
-#define USB_PORT D
+/*	
+	CH32V003FUN DevBoard:
+	PD3 D+
+	PD4 D-
+	PD5 D-_PU
+
+	CH32V003J4M6:
+	PC1 D+
+	PC2 D-
+	PC4 D-_PU
+*/
+
+#define USB_DM 3 // USB_DM is the physical USB D+ Pin!
+#define USB_DP 4 // USB_DP is the physical USB D- Pin!
+#define USB_DPU 5 // USB_DPU feeds the 1.5K Pull-Up on USB D- Pin!
+#define USB_PORT D // Pins on PORT A, C or D
 
 #define RV003USB_OPTIMIZE_FLASH 1
 
