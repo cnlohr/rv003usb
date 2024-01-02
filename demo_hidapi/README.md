@@ -20,7 +20,7 @@ So you are aware, there are a number of gotchas when making platform-agostic HID
  * Yes, that's annoying because it means on Windows at least all your messages must be the same size.
  * On Linux, you may need to either be part of plugdev, and/or have your udev rules include the following:
 ```sh
-echo KERNEL=="hidraw*", SUBSYSTEM=="hidraw", MODE="0664", GROUP="plugdev" | sudo tee /etc/udev/rules.d/20-hidraw.rules
+echo -ne "KERNEL==\"hidraw*\", SUBSYSTEM==\"hidraw\", MODE=\"0664\", GROUP=\"plugdev\"\n" | sudo tee /etc/udev/rules.d/20-hidraw.rules
 sudo udevadm control --reload-rules
 sudo udevadm trigger
 ```
