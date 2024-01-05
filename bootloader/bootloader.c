@@ -80,10 +80,18 @@ int main()
 #endif
 
 	// GPIO reset D+/D-
-	LOCAL_EXP(GPIO,USB_PORT)->CFGLR &= ~( 0xF<<(4*USB_DM) | 0xF<<(4*USB_DP) );
+	LOCAL_EXP(GPIO,USB_PORT)->CFGLR &= ~( 0xF<<(4*USB_DM) | 0xF<<(4*USB_DP) 
+#ifdef USB_DPU
+		// GPIO reset D- Pull-Up
+		| 0xF<<(4*USB_DPU)
+#endif
+	);
 		
 	// GPIO setup.
 	LOCAL_EXP(GPIO,USB_PORT)->CFGLR |=
+#ifdef USB_DPU
+		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_DPU) |
+#endif
 		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DM) | 
 		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DP);
 
@@ -93,10 +101,6 @@ int main()
 	EXTI->FTENR = 1<<USB_DP;  // Enable falling edge trigger for USB_DP (D-)
 
 #ifdef USB_DPU
-	// GPIO reset D- Pull-Up
-	LOCAL_EXP(GPIO,USB_PORT)->CFGLR &= ~( 0xF<<(4*USB_DPU) );
-	// GPIO D- Pull-Up setup.
-	LOCAL_EXP(GPIO,USB_PORT)->CFGLR |= (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_DPU);
 	// This drives USB_DPU (D- Pull-Up) high, which will tell the host that we are going on-bus.
 	LOCAL_EXP(GPIO,USB_PORT)->BSHR = 1<<USB_DPU;
 #endif
