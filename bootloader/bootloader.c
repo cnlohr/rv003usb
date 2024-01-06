@@ -20,6 +20,9 @@
 // this flag:
 //#define DISABLE_BOOTLOAD
 
+// Set this if you want the bootloader to keep the Port configuration untouched
+// Otherwise it will reset all Pins on the Port used to input; costs 8-16 Bytes
+//#define BOOTLOADER_KEEP_PORT_CFG
 #define SCRATCHPAD_SIZE 128
 extern volatile int32_t runwordpad;
 extern uint8_t scratchpad[SCRATCHPAD_SIZE];
@@ -79,16 +82,27 @@ int main()
 	}
 #endif
 
-	// GPIO reset D+/D-
+#ifdef BOOTLOADER_KEEP_PORT_CFG
+	// GPIO reset only for D+/D-
 	LOCAL_EXP(GPIO,USB_PORT)->CFGLR &= ~( 0xF<<(4*USB_DM) | 0xF<<(4*USB_DP) 
-#ifdef USB_DPU
-		// GPIO reset D- Pull-Up
+	#ifdef USB_DPU
+		// GPIO reset for D- Pull-Up
 		| 0xF<<(4*USB_DPU)
-#endif
+	#endif
 	);
+#endif
 		
 	// GPIO setup.
+#ifdef BOOTLOADER_KEEP_PORT_CFG
 	LOCAL_EXP(GPIO,USB_PORT)->CFGLR |=
+#else
+	LOCAL_EXP(GPIO,USB_PORT)->CFGLR = ( 0x44444444 & ~( 0xF<<(4*USB_DM) | 0xF<<(4*USB_DP) 
+	#ifdef USB_DPU
+		// GPIO reset for D- Pull-Up
+		| 0xF<<(4*USB_DPU)
+	#endif
+	)) |
+#endif
 #ifdef USB_DPU
 		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_DPU) |
 #endif
