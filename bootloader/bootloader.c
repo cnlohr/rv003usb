@@ -16,16 +16,33 @@
 // You must update in tandem
 //#define RV003USB_DEBUG_TIMING 1
 
-// If you don't want to automatically boot into the application, set
-// this flag:
+// If you don't want to automatically boot into the application ever,
+// comment out BOOTLOADER_TIMEOUT_USB and set this flag:
 //#define DISABLE_BOOTLOAD
 
 // Set this if you want the bootloader to keep the Port configuration untouched
 // Otherwise it will reset all Pins on the Port used to input; costs 8-16 Bytes
 //#define BOOTLOADER_KEEP_PORT_CFG
+
+// Timeout for bootloader after power-up, set to 0 to stay in bootloader forever
+// 75ms per unit; 67 ~= 5s
+#define BOOTLOADER_TIMEOUT_PWR 67
+
+// Timeout (reset) for bootloader once USB Host is detected, set to 0 to stay in bootloader forever
+// 75ms per unit; 0 costs 28 Bytes, >0 costs 48 Bytes; Comment out if not used
+//#define BOOTLOADER_TIMEOUT_USB 0
+
+// Timeout Timebase; Careful: Constant works out to a single lbu instruction. Changes may result in bigger code
+// -0x100000 = 302ms; -0x040000 = 75ms;
+#define BOOTLOADER_TIMEOUT_BASE -0x40000
+
 #define SCRATCHPAD_SIZE 128
 extern volatile int32_t runwordpad;
 extern uint8_t scratchpad[SCRATCHPAD_SIZE];
+
+#ifdef BOOTLOADER_TIMEOUT_USB
+volatile uint8_t reset_timeout = 0;
+#endif
 
 struct rv003usb_internal rv003usb_internal_data;
 
@@ -122,8 +139,12 @@ int main()
 	// enable interrupt
 	NVIC_EnableIRQ( EXTI7_0_IRQn );
 
-	// Wait ~5 seconds.
-	int32_t localpad = -0xf00000; // Careful: Constant works out to a single lbu instruction.
+	// Bootloader timeout / localpad: 
+	// localpad counting up to 0 is used for timeout
+	// localpad transitioning from -1 to 0 boots user code
+	// localpad set to 0 disables timeout
+	// localpad counting down to 0 is used for executing code from scratchpad
+	int32_t localpad = BOOTLOADER_TIMEOUT_BASE * BOOTLOADER_TIMEOUT_PWR;
 	while(1)
 	{
 		if( localpad < 0 )
@@ -139,6 +160,17 @@ int main()
 				PFIC->SCTLR = 1<<31;
 #endif
 			}
+#ifdef BOOTLOADER_TIMEOUT_USB
+			// Bootloader timeout reset was requested after first USB Communication
+	#if BOOTLOADER_TIMEOUT_USB > 0
+			if(reset_timeout == 1) {
+				localpad = BOOTLOADER_TIMEOUT_BASE * BOOTLOADER_TIMEOUT_USB;
+				reset_timeout = 2; // prevent from triggering again
+			}
+	#else
+			if(reset_timeout) localpad = 0;
+	#endif
+#endif
 		}
 		if( localpad > 0 )
 		{
@@ -210,6 +242,15 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 
 void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, uint32_t length, struct rv003usb_internal * ist )
 {
+#ifdef BOOTLOADER_TIMEOUT_USB
+	// Detect first USB communication in order to reset the Bootloader Timeout if configured
+	#if BOOTLOADER_TIMEOUT_USB > 0
+		if(reset_timeout == 0) reset_timeout = 1;
+	#else
+		reset_timeout = 1;
+	#endif
+#endif
+
 	//Received data from host.
 	int cep = ist->current_endpoint;
 	struct usb_endpoint * e = &ist->eps[cep];
