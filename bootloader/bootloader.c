@@ -99,27 +99,22 @@ int main()
 	}
 #endif
 
-#ifdef BOOTLOADER_KEEP_PORT_CFG
-	// GPIO reset only for D+/D-
-	LOCAL_EXP(GPIO,USB_PORT)->CFGLR &= ~( 0xF<<(4*USB_DM) | 0xF<<(4*USB_DP) 
-	#ifdef USB_DPU
-		// GPIO reset for D- Pull-Up
-		| 0xF<<(4*USB_DPU)
-	#endif
-	);
-#endif
 		
 	// GPIO setup.
+	LOCAL_EXP(GPIO,USB_PORT)->CFGLR = (
 #ifdef BOOTLOADER_KEEP_PORT_CFG
-	LOCAL_EXP(GPIO,USB_PORT)->CFGLR |=
+		LOCAL_EXP(GPIO,USB_PORT)->CFGLR 
 #else
-	LOCAL_EXP(GPIO,USB_PORT)->CFGLR = ( 0x44444444 & ~( 0xF<<(4*USB_DM) | 0xF<<(4*USB_DP) 
-	#ifdef USB_DPU
-		// GPIO reset for D- Pull-Up
-		| 0xF<<(4*USB_DPU)
-	#endif
-	)) |
+		0x44444444 // reset value (all input)
 #endif
+		// Reset the USB Pins
+		& ~( 0xF<<(4*USB_DM) | 0xF<<(4*USB_DP) 
+		#ifdef USB_DPU
+			| 0xF<<(4*USB_DPU)
+		#endif
+		)
+	) |
+	// Configure the USB Pins
 #ifdef USB_DPU
 		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_DPU) |
 #endif
