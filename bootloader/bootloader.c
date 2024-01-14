@@ -24,6 +24,15 @@
 // Otherwise it will reset all Pins on the Port used to input; costs 8-16 Bytes
 //#define BOOTLOADER_KEEP_PORT_CFG
 
+// Bootloader Button Config
+// If you want to use a Button during boot to enter bootloader, use these defines 
+// to setup the Button. If you do, it makes sense to also set DISABLE_BOOTLOAD above, 
+// set BOOTLOADER_TIMEOUT_PWR to 0 and disable BOOTLOADER_TIMEOUT_USB
+//#define BOOTLOADER_BTN_PORT D
+//#define BOOTLOADER_BTN_PIN 2
+//#define BOOTLOADER_BTN_TRIG_LEVEL 0 // 1 = HIGH; 0 = LOW
+//#define BOOTLOADER_BTN_PULL 1 // 1 = Pull-Up; 0 = Pull-Down; Optional, comment out for floating input
+
 // Timeout for bootloader after power-up, set to 0 to stay in bootloader forever
 // 75ms per unit; 67 ~= 5s
 #define BOOTLOADER_TIMEOUT_PWR 67
@@ -50,6 +59,14 @@ struct rv003usb_internal rv003usb_internal_data;
 uint8_t data_receptive;
 
 void SystemInit48HSIUNSAFE( void );
+
+void boot_usercode() {
+	FLASH->BOOT_MODEKEYR = FLASH_KEY1;
+	FLASH->BOOT_MODEKEYR = FLASH_KEY2;
+	FLASH->STATR = 0; // 1<<14 is zero, so, boot user code.
+	FLASH->CTLR = CR_LOCK_Set;
+	PFIC->SCTLR = 1<<31;
+}
 
 int main()
 {
@@ -99,6 +116,33 @@ int main()
 	}
 #endif
 
+#if defined(BOOTLOADER_BTN_PORT) && defined(BOOTLOADER_BTN_PULL)
+	#if BOOTLOADER_BTN_PULL == 1
+		LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->BSHR = 1<<BOOTLOADER_BTN_PIN;
+	#else
+		LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->BSHR = 1<<(BOOTLOADER_BTN_PIN+16);
+	#endif
+#endif
+
+
+#if defined(BOOTLOADER_BTN_PORT) && BOOTLOADER_BTN_PORT != USB_PORT
+	// GPIO setup for Bootloader Button PORT
+	LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->CFGLR = (
+#ifdef BOOTLOADER_KEEP_PORT_CFG
+		LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->CFGLR 
+#else
+		0x44444444 // reset value (all input)
+#endif
+		// Reset the Bootloader Pin
+		& ~( 0xF<<(4*BOOTLOADER_BTN_PIN) )
+	) |
+	// Configure the Bootloader Pin
+	#if defined(BOOTLOADER_BTN_PULL)
+		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*BOOTLOADER_BTN_PIN) | 
+	#else
+		(GPIO_Speed_In | GPIO_CNF_IN_FLOATING)<<(4*BOOTLOADER_BTN_PIN) | 
+	#endif
+#endif
 		
 	// GPIO setup.
 	LOCAL_EXP(GPIO,USB_PORT)->CFGLR = (
@@ -112,11 +156,22 @@ int main()
 		#ifdef USB_DPU
 			| 0xF<<(4*USB_DPU)
 		#endif
+		// reset Bootloader Btn Pin
+		#if defined(BOOTLOADER_BTN_PORT) && BOOTLOADER_BTN_PORT == USB_PORT
+			| 0xF<<(4*BOOTLOADER_BTN_PIN)
+		#endif
 		)
 	) |
 	// Configure the USB Pins
 #ifdef USB_DPU
 		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_DPU) |
+#endif
+#if defined(BOOTLOADER_BTN_PORT) && BOOTLOADER_BTN_PORT == USB_PORT
+	#if defined(BOOTLOADER_BTN_PULL)
+		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*BOOTLOADER_BTN_PIN) | 
+	#else
+		(GPIO_Speed_In | GPIO_CNF_IN_FLOATING)<<(4*BOOTLOADER_BTN_PIN) | 
+	#endif
 #endif
 		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DM) | 
 		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DP);
@@ -125,6 +180,14 @@ int main()
 	AFIO->EXTICR = LOCAL_EXP(GPIO_PortSourceGPIO,USB_PORT)<<(USB_DP*2); // Configure EXTI interrupt for USB_DP
 	EXTI->INTENR = 1<<USB_DP; // Enable EXTI interrupt
 	EXTI->FTENR = 1<<USB_DP;  // Enable falling edge trigger for USB_DP (D-)
+
+#if defined(BOOTLOADER_BTN_TRIG_LEVEL)
+	#if BOOTLOADER_BTN_TRIG_LEVEL == 0
+		if(LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->INDR & (1<<BOOTLOADER_BTN_PIN)) boot_usercode();
+	#else
+		if((LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->INDR & (1<<BOOTLOADER_BTN_PIN)) == 0) boot_usercode();
+	#endif
+#endif
 
 #ifdef USB_DPU
 	// This drives USB_DPU (D- Pull-Up) high, which will tell the host that we are going on-bus.
