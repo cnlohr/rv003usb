@@ -6,7 +6,7 @@
 int main()
 {
 	SystemInit();
-	Delay_Ms(200); // Ensures USB re-enumeration after bootloader or reset
+	Delay_Ms(1); // Ensures USB re-enumeration after bootloader or reset; Spec demand >2.5µs ( TDDIS )
 	usb_setup();
 	while(1);
 }

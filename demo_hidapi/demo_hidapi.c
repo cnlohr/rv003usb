@@ -25,7 +25,7 @@ uint32_t WS2812BLEDCallback( int wordno )
 int main()
 {
 	SystemInit();
-	Delay_Ms(200); // Ensures USB re-enumeration after bootloader or reset
+	Delay_Ms(1); // Ensures USB re-enumeration after bootloader or reset; Spec demand >2.5µs ( TDDIS )
 	usb_setup();
 
 	GPIOD->CFGLR = ( ( GPIOD->CFGLR ) & (~( 0xf << (4*2) )) ) | 
