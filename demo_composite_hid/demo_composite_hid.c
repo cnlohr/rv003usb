@@ -6,6 +6,7 @@
 int main()
 {
 	SystemInit();
+	Delay_Ms(200); // Ensures USB re-enumeration after bootloader or reset
 	usb_setup();
 	while(1)
 	{
@@ -48,10 +49,10 @@ void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, 
 
 		i++;
 
-		// Press the 'b' button every second or so.
+		// Press a Key every second or so.
 		if( (i & 0x7f) == 0 )
 		{
-			tsajoystick[4] = 5;
+			tsajoystick[4] = 0x05; // 0x05 = "b"; 0x53 = NUMLOCK; 0x39 = CAPSLOCK;
 		}
 		else
 		{

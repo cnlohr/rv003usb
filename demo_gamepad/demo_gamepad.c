@@ -6,6 +6,7 @@
 int main()
 {
 	SystemInit();
+	Delay_Ms(200); // Ensures USB re-enumeration after bootloader or reset
 	usb_setup();
 	while(1);
 }
