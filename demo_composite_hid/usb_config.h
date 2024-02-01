@@ -41,7 +41,7 @@ static const uint8_t device_descriptor[] = {
 
 static const uint8_t mouse_hid_desc[] = {  //From http://eleccelerator.com/tutorial-about-usb-hid-report-descriptors/
 	HID_USAGE_PAGE( HID_USAGE_PAGE_DESKTOP ),         // USAGE_PAGE (Generic Desktop)
-	HID_USAGE( HID_USAGE_DESKTOP_TABLET_PC_SYSTEM ),  // USAGE (Mouse), Ok actually a tablet but we apply relative motion!
+	HID_USAGE( HID_USAGE_DESKTOP_MOUSE ),  // USAGE (Mouse)
 	HID_COLLECTION ( HID_COLLECTION_APPLICATION ),    // COLLECTION (Application)
 		HID_USAGE( HID_USAGE_DESKTOP_POINTER ),       //   USAGE (Pointer)
 		HID_COLLECTION ( HID_COLLECTION_PHYSICAL ),   //   COLLECTION (Physical)
@@ -69,12 +69,14 @@ static const uint8_t mouse_hid_desc[] = {  //From http://eleccelerator.com/tutor
 	HID_COLLECTION_END,                               // END_COLLECTIONs
 
 	// Tack this on to do custom HID commands.
+	/*
 	HID_COLLECTION ( HID_COLLECTION_APPLICATION )                 ,
 		HID_REPORT_ID    ( 0xaa                                   )
 		HID_USAGE        ( 0xff              ) ,
 		HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE    ) ,
 		HID_REPORT_COUNT ( 8 ) ,
 	HID_COLLECTION_END,
+	*/
 };
 
 //From http://codeandlife.com/2012/06/18/usb-hid-keyboard-with-v-usb/
