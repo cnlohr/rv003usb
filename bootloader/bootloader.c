@@ -9,8 +9,13 @@
 #define INSTANCE_DESCRIPTORS
 #include "rv003usb.h"
 
+// These are required to be able to compare PORTs against each other
+#define PORTIDA 0
+#define PORTIDC 2
+#define PORTIDD 3
 #define LOCAL_CONCAT(A, B) A##B
 #define LOCAL_EXP(A, B) LOCAL_CONCAT(A,B)
+#define PORTID_EQUALS(A, B) (LOCAL_CONCAT(PORTID,A) == LOCAL_CONCAT(PORTID,B))
 
 // To use time debugging, enable thsi here, and RV003USB_DEBUG_TIMING in the .S
 // You must update in tandem
@@ -125,7 +130,7 @@ int main()
 #endif
 
 
-#if defined(BOOTLOADER_BTN_PORT) && BOOTLOADER_BTN_PORT != USB_PORT
+#if defined(BOOTLOADER_BTN_PORT) && !PORTID_EQUALS(BOOTLOADER_BTN_PORT, USB_PORT)
 	// GPIO setup for Bootloader Button PORT
 	LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->CFGLR = (
 #ifdef BOOTLOADER_KEEP_PORT_CFG
@@ -138,9 +143,9 @@ int main()
 	) |
 	// Configure the Bootloader Pin
 	#if defined(BOOTLOADER_BTN_PULL)
-		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*BOOTLOADER_BTN_PIN) | 
+		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*BOOTLOADER_BTN_PIN);
 	#else
-		(GPIO_Speed_In | GPIO_CNF_IN_FLOATING)<<(4*BOOTLOADER_BTN_PIN) | 
+		(GPIO_Speed_In | GPIO_CNF_IN_FLOATING)<<(4*BOOTLOADER_BTN_PIN);
 	#endif
 #endif
 		
@@ -157,7 +162,7 @@ int main()
 			| 0xF<<(4*USB_DPU)
 		#endif
 		// reset Bootloader Btn Pin
-		#if defined(BOOTLOADER_BTN_PORT) && BOOTLOADER_BTN_PORT == USB_PORT
+		#if defined(BOOTLOADER_BTN_PORT) && PORTID_EQUALS(BOOTLOADER_BTN_PORT,USB_PORT)
 			| 0xF<<(4*BOOTLOADER_BTN_PIN)
 		#endif
 		)
@@ -166,7 +171,7 @@ int main()
 #ifdef USB_DPU
 		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_DPU) |
 #endif
-#if defined(BOOTLOADER_BTN_PORT) && BOOTLOADER_BTN_PORT == USB_PORT
+#if defined(BOOTLOADER_BTN_PORT) && PORTID_EQUALS(BOOTLOADER_BTN_PORT,USB_PORT)
 	#if defined(BOOTLOADER_BTN_PULL)
 		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*BOOTLOADER_BTN_PIN) | 
 	#else
@@ -181,7 +186,7 @@ int main()
 	EXTI->INTENR = 1<<USB_DP; // Enable EXTI interrupt
 	EXTI->FTENR = 1<<USB_DP;  // Enable falling edge trigger for USB_DP (D-)
 
-#if defined(BOOTLOADER_BTN_TRIG_LEVEL)
+#if defined(BOOTLOADER_BTN_PORT) && defined(BOOTLOADER_BTN_TRIG_LEVEL) && defined(BOOTLOADER_BTN_PIN)
 	#if BOOTLOADER_BTN_TRIG_LEVEL == 0
 		if(LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->INDR & (1<<BOOTLOADER_BTN_PIN)) boot_usercode();
 	#else
