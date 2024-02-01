@@ -9,20 +9,54 @@
 #define INSTANCE_DESCRIPTORS
 #include "rv003usb.h"
 
+// These are required to be able to compare PORTs against each other
+#define PORTIDA 0
+#define PORTIDC 2
+#define PORTIDD 3
 #define LOCAL_CONCAT(A, B) A##B
 #define LOCAL_EXP(A, B) LOCAL_CONCAT(A,B)
+#define PORTID_EQUALS(A, B) (LOCAL_CONCAT(PORTID,A) == LOCAL_CONCAT(PORTID,B))
 
 // To use time debugging, enable thsi here, and RV003USB_DEBUG_TIMING in the .S
 // You must update in tandem
 //#define RV003USB_DEBUG_TIMING 1
 
-// If you don't want to automatically boot into the application, set
-// this flag:
+// If you don't want to automatically boot into the application ever,
+// comment out BOOTLOADER_TIMEOUT_USB and set this flag:
 //#define DISABLE_BOOTLOAD
+
+// Set this if you want the bootloader to keep the Port configuration untouched
+// Otherwise it will reset all Pins on the Port used to input; costs 8-16 Bytes
+//#define BOOTLOADER_KEEP_PORT_CFG
+
+// Bootloader Button Config
+// If you want to use a Button during boot to enter bootloader, use these defines 
+// to setup the Button. If you do, it makes sense to also set DISABLE_BOOTLOAD above, 
+// set BOOTLOADER_TIMEOUT_PWR to 0 and disable BOOTLOADER_TIMEOUT_USB
+//#define BOOTLOADER_BTN_PORT D
+//#define BOOTLOADER_BTN_PIN 2
+//#define BOOTLOADER_BTN_TRIG_LEVEL 0 // 1 = HIGH; 0 = LOW
+//#define BOOTLOADER_BTN_PULL 1 // 1 = Pull-Up; 0 = Pull-Down; Optional, comment out for floating input
+
+// Timeout for bootloader after power-up, set to 0 to stay in bootloader forever
+// 75ms per unit; 67 ~= 5s
+#define BOOTLOADER_TIMEOUT_PWR 67
+
+// Timeout (reset) for bootloader once USB Host is detected, set to 0 to stay in bootloader forever
+// 75ms per unit; 0 costs 28 Bytes, >0 costs 48 Bytes; Comment out if not used
+//#define BOOTLOADER_TIMEOUT_USB 0
+
+// Timeout Timebase; Careful: Constant works out to a single lbu instruction. Changes may result in bigger code
+// -0x100000 = 302ms; -0x040000 = 75ms;
+#define BOOTLOADER_TIMEOUT_BASE -0x40000
 
 #define SCRATCHPAD_SIZE 128
 extern volatile int32_t runwordpad;
 extern uint8_t scratchpad[SCRATCHPAD_SIZE];
+
+#ifdef BOOTLOADER_TIMEOUT_USB
+volatile uint8_t reset_timeout = 0;
+#endif
 
 struct rv003usb_internal rv003usb_internal_data;
 
@@ -30,6 +64,14 @@ struct rv003usb_internal rv003usb_internal_data;
 uint8_t data_receptive;
 
 void SystemInit48HSIUNSAFE( void );
+
+void boot_usercode() {
+	FLASH->BOOT_MODEKEYR = FLASH_KEY1;
+	FLASH->BOOT_MODEKEYR = FLASH_KEY2;
+	FLASH->STATR = 0; // 1<<14 is zero, so, boot user code.
+	FLASH->CTLR = CR_LOCK_Set;
+	PFIC->SCTLR = 1<<31;
+}
 
 int main()
 {
@@ -79,27 +121,93 @@ int main()
 	}
 #endif
 
-	// GPIO reset.
-	LOCAL_EXP(GPIO,USB_PORT)->CFGLR &= ~( 0xF<<(4*USB_DM) | 0xF<<(4*USB_DP) | 0xF<<(4*USB_DPU) );
+#if defined(BOOTLOADER_BTN_PORT) && defined(BOOTLOADER_BTN_PULL)
+	#if BOOTLOADER_BTN_PULL == 1
+		LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->BSHR = 1<<BOOTLOADER_BTN_PIN;
+	#else
+		LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->BSHR = 1<<(BOOTLOADER_BTN_PIN+16);
+	#endif
+#endif
+
+
+#if defined(BOOTLOADER_BTN_PORT) && !PORTID_EQUALS(BOOTLOADER_BTN_PORT, USB_PORT)
+	// GPIO setup for Bootloader Button PORT
+	LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->CFGLR = (
+#ifdef BOOTLOADER_KEEP_PORT_CFG
+		LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->CFGLR 
+#else
+		0x44444444 // reset value (all input)
+#endif
+		// Reset the Bootloader Pin
+		& ~( 0xF<<(4*BOOTLOADER_BTN_PIN) )
+	) |
+	// Configure the Bootloader Pin
+	#if defined(BOOTLOADER_BTN_PULL)
+		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*BOOTLOADER_BTN_PIN);
+	#else
+		(GPIO_Speed_In | GPIO_CNF_IN_FLOATING)<<(4*BOOTLOADER_BTN_PIN);
+	#endif
+#endif
+		
 	// GPIO setup.
-	LOCAL_EXP(GPIO,USB_PORT)->CFGLR |=
+	LOCAL_EXP(GPIO,USB_PORT)->CFGLR = (
+#ifdef BOOTLOADER_KEEP_PORT_CFG
+		LOCAL_EXP(GPIO,USB_PORT)->CFGLR 
+#else
+		0x44444444 // reset value (all input)
+#endif
+		// Reset the USB Pins
+		& ~( 0xF<<(4*USB_DM) | 0xF<<(4*USB_DP) 
+		#ifdef USB_DPU
+			| 0xF<<(4*USB_DPU)
+		#endif
+		// reset Bootloader Btn Pin
+		#if defined(BOOTLOADER_BTN_PORT) && PORTID_EQUALS(BOOTLOADER_BTN_PORT,USB_PORT)
+			| 0xF<<(4*BOOTLOADER_BTN_PIN)
+		#endif
+		)
+	) |
+	// Configure the USB Pins
+#ifdef USB_DPU
+		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_DPU) |
+#endif
+#if defined(BOOTLOADER_BTN_PORT) && PORTID_EQUALS(BOOTLOADER_BTN_PORT,USB_PORT)
+	#if defined(BOOTLOADER_BTN_PULL)
+		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*BOOTLOADER_BTN_PIN) | 
+	#else
+		(GPIO_Speed_In | GPIO_CNF_IN_FLOATING)<<(4*BOOTLOADER_BTN_PIN) | 
+	#endif
+#endif
 		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DM) | 
-		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DP) | 
-		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_DPU);
+		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DP);
 
 	// Configure USB_DP (D-) as an interrupt on falling edge.
 	AFIO->EXTICR = LOCAL_EXP(GPIO_PortSourceGPIO,USB_PORT)<<(USB_DP*2); // Configure EXTI interrupt for USB_DP
 	EXTI->INTENR = 1<<USB_DP; // Enable EXTI interrupt
 	EXTI->FTENR = 1<<USB_DP;  // Enable falling edge trigger for USB_DP (D-)
 
+#if defined(BOOTLOADER_BTN_PORT) && defined(BOOTLOADER_BTN_TRIG_LEVEL) && defined(BOOTLOADER_BTN_PIN)
+	#if BOOTLOADER_BTN_TRIG_LEVEL == 0
+		if(LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->INDR & (1<<BOOTLOADER_BTN_PIN)) boot_usercode();
+	#else
+		if((LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->INDR & (1<<BOOTLOADER_BTN_PIN)) == 0) boot_usercode();
+	#endif
+#endif
+
+#ifdef USB_DPU
 	// This drives USB_DPU (D- Pull-Up) high, which will tell the host that we are going on-bus.
 	LOCAL_EXP(GPIO,USB_PORT)->BSHR = 1<<USB_DPU;
+#endif
 
 	// enable interrupt
 	NVIC_EnableIRQ( EXTI7_0_IRQn );
 
-	// Wait ~5 seconds.
-	int32_t localpad = -0xf00000; // Careful: Constant works out to a single lbu instruction.
+	// Bootloader timeout / localpad: 
+	// localpad counting up to 0 is used for timeout
+	// localpad transitioning from -1 to 0 boots user code
+	// localpad set to 0 disables timeout
+	// localpad counting down to 0 is used for executing code from scratchpad
+	int32_t localpad = BOOTLOADER_TIMEOUT_BASE * BOOTLOADER_TIMEOUT_PWR;
 	while(1)
 	{
 		if( localpad < 0 )
@@ -115,6 +223,17 @@ int main()
 				PFIC->SCTLR = 1<<31;
 #endif
 			}
+#ifdef BOOTLOADER_TIMEOUT_USB
+			// Bootloader timeout reset was requested after first USB Communication
+	#if BOOTLOADER_TIMEOUT_USB > 0
+			if(reset_timeout == 1) {
+				localpad = BOOTLOADER_TIMEOUT_BASE * BOOTLOADER_TIMEOUT_USB;
+				reset_timeout = 2; // prevent from triggering again
+			}
+	#else
+			if(reset_timeout) localpad = 0;
+	#endif
+#endif
 		}
 		if( localpad > 0 )
 		{
@@ -186,6 +305,15 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 
 void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, uint32_t length, struct rv003usb_internal * ist )
 {
+#ifdef BOOTLOADER_TIMEOUT_USB
+	// Detect first USB communication in order to reset the Bootloader Timeout if configured
+	#if BOOTLOADER_TIMEOUT_USB > 0
+		if(reset_timeout == 0) reset_timeout = 1;
+	#else
+		reset_timeout = 1;
+	#endif
+#endif
+
 	//Received data from host.
 	int cep = ist->current_endpoint;
 	struct usb_endpoint * e = &ist->eps[cep];
