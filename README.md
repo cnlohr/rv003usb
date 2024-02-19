@@ -20,7 +20,7 @@ It shows both how to be a normal USB device, as well as how to write programs to
 
 ![Example Schematic](https://raw.githubusercontent.com/cnlohr/rv003usb/master/doc/schematic.png)
 
-The reason why D+/D- is "flipped" here verses `usb_config.h` is because for USB low-speed, the D+/D- lines are swapped. It is frustratingly unintuitive.
+The reason why D+/D- is "flipped" from what is listed in `usb_config.h` is because for USB low-speed, the D+/D- lines are swapped. It is frustratingly unintuitive. Also note that if you change the pin assignments for your custom hardware, you will need to run `make clean` after any hardware changes (and then run `make`).
 
 As-written you **cannot** use PD6,7 or PC6,7 in any combination with the USB stack.  You must use other pins.  Sorry, let me know if you find a way.
 
