@@ -174,7 +174,7 @@ packet_type_loop:
 	// a0 = 00 for 1 and 11 for 0
 
 	// No CRC for the header.
-	//c.srli a0, USB_DM
+	//c.srli a0, USB_DP
 	//c.addi a0, 1 // 00 -> 1, 11 -> 100
 	//c.andi a0, 1 // If 1, 1 if 0, 0
         c.nop
@@ -421,7 +421,7 @@ interrupt_complete:
 	c.j 1f; 1: // Extra little bit of delay to make sure we don't accidentally false fire.
 
 	la a5, EXTI_BASE + 20
-	li a0, (1<<USB_DP)
+	li a0, (1<<USB_DM)
 	sw a0, 0(a5)
 
 	// Restore stack.
@@ -569,20 +569,20 @@ usb_send_data:
 	// ASAP: Turn the bus around and send our preamble + token.
 	c.lw a4, CFGLR_OFFSET(a5)
 
-	li s1, ~((0b1111<<(USB_DM*4)) | (0b1111<<(USB_DP*4)))
+	li s1, ~((0b1111<<(USB_DP*4)) | (0b1111<<(USB_DM*4)))
 	and a4, s1, a4
 
 	// Convert D+/D- into 2MHz outputs
-	li s1, ((0b0010<<(USB_DM*4)) | (0b0010<<(USB_DP*4)))
+	li s1, ((0b0010<<(USB_DP*4)) | (0b0010<<(USB_DM*4)))
 	or a4, s1, a4
 
-	li s1, (1<<USB_DM) | (1<<(USB_DP+16))
+	li s1, (1<<USB_DP) | (1<<(USB_DM+16))
 	c.sw s1, BSHR_OFFSET(a5)
 
 	//00: Universal push-pull output mode
 	c.sw a4, CFGLR_OFFSET(a5)
 
-	li t1, (1<<USB_DM) | (1<<(USB_DP+16)) | (1<<USB_DP) | (1<<(USB_DM+16));
+	li t1, (1<<USB_DP) | (1<<(USB_DM+16)) | (1<<USB_DM) | (1<<(USB_DP+16));
 
 	SAVE_DEBUG_MARKER( 8 )
 
@@ -787,20 +787,20 @@ no_really_done_sending_data:
 	nx6p3delay( 2, a3 );
 
 	// Need to perform an SE0.
-	li s1, (1<<(USB_DP+16)) | (1<<(USB_DM+16))
+	li s1, (1<<(USB_DM+16)) | (1<<(USB_DP+16))
 	c.sw s1, BSHR_OFFSET(a5)
 
 	nx6p3delay( 7, a3 );
 
-	li s1, (1<<(USB_DP)) | (1<<(USB_DM+16))
+	li s1, (1<<(USB_DM)) | (1<<(USB_DP+16))
 	c.sw s1, BSHR_OFFSET(a5)
 
 	lw s1, CFGLR_OFFSET(a5)
 	// Convert D+/D- into inputs.
-	li a3, ~((0b11<<(USB_DM*4)) | (0b11<<(USB_DP*4)))
+	li a3, ~((0b11<<(USB_DP*4)) | (0b11<<(USB_DM*4)))
 	and s1, a3, s1
 	// 01: Floating input mode.
-	li a3, ((0b01<<(USB_DM*4+2)) | (0b01<<(USB_DP*4+2)))
+	li a3, ((0b01<<(USB_DP*4+2)) | (0b01<<(USB_DM*4+2)))
 	or s1, a3, s1
 	sw s1, CFGLR_OFFSET(a5)
 

@@ -181,10 +181,10 @@ int main()
 		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DM) | 
 		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DP);
 
-	// Configure USB_DP (D-) as an interrupt on falling edge.
-	AFIO->EXTICR = LOCAL_EXP(GPIO_PortSourceGPIO,USB_PORT)<<(USB_DP*2); // Configure EXTI interrupt for USB_DP
-	EXTI->INTENR = 1<<USB_DP; // Enable EXTI interrupt
-	EXTI->FTENR = 1<<USB_DP;  // Enable falling edge trigger for USB_DP (D-)
+	// Configure USB_DM (D-) as an interrupt on falling edge.
+	AFIO->EXTICR = LOCAL_EXP(GPIO_PortSourceGPIO,USB_PORT)<<(USB_DM*2); // Configure EXTI interrupt for USB_DM
+	EXTI->INTENR = 1<<USB_DM; // Enable EXTI interrupt
+	EXTI->FTENR = 1<<USB_DM;  // Enable falling edge trigger for USB_DM (D-)
 
 #if defined(BOOTLOADER_BTN_PORT) && defined(BOOTLOADER_BTN_TRIG_LEVEL) && defined(BOOTLOADER_BTN_PIN)
 	#if BOOTLOADER_BTN_TRIG_LEVEL == 0
