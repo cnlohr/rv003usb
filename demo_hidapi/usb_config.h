@@ -1,5 +1,6 @@
 #ifndef _USB_CONFIG_H
 #define _USB_CONFIG_H
+#define _USB_CONFIG_H_VER 2
 
 //Defines the number of endpoints for this device. (Always add one for EP0). For two EPs, this should be 3.
 #define ENDPOINTS 2

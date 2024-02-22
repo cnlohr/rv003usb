@@ -3,6 +3,12 @@
 
 #include "usb_config.h"
 
+// Earlier usb_config.h had USB_DM/USB_DP swapped; Alert user to correct them!
+#if !defined(_USB_CONFIG_H_VER) || _USB_CONFIG_H_VER < 2
+#error 	Your "usb_config.h" is outdated! Please swap USB_DP/USB_DM, \
+		they now reflect the correct signal! \
+		Add "#define _USB_CONFIG_H_VER 2" to suppress this error!
+#endif
 
 #define LOCAL_CONCAT_BASE(A, B) A##B##_BASE
 #define LOCAL_EXP_BASE(A, B) LOCAL_CONCAT_BASE(A,B)
