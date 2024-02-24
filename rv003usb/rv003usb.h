@@ -88,7 +88,7 @@ uint32_t * GetUEvent();
 // Packet Type + 8 + CRC + Buffer
 #define USB_BUFFER_SIZE 12
 
-#define USB_DMASK ((1<<(USB_DM)) | 1<<(USB_DP))
+#define USB_DMASK ((1<<(USB_PIN_DP)) | 1<<(USB_PIN_DM))
 
 #ifdef  RV003USB_OPTIMIZE_FLASH
 #define MY_ADDRESS_OFFSET_BYTES 4
