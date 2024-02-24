@@ -3,6 +3,15 @@
 
 #include "usb_config.h"
 
+// Fallback and issue warning for users with the swapped pin assignments of previous versions
+#if defined(USB_DM) && defined(USB_DP)
+#warning "You usb_config.h is outdated. Please use USB_PIN_DP, USB_PIN_DM and USB_PIN_DPU instead with their respective signal (no swapping!)"
+#define USB_PIN_DM USB_DP
+#define USB_PIN_DP USB_DM
+#if defined(USB_DPU)
+#define USB_PIN_DPU USB_DPU
+#endif // DPU
+#endif // DM/DP
 
 #define LOCAL_CONCAT_BASE(A, B) A##B##_BASE
 #define LOCAL_EXP_BASE(A, B) LOCAL_CONCAT_BASE(A,B)
