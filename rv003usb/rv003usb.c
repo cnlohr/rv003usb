@@ -94,26 +94,26 @@ void usb_setup()
 	// GPIO Setup
 	LOCAL_EXP( GPIO, USB_PORT )->CFGLR = 
 		( LOCAL_EXP( GPIO, USB_PORT )->CFGLR & 
-			(~( ( ( 0xf << (USB_DM*4)) | ( 0xf << (USB_DP*4)) 
-#ifdef USB_DPU
-				| ( 0xf << (USB_DPU*4)) 
+			(~( ( ( 0xf << (USB_PIN_DP*4)) | ( 0xf << (USB_PIN_DM*4)) 
+#ifdef USB_PIN_DPU
+				| ( 0xf << (USB_PIN_DPU*4)) 
 #endif
 			) )) )
 		 |
-#ifdef USB_DPU
-		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_DPU) |
+#ifdef USB_PIN_DPU
+		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_PIN_DPU) |
 #endif
-		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DM) | 
-		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DP);
+		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_PIN_DP) | 
+		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_PIN_DM);
 
-	// Configure USB_DP (D-) as an interrupt on falling edge.
-	AFIO->EXTICR = LOCAL_EXP(GPIO_PortSourceGPIO,USB_PORT)<<(USB_DP*2); // Configure EXTI interrupt for USB_DP
-	EXTI->INTENR = 1<<USB_DP; // Enable EXTI interrupt
-	EXTI->FTENR = 1<<USB_DP;  // Enable falling edge trigger for USB_DP (D-)
+	// Configure USB_PIN_DM (D-) as an interrupt on falling edge.
+	AFIO->EXTICR = LOCAL_EXP(GPIO_PortSourceGPIO,USB_PORT)<<(USB_PIN_DM*2); // Configure EXTI interrupt for USB_PIN_DM
+	EXTI->INTENR = 1<<USB_PIN_DM; // Enable EXTI interrupt
+	EXTI->FTENR = 1<<USB_PIN_DM;  // Enable falling edge trigger for USB_PIN_DM (D-)
 
-#ifdef USB_DPU
-	// This drives USB_DPU (D- Pull-Up) high, which will tell the host that we are going on-bus.
-	LOCAL_EXP(GPIO,USB_PORT)->BSHR = 1<<USB_DPU;
+#ifdef USB_PIN_DPU
+	// This drives USB_PIN_DPU (D- Pull-Up) high, which will tell the host that we are going on-bus.
+	LOCAL_EXP(GPIO,USB_PORT)->BSHR = 1<<USB_PIN_DPU;
 #endif
 
 	// enable interrupt

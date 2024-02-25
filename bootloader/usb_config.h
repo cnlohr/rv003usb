@@ -16,9 +16,9 @@
 	PC4 D-_PU
 */
 
-#define USB_DM 3 // USB_DM is the physical USB D+ Pin!
-#define USB_DP 4 // USB_DP is the physical USB D- Pin!
-#define USB_DPU 5 // USB_DPU feeds the 1.5K Pull-Up on USB D- Pin! Comment out if not used / tied to 3V3!
+#define USB_PIN_DP 3 // USB_PIN_DP is the physical USB D+ Pin!
+#define USB_PIN_DM 4 // USB_PIN_DM is the physical USB D- Pin!
+#define USB_PIN_DPU 5 // USB_PIN_DPU feeds the 1.5K Pull-Up on USB D- Pin! Comment out if not used / tied to 3V3!
 #define USB_PORT D // Pins on PORT A, C or D
 
 #define RV003USB_OPTIMIZE_FLASH 1

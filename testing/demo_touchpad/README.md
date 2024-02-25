@@ -15,11 +15,11 @@ Connected to touch pads,
 
 It maps left/right and up/down to axes, and all the buttons to buttons.
 
-Assuming USB is as follows:  (remember, DM/DP are flipped)
+Assuming USB is as follows:
 ```
-#define USB_DM 2
-#define USB_DP 1
-#define USB_DPU 0
+#define USB_PIN_DP 2
+#define USB_PIN_DM 1
+#define USB_PIN_DPU 0
 #define USB_PORT C
 ```
 

@@ -157,9 +157,9 @@ int main()
 		0x44444444 // reset value (all input)
 #endif
 		// Reset the USB Pins
-		& ~( 0xF<<(4*USB_DM) | 0xF<<(4*USB_DP) 
-		#ifdef USB_DPU
-			| 0xF<<(4*USB_DPU)
+		& ~( 0xF<<(4*USB_PIN_DP) | 0xF<<(4*USB_PIN_DM) 
+		#ifdef USB_PIN_DPU
+			| 0xF<<(4*USB_PIN_DPU)
 		#endif
 		// reset Bootloader Btn Pin
 		#if defined(BOOTLOADER_BTN_PORT) && PORTID_EQUALS(BOOTLOADER_BTN_PORT,USB_PORT)
@@ -168,8 +168,8 @@ int main()
 		)
 	) |
 	// Configure the USB Pins
-#ifdef USB_DPU
-		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_DPU) |
+#ifdef USB_PIN_DPU
+		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_PIN_DPU) |
 #endif
 #if defined(BOOTLOADER_BTN_PORT) && PORTID_EQUALS(BOOTLOADER_BTN_PORT,USB_PORT)
 	#if defined(BOOTLOADER_BTN_PULL)
@@ -178,13 +178,13 @@ int main()
 		(GPIO_Speed_In | GPIO_CNF_IN_FLOATING)<<(4*BOOTLOADER_BTN_PIN) | 
 	#endif
 #endif
-		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DM) | 
-		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_DP);
+		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_PIN_DP) | 
+		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_PIN_DM);
 
-	// Configure USB_DP (D-) as an interrupt on falling edge.
-	AFIO->EXTICR = LOCAL_EXP(GPIO_PortSourceGPIO,USB_PORT)<<(USB_DP*2); // Configure EXTI interrupt for USB_DP
-	EXTI->INTENR = 1<<USB_DP; // Enable EXTI interrupt
-	EXTI->FTENR = 1<<USB_DP;  // Enable falling edge trigger for USB_DP (D-)
+	// Configure USB_PIN_DM (D-) as an interrupt on falling edge.
+	AFIO->EXTICR = LOCAL_EXP(GPIO_PortSourceGPIO,USB_PORT)<<(USB_PIN_DM*2); // Configure EXTI interrupt for USB_PIN_DM
+	EXTI->INTENR = 1<<USB_PIN_DM; // Enable EXTI interrupt
+	EXTI->FTENR = 1<<USB_PIN_DM;  // Enable falling edge trigger for USB_PIN_DM (D-)
 
 #if defined(BOOTLOADER_BTN_PORT) && defined(BOOTLOADER_BTN_TRIG_LEVEL) && defined(BOOTLOADER_BTN_PIN)
 	#if BOOTLOADER_BTN_TRIG_LEVEL == 0
@@ -194,9 +194,9 @@ int main()
 	#endif
 #endif
 
-#ifdef USB_DPU
-	// This drives USB_DPU (D- Pull-Up) high, which will tell the host that we are going on-bus.
-	LOCAL_EXP(GPIO,USB_PORT)->BSHR = 1<<USB_DPU;
+#ifdef USB_PIN_DPU
+	// This drives USB_PIN_DPU (D- Pull-Up) high, which will tell the host that we are going on-bus.
+	LOCAL_EXP(GPIO,USB_PORT)->BSHR = 1<<USB_PIN_DPU;
 #endif
 
 	// enable interrupt
