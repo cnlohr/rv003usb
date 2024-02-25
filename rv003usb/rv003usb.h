@@ -13,6 +13,10 @@
 #define USB_PIN_DPU USB_DPU
 #endif
 
+#if !defined(FUNCONF_SYSTICK_USE_HCLK) || !FUNCONF_SYSTICK_USE_HCLK
+#error "RV003USB requires #define FUNCONF_SYSTICK_USE_HCLK 1; see funconfig.h"
+#endif
+
 #define LOCAL_CONCAT_BASE(A, B) A##B##_BASE
 #define LOCAL_EXP_BASE(A, B) LOCAL_CONCAT_BASE(A,B)
 
