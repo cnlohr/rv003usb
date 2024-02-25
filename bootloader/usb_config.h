@@ -16,10 +16,10 @@
 	PC4 D-_PU
 */
 
-#define USB_PIN_DP 3 // USB_PIN_DP is the physical USB D+ Pin!
-#define USB_PIN_DM 4 // USB_PIN_DM is the physical USB D- Pin!
-#define USB_PIN_DPU 5 // USB_PIN_DPU feeds the 1.5K Pull-Up on USB D- Pin! Comment out if not used / tied to 3V3!
-#define USB_PORT D // Pins on PORT A, C or D
+#define USB_PORT D     // [A,C,D] GPIO Port to use with D+, D- and DPU
+#define USB_PIN_DP 3   // [0-4] GPIO Number for USB D+ Pin
+#define USB_PIN_DM 4   // [0-4] GPIO Number for USB D- Pin
+#define USB_PIN_DPU 5  // [0-7] GPIO for feeding the 1.5k Pull-Up on USB D- Pin; Comment out if not used / tied to 3V3!
 
 #define RV003USB_OPTIMIZE_FLASH 1
 
