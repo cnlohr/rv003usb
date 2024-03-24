@@ -205,7 +205,9 @@ int main()
 #if defined(USB_PIN_DPU) && !defined(USB_DPU_PORT)
 	// This drives USB_PIN_DPU (D- Pull-Up) high, which will tell the host that we are going on-bus.
 	LOCAL_EXP(GPIO,USB_PORT)->BSHR = 1<<USB_PIN_DPU;
-#else
+#endif
+
+#if defined(USB_PIN_DPU) && defined(USB_DPU_PORT)
 	LOCAL_EXP(GPIO,USB_DPU_PORT)->BSHR = 1<<USB_PIN_DPU;
 #endif
 
