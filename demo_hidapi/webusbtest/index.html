@@ -1,0 +1,207 @@
+<HTML>
+<HEAD>
+<STYLE>
+:root {
+  color-scheme: dark;
+}
+</STYLE>
+<LINK rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon"> 
+<META charset="UTF-8">
+<SCRIPT>
+
+const expectedProductName = "CNLohr RV003 Custom Device";
+let dev = null;
+let sendLoopPromise = new Promise(()=>{});
+
+function setStatus( msg )
+{
+	document.getElementById( "STATUS" ).innerHTML = msg;
+}
+
+function setStatusError( msg )
+{
+	setStatus( "<FONT COLOR=RED>" + msg + "</FONT>" );
+	closeDeviceTool();
+}
+
+function tryConnect()
+{
+	if( !navigator.hid )
+	{
+		return;
+	}
+	
+	if( !dev )
+	{
+		navigator.hid.getDevices().then( (devices) =>
+		{
+			if( devices.length == 0 )
+				setStatusError( "No devices found. Open a device." );
+			else
+				devices.forEach( tryOpen );
+		});
+	}
+}
+
+async function closeDeviceTool()
+{
+	dev = null;
+	await sendLoopPromise;
+	setStatusError( "Disconnected" );
+}
+
+function onLoad()
+{
+	tryConnect();
+
+	if( !navigator.hid )
+	{
+		setStatusError( "Browser does not support HID." );
+		document.getElementById( "connectButton" ).hidden = true;
+	}
+	else
+	{
+		navigator.hid.addEventListener("disconnect", (event) => { if( event.device.productName == expectedProductName ) closeDeviceTool(); } );
+	}
+
+    setTimeout( () => { elapsedOK = true; }, 3000 );
+
+}
+
+function reqConnect()
+{
+	if( dev )
+	{
+		dev.forget();
+		dev = null;
+	}
+	
+	const initialization = navigator.hid.requestDevice( { filters: [ { vendorId : 0x1209, productId : 0xd003 } ] } );
+	initialization.then( gotUSBDevice );
+	initialization.catch( setStatusError );
+}
+
+function gotUSBDevice(result)
+{
+	if( result.length < 1 )
+	{
+		setStatusError( "Error: No devices found" );
+		return;
+	}
+
+	if( result[0].productName != expectedProductName )
+	{
+		setStatusError( "Error: Wrong device name.  Got " + result[0].productName + " Expected " + expectedProductName );
+		return;
+	}
+
+	const thisDev = result[0];
+	
+	tryOpen( thisDev );
+}
+
+function tryOpen( thisDev )
+{
+	if( dev != null ) return;
+
+	thisDev.open().then( ( result ) => {
+		if( result === undefined )
+		{
+			dev = thisDev;
+			setTimeout( () => { sendLoopPromise = new Promise(sendLoop); }, 1 );
+			setStatus( "Connected." );
+		}
+		else
+		{
+			setStatusError( "Error: Could not open; " + result );
+		}
+	} ).catch( (e) => setStatusError( "Error: Could not open; " + e ) );
+}
+
+g
+async function sendLoop()
+{
+	const sleep = ms => new Promise(r => setTimeout(r, ms));
+	var arraySend = new Uint8Array(255);
+	var frameNo = 0|0;
+	var lastTime = performance.now();
+	let sendReport = null;
+	let receiveReport = null;
+	let goodCount = 0;
+	let badCount = 0;
+	while( dev )
+	{
+		var i = 0|0;
+		for( var i = 1|0; i < 255|0; i++ )
+			arraySend[i] = (Math.random()*256)|0;
+
+		if( dev )
+		{
+			sendReport = dev.sendFeatureReport( 0xAA, arraySend )
+				.catch( (e) => { setStatusError( e ); dev = null; } );
+
+			if( !sendReport )
+			{
+				tryConnect();
+				await sleep(10);
+			}
+
+			receiveReport = dev.receiveFeatureReport( 0xAA, 256 )
+				.catch( (e) => { setStatusError( e ); dev = null; } );
+
+			if( !receiveReport )
+			{
+				tryConnect();
+				await sleep(10);
+			}
+
+			frameNo++;
+		}
+
+		if( frameNo % 4 == 0 )
+		{
+			var thisTime = performance.now();
+			var deltaTime = thisTime - lastTime;
+			document.getElementById( "StatusPerf" ).innerHTML = ((255*1000/1024*4)/(deltaTime)).toFixed(2) + " kBytes/s (Split between send and receive)<br>" + "Good Count: " + goodCount + "<BR>Bad Count: " + badCount;
+			lastTime = thisTime;
+		}
+
+		if( sendReport )
+		{
+			await sendReport;
+		}
+		if( receiveReport )
+		{
+			// Validate Data.
+			let receiveData = await receiveReport;
+			let data = new Uint8Array( receiveData.buffer );
+
+			// Tricky: Data goes:
+			//  reportID
+			//  status
+			//  Payload
+			let failed = false;
+			for( var i = 1|0; i < 254|0; i++ )
+			{
+				if( data[i+1] != arraySend[i] )
+				{
+					console.log( "Disagreement at index " + i );
+					console.log( data );
+					console.log( arraySend );
+					badCount++;
+					failed = true;
+					break;
+				}
+			}
+			if( !failed ) goodCount++;
+		}
+	}
+}
+
+</SCRIPT>
+<BODY onload="onLoad()">
+
+<TABLE><TR><TD><INPUT TYPE=SUBMIT onClick="reqConnect()" VALUE="Open Device" ID=connectButton></TD><TD><DIV ID=STATUS></DIV></TD></TR></TABLE>
+<DIV ID="StatusPerf"></DIV>
+</BODY>
+</HTML>
