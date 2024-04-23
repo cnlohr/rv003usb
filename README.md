@@ -69,7 +69,7 @@ Here are the following demos and their statuses...
 | ------------ | ----------- | --------------- | ------------- |
 | [demo_gamepad](https://github.com/cnlohr/rv003usb/tree/master/demo_gamepad) | Extremely simple example, 2-axis gamepad + 8 buttons | `✅` | `✅` |
 | [demo_composite_hid](https://github.com/cnlohr/rv003usb/tree/master/demo_composite_hid) | Mouse and Keyboard in one device | `✅` | `✅` |
-| [demo_hidapi](https://github.com/cnlohr/rv003usb/tree/master/demo_hidapi) | Write code to directly talk to your project with fully-formed messages. (Works on [Android](https://github.com/cnlohr/androidusbtest)) | `✅` | `✅` |
+| [demo_hidapi](https://github.com/cnlohr/rv003usb/tree/master/demo_hidapi) | Write code to directly talk to your project with fully-formed messages. (Works on [Android](https://github.com/cnlohr/androidusbtest)) (Includes WebUSB Demo) | `✅` | `✅` |
 | [bootloader](https://github.com/cnlohr/rv003usb/tree/master/bootloader) | CH32V003 Self-bootloader, able to flash itself with minichlink | `✅` | `✅` |
 
 And the following largely incomplete, but proof-of-concept projects:
