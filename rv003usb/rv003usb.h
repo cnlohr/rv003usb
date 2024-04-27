@@ -1,6 +1,7 @@
 #ifndef _RV003USB_H
 #define _RV003USB_H
 
+#include "funconfig.h"
 #include "usb_config.h"
 
 // Fallback and issue warning for users with the swapped pin assignments of previous versions
