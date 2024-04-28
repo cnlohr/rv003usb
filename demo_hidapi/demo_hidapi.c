@@ -86,12 +86,28 @@ void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_
 void usb_handle_hid_get_report_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )
 {
 	if( reqLen > sizeof( scratch ) ) reqLen = sizeof( scratch );
+
+	// You can check the lValueLSBIndexMSB word to decide what you want to do here
+	// But, whatever you point this at will be returned back to the host PC where
+	// it calls hid_get_feature_report. 
+	//
+	// Please note, that on some systems, for this to work, your return length must
+	// match the length defined in HID_REPORT_COUNT, in your HID report, in usb_config.h
+
 	e->opaque = scratch;
 	e->max_len = reqLen;
 }
 
 void usb_handle_hid_set_report_start( struct usb_endpoint * e, int reqLen, uint32_t lValueLSBIndexMSB )
 {
+	// Here is where you get an alert when the host PC calls hid_send_feature_report.
+	//
+	// You can handle the appropriate message here.  Please note that in this
+	// example, the data is chunked into groups-of-8-bytes.
+	//
+	// Note that you may need to make this match HID_REPORT_COUNT, in your HID
+	// report, in usb_config.h
+
 	if( reqLen > sizeof( scratch ) ) reqLen = sizeof( scratch );
 	e->max_len = reqLen;
 }
