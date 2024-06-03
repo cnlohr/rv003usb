@@ -76,6 +76,8 @@ void boot_usercode() {
 
 int main()
 {
+	// In the bootloader, the normal ch32v003fun startup doesn't happen, so to enable the systick, we have to manually enable it,
+	// and configure it.  This enables and configures it for high speed.
 	SysTick->CTLR = 5;
 
 	// Enable GPIOs, TIMERs
