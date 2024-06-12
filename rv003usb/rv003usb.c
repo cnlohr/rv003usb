@@ -133,7 +133,7 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 #if RV003USB_HANDLE_IN_REQUEST
 	if( e->custom || endp )
 	{
-		// Can re-use data-stack as scratchpad.
+		// Can reuse data-stack as scratchpad.
 		sendnow = __builtin_assume_aligned( data, 4 );
 		usb_handle_user_in_request( e, sendnow, endp, sendtok, ist );
 		return;
@@ -179,7 +179,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 	length -= 3;
 	uint8_t * data_in = __builtin_assume_aligned( data, 4 );
 
-	// Alrady received this packet.
+	// Already received this packet.
 	if( e->toggle_out != which_data )
 	{
 		goto just_ack;
@@ -239,7 +239,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 
 		// We shift down because we don't care if USB_RECIP_INTERFACE is set or not.
 		// Otherwise we have to write extra code to handle each case if it's set or
-		// not set, but in general, there's never a situation where we realy care.
+		// not set, but in general, there's never a situation where we really care.
 		uint32_t reqShl = s->wRequestTypeLSBRequestMSB >> 1;
 
 		//LogUEvent( 0, s->wRequestTypeLSBRequestMSB, wvi, s->wLength );

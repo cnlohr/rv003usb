@@ -48,7 +48,7 @@ struct usb_endpoint;
 struct rv003usb_internal;
 struct usb_urb;
 
-// usb_hande_interrupt_in is OBLIGATED to call usb_send_data or usb_send_empty.
+// usb_handle_interrupt_in is OBLIGATED to call usb_send_data or usb_send_empty.
 // Enable with RV003USB_HANDLE_IN_REQUEST=1
 void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, int endp, uint32_t sendtok, struct rv003usb_internal * ist );
 
@@ -174,8 +174,8 @@ struct rv003usb_internal
 };
 
 //Detailed analysis of some useful stuff and performance tweaking: http://naberius.de/2015/05/14/esp8266-gpio-output-performance/
-//Reverse engineerd boot room can be helpful, too: http://cholla.mmto.org/esp8266/bootrom/boot.txt
-//USB Protocol read from wikipedia: https://en.wikipedia.org/wiki/USB
+//Reverse engineered boot room can be helpful, too: http://cholla.mmto.org/esp8266/bootrom/boot.txt
+//USB Protocol read from Wikipedia: https://en.wikipedia.org/wiki/USB
 // Neat stuff: http://www.usbmadesimple.co.uk/ums_3.htm
 // Neat stuff: http://www.beyondlogic.org/usbnutshell/usb1.shtml
 
