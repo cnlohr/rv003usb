@@ -13,7 +13,7 @@
 
 #define SYSTICK_CNT 0xE000F008
 
-// This is 6 * n + 3 cylces
+// This is 6 * n + 3 cycles
 #define nx6p3delay( n, freereg ) li freereg, ((n)+1); 1: c.addi freereg, -1; c.bnez freereg, 1b
 
 //See RV003USB_DEBUG_TIMING note in .c file.
@@ -133,7 +133,7 @@ done_preamble:
 	// -5 cycles is too much.
 	// -4 to +6 cycles is OK
 
-	//XXX NOTE: It actuall wouldn't be too bad to inser an *extra* cycle here.
+	//XXX NOTE: It actually wouldn't be too bad to insert an *extra* cycle here.
 
 	/* register meanings:
 		* x4 = TP = used for triggering debug.
@@ -208,7 +208,7 @@ packet_type_loop:
 	// we can branch off of bit 2.
 	andi a0, a2, 0x0c
 
-	// if a0 is 1 then it's DATA (full CRC) otheriwse,
+	// if a0 is 1 then it's DATA (full CRC) otherwise,
 	// (0) for setup or PARTIAL CRC.
 	// Careful:  This has to take a constant amount of time either way the branch goes.
 	c.beqz a0, data_crc
@@ -537,7 +537,7 @@ handle_se0_keepalive:
 	// Decimate windup - use as HSIrim.
 	neg a1, a1
 	srai a2, a1, 9
-	addi a2, a2, 16  // add hsi offset.
+	addi a2, a2, 16  // add HSI offset.
 
 	// Put trim in place in register.
 	slli a2, a2, 3
@@ -677,7 +677,7 @@ done_poly_check2:
 	// s0 is our current "bit" / byte / temp.
 
 	// a0 is our data
-	// a1 is is our length
+	// a1 is our length
 	// a2 our CRC
 	// a3 is TEMPORARY
 	// a4 is used for bit stuffing.
@@ -829,8 +829,8 @@ insert_stuffed_bit:
 
 #ifdef USE_TINY_BOOT
 
-// Absolutey bare-bones hardware initialization for bringing the chip up,
-// setting up the envrionment for C, switching to 48MHz clock, and booting
+// Absolutely bare-bones hardware initialization for bringing the chip up,
+// setting up the environment for C, switching to 48MHz clock, and booting
 // into main... as well as providing EXTI7_0_IRQHandler jump at interrupt
 
 .section .init
