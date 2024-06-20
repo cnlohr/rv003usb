@@ -22,13 +22,13 @@ The configuration is done via #defines in `bootloader.c`. See the file for all p
 By default, the bootloader is active on every power-up for ~5s and then boots user code if no communication was present. The timeout can be configured.
 
 ~~~c
-// Basic timout on power-up
+// Basic timeout on power-up
 #define BOOTLOADER_TIMEOUT_PWR 67 // 67 ticks ~= 5s
 ~~~
 
-#### USB Host detection and timout
+#### USB Host detection and timeout
 
-The bootloader can detect the presence of a USB host (not a charger) and adapt the timout in that case. This is useful for devices that are often switched on but usually not connected to a USB Host (e.g. only for firmware updated). Here you want a really short timeout for the bootloader that is only extended if a USB host is detected, giving you a fast/responsive user experience when the devices is powerd on via a charger or battery.
+The bootloader can detect the presence of a USB host (not a charger) and adapt the timeout in that case. This is useful for devices that are often switched on but usually not connected to a USB Host (e.g. only for firmware updated). Here you want a really short timeout for the bootloader that is only extended if a USB host is detected, giving you a fast/responsive user experience when the devices is powerd on via a charger or battery.
 
 ~~~c
 // Stay in bootloader forever if USB host is detected within 3 ticks (~225ms) after power-up, otherwise boot user code
@@ -56,12 +56,12 @@ Using a button you have to press while powering on the device is usually the bes
 // BOOTLOADER_TIMEOUT_PWR 67
 ~~~
 
-While you can, in theory, combine the boot button with the timeout and even USB host detection, this will cause the bootloader to exceed its size and result in a compile error. So disabling the timout by commenting out `BOOTLOADER_TIMEOUT_PWR` is recommended.
+While you can, in theory, combine the boot button with the timeout and even USB host detection, this will cause the bootloader to exceed its size and result in a compile error. So disabling the timeout by commenting out `BOOTLOADER_TIMEOUT_PWR` is recommended.
 
 ### USB Pins
 As for all RV003USB projects, the pins are configured in `usb_config.h` - see [main Readme](../) for this. However, there are additional considerations to take into account:
 
-1. As explaned above, the GPIOs used may change the compiled code size. If you need a feature like the USB Host detection, but the code gets too big, try changing the GPIOs.
+1. As explained above, the GPIOs used may change the compiled code size. If you need a feature like the USB Host detection, but the code gets too big, try changing the GPIOs.
 2. Not configuring `USB_PIN_DPU` saves additional bytes but requires you to power the pull-up on D- via 3V3 constantly (or other means) to get enumerated.
 3. Having the Bootloader Button on the same port as the USB saves additional bytes
 4. If your regular user code does not use the USB stack, you may want to be able to turn off the pull-up on D-. This causes the device to disconnect properly. Otherwise the USB device will keep sowing up but be unresponsive.

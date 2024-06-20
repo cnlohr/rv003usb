@@ -17,7 +17,7 @@
 #define LOCAL_EXP(A, B) LOCAL_CONCAT(A,B)
 #define PORTID_EQUALS(A, B) (LOCAL_CONCAT(PORTID,A) == LOCAL_CONCAT(PORTID,B))
 
-// To use time debugging, enable thsi here, and RV003USB_DEBUG_TIMING in the .S
+// To use time debugging, enable it here, and RV003USB_DEBUG_TIMING in the .S
 // You must update in tandem
 //#define RV003USB_DEBUG_TIMING 1
 
@@ -241,7 +241,7 @@ int main()
 		{
 			if( --localpad == 0 )
 			{
-				/* Scratchpad strucure:
+				/* Scratchpad structure:
 					4-bytes:		LONG( 0x000000aa )
 						... code (this is executed) (120 bytes)
 					4-bytes:        LONG( 0x1234abcd )
@@ -320,7 +320,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 	int cep = ist->current_endpoint;
 	struct usb_endpoint * e = &ist->eps[cep];
 
-	// Alrady received this packet.
+	// Already received this packet.
 	if( e->toggle_out != which_data )
 	{
 		goto just_ack;
@@ -402,7 +402,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 				if( *last4 == 0x1234abcd )
 				{
 					*last4 = 0;
-					runwordpad = 0x200; // Request exectution
+					runwordpad = 0x200; // Request execution
 				}
 				e->opaque = 0;
 			}

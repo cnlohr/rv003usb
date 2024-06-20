@@ -1,6 +1,6 @@
 # HIDAPI Demo
 
-This shows how to use the CH32V003 as a general-purpose HID device, with a HIDAPI endpoint that canbe used for any data you would like.
+This shows how to use the CH32V003 as a general-purpose HID device, with a HIDAPI endpoint that can be used for any data you would like.
 
 This demo sets up a HID endpoint that's 255 bytes in size.  Because it's low-speed USB, it transfers in groups of 8 bytes.
 
