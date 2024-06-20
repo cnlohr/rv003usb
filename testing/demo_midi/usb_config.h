@@ -138,7 +138,7 @@ static const uint8_t config_descriptor[] = {
 	0x1,                // bEndpointAddress
 	3,                  // bmAttributes = Interrupt
 	8, 0,               // wMaxPacketSize 
-	1,                  // bIntervall
+	1,                  // bInterval
 	0,                  // bRefresh
 	0,                  // bSynchAddress
 
@@ -157,7 +157,7 @@ static const uint8_t config_descriptor[] = {
 	0x81,               // bEndpointAddress
 	3,                  // bmAttributes: 2: Bulk, 3: Interrupt endpoint
 	8, 0,               // wMaxPacketSize
-	1,                  // bIntervall in ms
+	1,                  // bInterval in ms
 	0,                  // bRefresh (unused)
 	0,                  // bSyncAddress
 

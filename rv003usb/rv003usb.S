@@ -197,7 +197,7 @@ packet_type_loop:
 
 	// XXX Here, figure out CRC polynomial.
 
-	li s1, (USB_BUFFER_SIZE*8) // # of bits we culd read.
+	li s1, (USB_BUFFER_SIZE*8) // # of bits we could read.
 
 	// WARNING: a0 is bit-wise backwards here.
 	// 0xb4 for instance is a setup packet.

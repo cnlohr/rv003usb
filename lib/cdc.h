@@ -68,7 +68,7 @@ typedef enum
   CDC_COMM_SUBCLASS_MOBILE_DIRECT_LINE_MODEL          , ///< Mobile Direct Line Model  [USBWMC1.1]
   CDC_COMM_SUBCLASS_OBEX                              , ///< OBEX  [USBWMC1.1]
   CDC_COMM_SUBCLASS_ETHERNET_EMULATION_MODEL            ///< Ethernet Emulation Model  [USBEEM1.0]
-} cdc_comm_sublcass_type_t;
+} cdc_comm_subclass_type_t;
 
 /// Communication Interface Protocol Codes
 typedef enum
@@ -189,7 +189,7 @@ typedef enum
 }cdc_management_request_t;
 
 //--------------------------------------------------------------------+
-// Management Elemenent Notification (Notification Endpoint)
+// Management Element Notification (Notification Endpoint)
 //--------------------------------------------------------------------+
 
 /// Communication Interface Management Element Notification Codes
@@ -294,7 +294,7 @@ typedef struct TU_ATTR_PACKED
 TU_VERIFY_STATIC(sizeof(cdc_acm_capability_t) == 1, "mostly problem with compiler");
 
 /// \brief Abstract Control Management Functional Descriptor
-/// \details This functional descriptor describes the commands supported by by the Communications Class interface with SubClass code of \ref CDC_COMM_SUBCLASS_ABSTRACT_CONTROL_MODEL
+/// \details This functional descriptor describes the commands supported by the Communications Class interface with SubClass code of \ref CDC_COMM_SUBCLASS_ABSTRACT_CONTROL_MODEL
 typedef struct TU_ATTR_PACKED
 {
   uint8_t bLength                  ; ///< Size of this descriptor in bytes.

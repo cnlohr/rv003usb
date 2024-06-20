@@ -318,7 +318,7 @@ OSG_PREFIX void OGSetTLS( og_tls_t key, void * data )
 
 #elif defined( __wasm__ )
 
-//We don't actually have any function defintions here.
+//We don't actually have any function definitions here.
 //The outside system will handle it.
 
 #else

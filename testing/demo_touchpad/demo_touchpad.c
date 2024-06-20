@@ -21,7 +21,7 @@ struct HostData
 {
 	uint8_t  report;
 	uint8_t  extra;
-	int16_t  caled[8];
+	int16_t  called[8];
 } host;
 uint32_t frame;
 
@@ -72,17 +72,17 @@ int main()
 			uint32_t b = base[i];
 			base[i] = b;
 			int c = val - b;
-			host.caled[i] = c;
+			host.called[i] = c;
 			if( c > 0x800 )
 				btns |= 1<<i;
 		}
 
 
 		{
-			int l = host.caled[BTN_LEFT];
-			int r = host.caled[BTN_RIGHT];
-			int u = host.caled[BTN_UP];
-			int d = host.caled[BTN_DOWN];
+			int l = host.called[BTN_LEFT];
+			int r = host.called[BTN_RIGHT];
+			int u = host.called[BTN_UP];
+			int d = host.called[BTN_DOWN];
 			if( l > r )
 				tsajoystick[0] = (-l)>>5;
 			else
@@ -126,7 +126,7 @@ void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_
 	{
 		// for getting data host->us.
 
-		//memcpy( caled + offset, data, torx );
+		//memcpy( called + offset, data, torx );
 		e->count++;
 		//if( ( e->count << 3 ) >= e->max_len )
 		//{

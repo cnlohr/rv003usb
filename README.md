@@ -49,7 +49,7 @@ All configured pins need to be on the same GPIO port.
 
 A 1,5k pull-up on D- is used to signal the presence of a USB low-speed device on the bus. `USB_PIN_DPU` is designed to control this pull-up, but this is optional. You have three options here:
 
-1. Use `USB_PIN_DPU` to let RV003USB controll the GPIO. You're limited to using the same port as for D+/D-.
+1. Use `USB_PIN_DPU` to let RV003USB control the GPIO. You're limited to using the same port as for D+/D-.
 2. Comment out `USB_PIN_DPU` and tie the pull-up to 3V3. This frees a GPIO completely and signals device presence constantly. 
 3. Comment out `USB_PIN_DPU` and tie it to a GPIO of your choice - even on a different port. You have to signal device presence in your own user-code though.
 
@@ -84,13 +84,13 @@ Note: CDC In windows likely CAN work, but I can't figure out how to do it.  Linu
 
 ### It's built on ch32v003fun
 
-[ch32v003fun](https://github.com/cnlohr/ch32v003fun) is a minimal development SDK of sorts for the CH32V003, allowing for maximum flexability without needing lots of code surrounding a HAL.
+[ch32v003fun](https://github.com/cnlohr/ch32v003fun) is a minimal development SDK of sorts for the CH32V003, allowing for maximum flexibility without needing lots of code surrounding a HAL.
 
 ## General developer notes
 
 ### Care surrounding interrupts and critical sections.
 
-You are allowed to use interrupts and have critical sections, however, you should keep critical sections to approximately 40 or fewer cycles if possible.  Additionally if you are going to be using interrupts that will take longer than about 40 cycles to execute, you must enable preemption on that interrup.  For an example of how that works you can check the ws2812b SPI DMA driver in ch32v003fun.  The external pin-chane-interrupt **must** be the highest priority. And it **must never** be preempted.  While it's OK to have a short delay before it is fired, interrupting the USB reception code mid-transfer is prohibited.
+You are allowed to use interrupts and have critical sections, however, you should keep critical sections to approximately 40 or fewer cycles if possible.  Additionally if you are going to be using interrupts that will take longer than about 40 cycles to execute, you must enable preemption on that interrupt.  For an example of how that works you can check the ws2812b SPI DMA driver in ch32v003fun.  The external pin-change-interrupt **must** be the highest priority. And it **must never** be preempted.  While it's OK to have a short delay before it is fired, interrupting the USB reception code mid-transfer is prohibited.
 
 ### Modifying headers / `usb_config.h`
 

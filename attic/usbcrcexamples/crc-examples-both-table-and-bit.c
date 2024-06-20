@@ -11,7 +11,7 @@
 
 // This file from the table generation code here:
 // https://github.com/cnlohr/espusb/blob/master/table/table.c
-// It took me some time to decypher this:
+// It took me some time to decipher this:
 // https://www.usb.org/sites/default/files/crcdes.pdf
 
 

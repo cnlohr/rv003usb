@@ -16,7 +16,7 @@ There are two features, 0xAA (170), which is 255 (254) bytes in size.  As well a
 
 So you are aware, there are a number of gotchas when making platform-agostic HID RAW devices in Linux
  * The first byte of the requests must be the feature ID. (this demo uses 0xaa)
- * Windows REQUIRES notification in the HID descritor of the feature match both ID and transfer size!
+ * Windows REQUIRES notification in the HID descriptor of the feature match both ID and transfer size!
  * Yes, that's annoying because it means on Windows at least all your messages must be the same size.
  * On Linux, you may need to either be part of plugdev, and/or have your udev rules include the following:
 ```sh

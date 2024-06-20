@@ -88,7 +88,7 @@ void usb_handle_hid_get_report_start( struct usb_endpoint * e, int reqLen, uint3
 	if( reqLen > sizeof( scratch ) ) reqLen = sizeof( scratch );
 
 	// You can check the lValueLSBIndexMSB word to decide what you want to do here
-	// But, whatever you point this at will be returned back to the host PC where
+	// But, whatever you point this at will be returned to the host PC where
 	// it calls hid_get_feature_report. 
 	//
 	// Please note, that on some systems, for this to work, your return length must
