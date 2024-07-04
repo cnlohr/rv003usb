@@ -160,7 +160,7 @@ int main()
 #endif
 		// Reset the USB Pins
 		& ~( 0xF<<(4*USB_PIN_DP) | 0xF<<(4*USB_PIN_DM) 
-		#ifdef USB_PIN_DPU
+		#if defined(USB_PIN_DPU) && (PORTID_EQUALS(USB_DPU_PORT,USB_PORT) || !defined(USB_DPU_PORT))
 			| 0xF<<(4*USB_PIN_DPU)
 		#endif
 		// reset Bootloader Btn Pin
@@ -183,6 +183,11 @@ int main()
 		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_PIN_DP) | 
 		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_PIN_DM);
 
+#if defined(USB_DPU_PORT) && !PORTID_EQUALS(USB_DPU_PORT,USB_PORT)
+	LOCAL_EXP(GPIO, USB_DPU_PORT)->CFGLR &= ~(0xf<<(4*USB_PIN_DPU));
+   LOCAL_EXP(GPIO, USB_DPU_PORT)->CFGLR |= (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_PIN_DPU);
+#endif
+
 	// Configure USB_PIN_DM (D-) as an interrupt on falling edge.
 	AFIO->EXTICR = LOCAL_EXP(GPIO_PortSourceGPIO,USB_PORT)<<(USB_PIN_DM*2); // Configure EXTI interrupt for USB_PIN_DM
 	EXTI->INTENR = 1<<USB_PIN_DM; // Enable EXTI interrupt
@@ -196,9 +201,13 @@ int main()
 	#endif
 #endif
 
-#ifdef USB_PIN_DPU
+#if defined(USB_PIN_DPU) && !defined(USB_DPU_PORT)
 	// This drives USB_PIN_DPU (D- Pull-Up) high, which will tell the host that we are going on-bus.
 	LOCAL_EXP(GPIO,USB_PORT)->BSHR = 1<<USB_PIN_DPU;
+#endif
+
+#if defined(USB_PIN_DPU) && defined(USB_DPU_PORT)
+	LOCAL_EXP(GPIO,USB_DPU_PORT)->BSHR = 1<<USB_PIN_DPU;
 #endif
 
 	// enable interrupt
