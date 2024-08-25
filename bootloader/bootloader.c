@@ -222,6 +222,7 @@ int main()
 	int32_t localpad = BOOTLOADER_TIMEOUT_BASE * BOOTLOADER_TIMEOUT_PWR;
 	while(1)
 	{
+#if !(BOOTLOADER_TIMEOUT_PWR == 0) && defined(BOOTLOADER_BTN_PIN)
 		if( localpad < 0 )
 		{
 			if( ++localpad == 0 )
@@ -247,6 +248,7 @@ int main()
 	#endif
 #endif
 		}
+#endif
 		if( localpad > 0 )
 		{
 			if( --localpad == 0 )
