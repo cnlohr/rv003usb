@@ -52,6 +52,7 @@
 
 #define SCRATCHPAD_SIZE 128
 extern volatile int32_t runwordpad;
+static uint32_t runwordpadready = 0;
 extern uint8_t scratchpad[SCRATCHPAD_SIZE];
 
 #ifdef BOOTLOADER_TIMEOUT_USB
@@ -293,7 +294,8 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	// have to do anything with it, though.
 	if( endp ) //XXX TODO: This can be reworked - if it's anything other than "is_descriptor" then send nak.
 	{
-		usb_send_empty( sendtok );
+		// Save some space
+		goto sendempty;
 		return;
 	}
 
@@ -305,8 +307,16 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	if( tosend < 0 ) tosend = 0;
 	sendnow = tsend + offset;
 
+	// DON'T start the execution timer until after we receive the IN from the usb host req.
+	if (runwordpadready)
+	{
+		runwordpad = sendtok; // Anything non-zero is fine.
+		runwordpadready = 0;
+	}
+
 	if( !tosend || !tsend )
 	{
+sendempty:
 		usb_send_empty( sendtok );
 	}
 	else
@@ -413,7 +423,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 				if( *last4 == 0x1234abcd )
 				{
 					*last4 = 0;
-					runwordpad = 0x200; // Request exectution
+					runwordpadready = 1; // Request exectution, but wait for another IN pkt.
 				}
 				e->opaque = 0;
 			}
