@@ -14,13 +14,9 @@ uint8_t scratch[255];
 
 static uint8_t frame;
 
-uint32_t command_buffer[328];
-uint8_t reply_buffer[328];
+uint8_t command_buffer[64];  // to timer2
+uint8_t reply_buffer[64];    // from USART RX
 static uint32_t buffptr = 0;
-
-
-#define HIGH_RELEASE  (1 << ( (0 & 1) ? 16 : 0 ))
-#define LOW_DRIVE     (1 << ( (1 & 1) ? 16 : 0 ))
 
 static void FinishBuffer();
 static void Send1Bit();
@@ -29,45 +25,40 @@ static void IssueBuffer();
 
 static void FinishBuffer()
 {
-	while( DMA1_Channel2->CNTR );
-	while( DMA1_Channel3->CNTR );
+	while(1)
+	{
+		printf( "%d %d: %02x %02x %02x %02x %02x %02x %02x %02x\n", DMA1_Channel2->CNTR, DMA1_Channel5->CNTR, reply_buffer[0], reply_buffer[1], reply_buffer[2], reply_buffer[3], reply_buffer[4], reply_buffer[5], reply_buffer[6], reply_buffer[7] );
+	}
+	while( DMA1_Channel2->CNTR ); // To Timer 2
+	while( DMA1_Channel5->CNTR ); // From USART RX
 	buffptr = 0;
 }
+
+#define TPERIOD 51
 
 static void Send1Bit()
 {
 	// 224-236ns low pulse.
-	command_buffer[buffptr++] = LOW_DRIVE;
-	command_buffer[buffptr++] = HIGH_RELEASE;
-	command_buffer[buffptr++] = HIGH_RELEASE;
-	command_buffer[buffptr++] = HIGH_RELEASE;
-	command_buffer[buffptr++] = HIGH_RELEASE;
-	command_buffer[buffptr++] = HIGH_RELEASE;
+	command_buffer[buffptr++] = 3;
 }
 
 static void Send0Bit()
 {
 	// 862-876ns
-	command_buffer[buffptr++] = LOW_DRIVE;
-	command_buffer[buffptr++] = LOW_DRIVE;
-	command_buffer[buffptr++] = LOW_DRIVE;
-	command_buffer[buffptr++] = LOW_DRIVE;
-	command_buffer[buffptr++] = HIGH_RELEASE;
-	command_buffer[buffptr++] = HIGH_RELEASE;
+	command_buffer[buffptr++] = 30;
 }
 
 static void IssueBuffer()
 {
-
-	DMA1_Channel2->CNTR = buffptr;
-	DMA1_Channel3->CNTR = buffptr;
+	command_buffer[buffptr] = 0; // Turn PWM back to high.
+	command_buffer[buffptr+1] = 0; // Make sure the USART RX is read to read.
+	DMA1_Channel2->CNTR = buffptr+2;
+	DMA1_Channel5->CNTR = buffptr;
 }
 
 
 static void MCFWriteReg32( struct SWIOState * state, uint8_t command, uint32_t value )
 {
-	FinishBuffer();
-
 	Send1Bit();
 	uint32_t mask;
 	for( mask = 1<<6; mask; mask >>= 1 )
@@ -87,12 +78,12 @@ static void MCFWriteReg32( struct SWIOState * state, uint8_t command, uint32_t v
 	}
 
 	IssueBuffer();
+	FinishBuffer();
 }
 
 // returns 0 if no error, otherwise error.
 static int MCFReadReg32( struct SWIOState * state, uint8_t command, uint32_t * value )
 {
-	FinishBuffer();
 	Send1Bit();
 	uint32_t mask;
 	for( mask = 1<<6; mask; mask >>= 1 )
@@ -125,40 +116,83 @@ static int MCFReadReg32( struct SWIOState * state, uint8_t command, uint32_t * v
 
 void SetupTimer1AndDMA()
 {
-
+	RCC->APB2PCENR |= RCC_APB2Periph_USART1;
 	RCC->AHBPCENR |= RCC_AHBPeriph_DMA1;
-	RCC->APB2PCENR |= RCC_APB2Periph_TIM1;
+	RCC->APB1PCENR |= RCC_APB1Periph_TIM2;
+	RCC->APB2PCENR |= RCC_APB2Periph_AFIO;
+
+	// Reset TIM2 to init all regs
+	RCC->APB1PRSTR |= RCC_APB1Periph_TIM2;
+	RCC->APB1PRSTR &= ~RCC_APB1Periph_TIM2;
+	
+	// SMCFGR: default clk input is CK_INT
+	// set TIM2 clock prescaler divider 
+	TIM2->PSC = 0x0000;
+	// set PWM total cycle width
+	TIM2->ATRLR = TPERIOD;
+
+	TIM2->CH3CVR = 0;
+	
+	// for channel 1 and 2, let CCxS stay 00 (output), set OCxM to 110 (PWM I)
+	// enabling preload causes the new pulse width in compare capture register only to come into effect when UG bit in SWEVGR is set (= initiate update) (auto-clears)
+	TIM2->CHCTLR2 |= TIM_OC1M_2 | TIM_OC1M_1 | TIM_OC1PE; // TIM2 CH3
+
+	TIM2->CTLR1 |= TIM_ARPE;
+
+	// Enable CH1 output, positive pol
+	TIM2->CCER |= TIM_CC3E | TIM_CC3P;
+
+	// initialize counter
+	TIM2->SWEVGR |= TIM_UG;
+
+	// Enable TIM2
+	TIM2->CTLR1 |= TIM_CEN;
+
+	TIM2->DMAINTENR = TIM_UDE;
+
+	// Enable tim2 dma
+	TIM2->CTLR1 |= TIM_URS;   // Trigger DMA on overflow ONLY.
+
+//R16_TIM2_DMACFGR
+//R16_TIM2_DMAADR
 
 
-	// Timer 1 setup.
-	// Timer 1 is what will trigger the DMA, Channel 2 engine.
-	TIM1->PSC = 0x0000;                      // Prescaler 
-	TIM1->ATRLR = 4;                        // Auto Reload - sets period (48MHz / (11+1) = 4MHz)
-	TIM1->SWEVGR = TIM_UG | TIM_TG;          // Reload immediately + Trigger DMA
-	TIM1->CCER = TIM_CC1E | TIM_CC1P | TIM_CC2E | TIM_CC2P;        // Enable CH1 output, positive pol
-	TIM1->CHCTLR1 = TIM_OC1M_2 | TIM_OC1M_1 | TIM_OC2M_2 | TIM_OC2M_1; // CH1 Mode is output, PWM1 (CC1S = 00, OC1M = 110)
-	TIM1->CH1CVR = 1;                        // Time to send update
-	TIM1->CH2CVR = 4;                       // Time point to read bit back
-	TIM1->BDTR = TIM_MOE;                    // Enable TIM1 outputs
-	TIM1->CTLR1 = TIM_CEN;                   // Enable TIM1
-	TIM1->DMAINTENR = TIM_UDE | TIM_CC1DE | TIM_CC2DE;   // Trigger DMA on TC match 1 (DMA Ch2) and TC match 2 (DMA Ch3)
+TIM2->CH3CVR = 0;
+
+	// Remap T2C3 to PD6
+	AFIO->PCFR1 |= AFIO_PCFR1_TIM2_REMAP_FULLREMAP;
+
+
+	// USART
+	// Enable RX, 
+	USART1->CTLR1 = USART_WordLength_8b | USART_Parity_No | USART_Mode_Rx;
+	USART1->CTLR2 = USART_StopBits_1;
+	USART1->CTLR3 = USART_HardwareFlowControl_None | USART_CTLR3_DMAR;
+
+	USART1->BRR = 16;
+	USART1->CTLR1 |= CTLR1_UE_Set;
+
+#if 1
 
 	DMA1_Channel2->MADDR = (uint32_t)command_buffer;
-	DMA1_Channel2->PADDR = (uint32_t)&GPIOD->BSHR; // This is the output register for out buffer.
+	DMA1_Channel2->PADDR = (uint32_t)&TIM2->CH3CVR; // This is the output register for out buffer.
 	DMA1_Channel2->CFGR = 
 		DMA_CFGR1_DIR     |                  // MEM2PERIPHERAL
-		DMA_CFGR1_PL      |                  // High priority.
-		DMA_CFGR1_PSIZE_1 |                  // 32-bit memory
-		DMA_CFGR1_MSIZE_1 |                  // 32-bit peripheral
+		0                 |                  // Low priority.
+		0                 |                  // 8-bit memory
+		DMA_CFGR1_PSIZE_0                 |                  // 32-bit peripheral
 		DMA_CFGR1_MINC    |                  // Increase memory.
 		0                 |                  // NOT Circular mode.
 		0                 |                  // NO Half-trigger
 		0                 |                  // NO Whole-trigger
 		DMA_CFGR1_EN;                        // Enable
 
-	DMA1_Channel3->MADDR = (uint32_t)reply_buffer;
-	DMA1_Channel3->PADDR = (uint32_t)&GPIOD->INDR; // This is the output register for out buffer.
-	DMA1_Channel3->CFGR = 
+#endif
+
+#if 1
+	DMA1_Channel5->MADDR = (uint32_t)reply_buffer;
+	DMA1_Channel5->PADDR = (uint32_t)&USART1->DATAR; // This is the output register for out buffer.
+	DMA1_Channel5->CFGR = 
 		0                 |                  // PERIPHERAL to MEMORY
 		0                 |                  // Low priority.
 		0                 |                  // 8-bit memory
@@ -168,9 +202,9 @@ void SetupTimer1AndDMA()
 		0                 |                  // NO Half-trigger
 		0                 |                  // NO Whole-trigger
 		DMA_CFGR1_EN;                        // Enable
+#endif
 
-//	DMA1_Channel2->CNTR = sizeof(command_buffer) / sizeof(command_buffer[0]);
-//	DMA1_Channel3->CNTR = sizeof(reply_buffer) / sizeof(reply_buffer[0]);
+
 }
 
 
@@ -186,32 +220,36 @@ int main()
 	
 	funGpioInitAll();
 
-	// Assume PD0 = SWIO
+	// Assume PD6+PA1 = SWIO
 	//        PD2 = Power control
-
-
 
 	// Fill in the plan of what we will be sending out.
 	for( i = 0; i < sizeof(command_buffer) / sizeof(command_buffer[0]); i++ )
 	{
-		command_buffer[i] = 1 << ( (i & 1) ? 16 : 0 );
+		command_buffer[i] = i;
 	}
+
+
+	funDigitalWrite( PD2, 1 );
+	funDigitalWrite( PD6, 1 );
+
+	printf( "Starting\n" );
+
+	funPinMode( PD6, GPIO_CFGLR_OUT_10Mhz_AF_OD );
+	funPinMode( PD2, GPIO_CFGLR_OUT_10Mhz_PP );
 
 
 	SetupTimer1AndDMA();
 
-	funDigitalWrite( PD2, 1 );
-	funDigitalWrite( PD0, 1 );
 
-	funPinMode( PD0, GPIO_CFGLR_OUT_10Mhz_OD );
-	funPinMode( PD2, GPIO_CFGLR_OUT_10Mhz_PP );
 	Delay_Ms(30);
 
+	printf( "Sending\n" );
 	MCFWriteReg32( &sws, DMSHDWCFGR, 0x5aa50000 | (1<<10) ); // Shadow Config Reg
-	MCFWriteReg32( &sws, DMCFGR, 0x5aa50000 | (1<<10) ); // CFGR (1<<10 == Allow output from slave)
-	MCFWriteReg32( &sws, DMCONTROL, 0x80000001 ); // Make the debug module work properly.
-	MCFWriteReg32( &sws, DMCONTROL, 0x80000003 ); // Reboot.
-	MCFWriteReg32( &sws, DMCONTROL, 0x80000001 ); // Re-initiate a halt request.
+	MCFWriteReg32( &sws, DMCFGR, 0x5aa50000 | (1<<10) );     // CFGR (1<<10 == Allow output from slave)
+	MCFWriteReg32( &sws, DMCONTROL, 0x80000001 );            // Make the debug module work properly.
+	MCFWriteReg32( &sws, DMCONTROL, 0x80000003 );            // Reboot.
+	MCFWriteReg32( &sws, DMCONTROL, 0x80000001 );            // Re-initiate a halt request.
 
 	uint32_t reg;
 	int ret = MCFReadReg32( &sws, DMSTATUS, &reg );
