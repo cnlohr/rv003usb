@@ -148,7 +148,7 @@ void SetupTimer1AndDMA()
 
 	// CH2 Mode is output, PWM1 (CC1S = 00, OC1M = 110)
 	TIM1->CHCTLR1 = TIM_OC2M_2 | TIM_OC2M_1 | TIM_OC2PE;
-	TIM1->CHCTLR2 = TIM_CC4S_0;
+	TIM1->CHCTLR2 = TIM_CC4S_0 | TIM_IC2F_0;  // CH4 in, add tiny glitch filter.
 
 	// Enable CH4 output, positive pol
 	TIM1->CCER = TIM_CC2E | TIM_CC2P | TIM_CC4E | TIM_CC3E;
@@ -173,7 +173,7 @@ void SetupTimer1AndDMA()
 		DMA_CFGR1_DIR     |                  // MEM2PERIPHERAL
 		0                 |                  // Low priority.
 		0                 |                  // 8-bit memory
-		DMA_CFGR1_PSIZE_0                 |                  // 32-bit peripheral
+		DMA_CFGR1_PSIZE_0                 |  // 16-bit peripheral
 		DMA_CFGR1_MINC    |                  // Increase memory.
 		0                 |                  // NOT Circular mode.
 		0                 |                  // NO Half-trigger
@@ -190,7 +190,7 @@ void SetupTimer1AndDMA()
 		0                 |                  // PERIPHERAL to MEMORY
 		0                 |                  // Low priority.
 		0                 |                  // 8-bit memory
-		0                 |                  // 8-bit peripheral
+		DMA_CFGR1_PSIZE_0                 |                  // 16-bit peripheral
 		DMA_CFGR1_MINC    |                  // Increase memory.
 		0                 |                  // NOT Circular mode.
 		0                 |                  // NO Half-trigger
