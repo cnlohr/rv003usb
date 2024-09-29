@@ -14,8 +14,8 @@ uint8_t scratch[255];
 
 static uint8_t frame;
 
-uint8_t command_buffer[64];  // to timer2
-uint8_t reply_buffer[64];    // from USART RX
+uint8_t command_buffer[64];  // to timer 1 ch 2
+uint8_t reply_buffer[64];    // from timer 1 ch 4
 static uint32_t buffptr = 0;
 
 static void FinishBuffer();
@@ -27,10 +27,16 @@ static void FinishBuffer()
 {
 	while(1)
 	{
-		printf( "%d %d: %02x %02x %02x %02x %02x %02x %02x %02x\n", DMA1_Channel2->CNTR, DMA1_Channel5->CNTR, reply_buffer[0], reply_buffer[1], reply_buffer[2], reply_buffer[3], reply_buffer[4], reply_buffer[5], reply_buffer[6], reply_buffer[7] );
+		printf( "%d %d %d %d - ", DMA1_Channel5->CNTR, DMA1_Channel4->CNTR, TIM1->CH4CVR, TIM1->CH3CVR );
+		int i;
+		for( i = 0; i < 64; i++ )
+		{
+			printf( "%d, ", reply_buffer[i] );
+		}
+		printf( "\n" );
 	}
-	while( DMA1_Channel2->CNTR ); // To Timer 2
-	while( DMA1_Channel5->CNTR ); // From USART RX
+	while( DMA1_Channel5->CNTR ); // For T1C2.
+
 	buffptr = 0;
 }
 
@@ -52,8 +58,15 @@ static void IssueBuffer()
 {
 	command_buffer[buffptr] = 0; // Turn PWM back to high.
 	command_buffer[buffptr+1] = 0; // Make sure the USART RX is read to read.
-	DMA1_Channel2->CNTR = buffptr+2;
-	DMA1_Channel5->CNTR = buffptr;
+
+	// Reset input.
+	//
+	DMA1_Channel4->CFGR &=~DMA_CFGR1_EN;
+	DMA1_Channel4->CNTR = buffptr;
+	DMA1_Channel4->CFGR |= DMA_CFGR1_EN;
+
+	// Actually run output. 
+	DMA1_Channel5->CNTR = buffptr+2;
 }
 
 
@@ -119,68 +132,44 @@ void SetupTimer1AndDMA()
 	RCC->APB2PCENR |= RCC_APB2Periph_USART1;
 	RCC->AHBPCENR |= RCC_AHBPeriph_DMA1;
 	RCC->APB1PCENR |= RCC_APB1Periph_TIM2;
+
+	// Enable GPIOC, GPIOD and TIM1
+	RCC->APB2PCENR |= RCC_APB2Periph_TIM1;
+	
 	RCC->APB2PCENR |= RCC_APB2Periph_AFIO;
 
-	// Reset TIM2 to init all regs
-	RCC->APB1PRSTR |= RCC_APB1Periph_TIM2;
-	RCC->APB1PRSTR &= ~RCC_APB1Periph_TIM2;
-	
 	// SMCFGR: default clk input is CK_INT
-	// set TIM2 clock prescaler divider 
-	TIM2->PSC = 0x0000;
+	// set TIM1 clock prescaler divider 
+	TIM1->PSC = 0x0000;
 	// set PWM total cycle width
-	TIM2->ATRLR = TPERIOD;
+	TIM1->ATRLR = TPERIOD;
 
-	TIM2->CH3CVR = 0;
+	TIM1->CH2CVR = 0; // Release output
+
+	// CH2 Mode is output, PWM1 (CC1S = 00, OC1M = 110)
+	TIM1->CHCTLR1 = TIM_OC2M_2 | TIM_OC2M_1 | TIM_OC2PE;
+	TIM1->CHCTLR2 = TIM_CC4S_0;
+
+	// Enable CH4 output, positive pol
+	TIM1->CCER = TIM_CC2E | TIM_CC2P | TIM_CC4E | TIM_CC3E;
+
+	// Enable TIM1 outputs
+	TIM1->BDTR = TIM_MOE;
 	
-	// for channel 1 and 2, let CCxS stay 00 (output), set OCxM to 110 (PWM I)
-	// enabling preload causes the new pulse width in compare capture register only to come into effect when UG bit in SWEVGR is set (= initiate update) (auto-clears)
-	TIM2->CHCTLR2 |= TIM_OC1M_2 | TIM_OC1M_1 | TIM_OC1PE; // TIM2 CH3
-
-	TIM2->CTLR1 |= TIM_ARPE;
-
-	// Enable CH1 output, positive pol
-	TIM2->CCER |= TIM_CC3E | TIM_CC3P;
-
 	// initialize counter
-	TIM2->SWEVGR |= TIM_UG;
+	TIM1->SWEVGR = TIM_UG;
 
 	// Enable TIM2
-	TIM2->CTLR1 |= TIM_CEN;
-
-	TIM2->DMAINTENR = TIM_UDE;
-
-	// Enable tim2 dma
-	TIM2->CTLR1 |= TIM_URS;   // Trigger DMA on overflow ONLY.
-
-//R16_TIM2_DMACFGR
-//R16_TIM2_DMAADR
-
-
-TIM2->CH3CVR = 0;
-
-	// Remap T2C3 to PD6
-	AFIO->PCFR1 |= AFIO_PCFR1_TIM2_REMAP_FULLREMAP;
-
-
-	// USART
-	// Enable RX, 
-	USART1->CTLR1 = USART_WordLength_8b | USART_Parity_No | USART_Mode_Rx | USART_Mode_Tx;
-	USART1->CTLR2 = USART_StopBits_1;
-	USART1->CTLR3 = USART_HardwareFlowControl_None | USART_CTLR3_DMAR;
-
-	USART1->BRR = 1;
-	USART1->CTLR1 |= CTLR1_UE_Set;
-
-
-	USART1->DATAR = 0xaa;
+	TIM1->CTLR1 = TIM_ARPE | TIM_CEN;
+	TIM1->DMAINTENR = TIM_CC4DE | TIM_UDE; // Enable DMA motion.
+	TIM1->CTLR1 |= TIM_URS;   // Trigger DMA on overflow ONLY.
 
 
 #if 1
-
-	DMA1_Channel2->MADDR = (uint32_t)command_buffer;
-	DMA1_Channel2->PADDR = (uint32_t)&TIM2->CH3CVR; // This is the output register for out buffer.
-	DMA1_Channel2->CFGR = 
+	//TIM1_UP
+	DMA1_Channel5->MADDR = (uint32_t)command_buffer;
+	DMA1_Channel5->PADDR = (uint32_t)&TIM1->CH2CVR; // This is the output register for out buffer.
+	DMA1_Channel5->CFGR = 
 		DMA_CFGR1_DIR     |                  // MEM2PERIPHERAL
 		0                 |                  // Low priority.
 		0                 |                  // 8-bit memory
@@ -194,9 +183,10 @@ TIM2->CH3CVR = 0;
 #endif
 
 #if 1
-	DMA1_Channel5->MADDR = (uint32_t)reply_buffer;
-	DMA1_Channel5->PADDR = (uint32_t)&USART1->DATAR; // This is the output register for out buffer.
-	DMA1_Channel5->CFGR = 
+	// TIM1_TRIG/TIM1_COM/TIM1_CH4
+	DMA1_Channel4->MADDR = (uint32_t)reply_buffer;
+	DMA1_Channel4->PADDR = (uint32_t)&TIM1->CH4CVR; // This is the output register for out buffer.
+	DMA1_Channel4->CFGR = 
 		0                 |                  // PERIPHERAL to MEMORY
 		0                 |                  // Low priority.
 		0                 |                  // 8-bit memory
@@ -210,7 +200,7 @@ TIM2->CH3CVR = 0;
 
 
 }
-
+		
 
 
 int main()
@@ -224,7 +214,7 @@ int main()
 	
 	funGpioInitAll();
 
-	// Assume PD6+PA1 = SWIO
+	// Assume PC4+PA1 = SWIO
 	//        PD2 = Power control
 
 	// Fill in the plan of what we will be sending out.
@@ -233,17 +223,16 @@ int main()
 		command_buffer[i] = i;
 	}
 
-
 	funDigitalWrite( PD2, 1 );
-	funDigitalWrite( PD6, 1 );
+	funDigitalWrite( PC4, 1 );
 
 	printf( "Starting\n" );
 
-	funPinMode( PD6, GPIO_CFGLR_OUT_10Mhz_AF_OD );
-	funPinMode( PD5, GPIO_CFGLR_OUT_10Mhz_AF_PP );
-	funPinMode( PC4, GPIO_CFGLR_IN_FLOAT );
-	funPinMode( PC4, GPIO_CFGLR );
+	// Now, PA1 and PC4 are hard connected.
 
+	funPinMode( PA1, GPIO_CFGLR_OUT_10Mhz_AF_OD );
+	funPinMode( PC4, GPIO_CFGLR_IN_FLOAT );         // PC4 for TIM1_CH4
+	funPinMode( PD2, GPIO_CFGLR_OUT_10Mhz_PP );
 
 	SetupTimer1AndDMA();
 
