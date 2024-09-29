@@ -25,17 +25,19 @@ static void IssueBuffer();
 
 static void FinishBuffer()
 {
-	while(1)
+	while( DMA1_Channel5->CNTR ); // For T1C2. (TX)
+
+	// Fix the first transaction here.
+	if( 0 )
 	{
-		printf( "%d %d %d %d - ", DMA1_Channel5->CNTR, DMA1_Channel4->CNTR, TIM1->CH4CVR, TIM1->CH3CVR );
+		printf( "%d %d %d %d - ", (int)DMA1_Channel5->CNTR, (int)DMA1_Channel4->CNTR, (int)TIM1->CH4CVR, (int)TIM1->CH3CVR );
 		int i;
 		for( i = 0; i < 64; i++ )
 		{
-			printf( "%d, ", reply_buffer[i] );
+			printf( "%d, ", (int)reply_buffer[i] );
 		}
 		printf( "\n" );
 	}
-	while( DMA1_Channel5->CNTR ); // For T1C2.
 
 	buffptr = 0;
 }
@@ -45,7 +47,7 @@ static void FinishBuffer()
 static void Send1Bit()
 {
 	// 224-236ns low pulse.
-	command_buffer[buffptr++] = 3;
+	command_buffer[buffptr++] = 2;
 }
 
 static void Send0Bit()
@@ -60,7 +62,6 @@ static void IssueBuffer()
 	command_buffer[buffptr+1] = 0; // Make sure the USART RX is read to read.
 
 	// Reset input.
-	//
 	DMA1_Channel4->CFGR &=~DMA_CFGR1_EN;
 	DMA1_Channel4->CNTR = buffptr;
 	DMA1_Channel4->CFGR |= DMA_CFGR1_EN;
@@ -107,7 +108,8 @@ static int MCFReadReg32( struct SWIOState * state, uint8_t command, uint32_t * v
 			Send0Bit();
 	}
 	Send0Bit( );
-	for( mask = 1<<31; mask; mask >>= 1 )
+	int i;
+	for( i = 0; i < 34; i++ )
 	{
 		Send1Bit();
 	}
@@ -115,13 +117,27 @@ static int MCFReadReg32( struct SWIOState * state, uint8_t command, uint32_t * v
 	IssueBuffer();
 	FinishBuffer();
 
+	uint32_t rv = 0;
 
-	int i;
-	for( i = 0; i < sizeof(reply_buffer) / sizeof(reply_buffer[0]); i++ )
+	if( 0 )
 	{
-		printf( "%d", 1&(int)reply_buffer[i] );
+		for( i = 0; i < sizeof(reply_buffer) / sizeof(reply_buffer[0]); i++ )
+		{
+			printf( "%d:%d ", i, (int)reply_buffer[i] );
+		}
+		printf( "\n" );
 	}
-	printf( "\n" );
+
+	for( i = 9; i < 42; i++ )
+	{
+		// 11 to 48 for extremes.  Pick a middleground shifted smaller.
+		rv = (rv << 1) | (reply_buffer[i] < 25);
+		printf( "%d ", (int)reply_buffer[i] );
+	}
+	printf( "Plus %d\n", reply_buffer[i] );
+
+
+	*value = rv;
 
 	return 0;
 }
@@ -144,11 +160,11 @@ void SetupTimer1AndDMA()
 	// set PWM total cycle width
 	TIM1->ATRLR = TPERIOD;
 
-	TIM1->CH2CVR = 0; // Release output
+	TIM1->CH2CVR = 0; // Release output (Allow it to be high)
 
 	// CH2 Mode is output, PWM1 (CC1S = 00, OC1M = 110)
 	TIM1->CHCTLR1 = TIM_OC2M_2 | TIM_OC2M_1 | TIM_OC2PE;
-	TIM1->CHCTLR2 = TIM_CC4S_0 | TIM_IC2F_0;  // CH4 in, add tiny glitch filter.
+	TIM1->CHCTLR2 = TIM_CC4S_0;  // CH4 in, can't add glitch filter otherwise it delays the next event.
 
 	// Enable CH4 output, positive pol
 	TIM1->CCER = TIM_CC2E | TIM_CC2P | TIM_CC4E | TIM_CC3E;
@@ -223,7 +239,7 @@ int main()
 		command_buffer[i] = i;
 	}
 
-	funDigitalWrite( PD2, 1 );
+	funDigitalWrite( PD2, 0 );
 	funDigitalWrite( PC4, 1 );
 
 	printf( "Starting\n" );
@@ -239,17 +255,24 @@ int main()
 
 	Delay_Ms(30);
 
-	printf( "Sending\n" );
-	MCFWriteReg32( &sws, DMSHDWCFGR, 0x5aa50000 | (1<<10) ); // Shadow Config Reg
-	MCFWriteReg32( &sws, DMCFGR, 0x5aa50000 | (1<<10) );     // CFGR (1<<10 == Allow output from slave)
-	MCFWriteReg32( &sws, DMCONTROL, 0x80000001 );            // Make the debug module work properly.
-	MCFWriteReg32( &sws, DMCONTROL, 0x80000003 );            // Reboot.
-	MCFWriteReg32( &sws, DMCONTROL, 0x80000001 );            // Re-initiate a halt request.
+	int k;
+	for( k = 0; k < 10; k++ )
+	{
+		printf( "Sending\n" );
+		funDigitalWrite( PD2, 1 );
+		Delay_Ms(1);
+		MCFWriteReg32( &sws, DMSHDWCFGR, 0x5aa50000 | (1<<10) ); // Shadow Config Reg
+		MCFWriteReg32( &sws, DMCFGR, 0x5aa50000 | (1<<10) );     // CFGR (1<<10 == Allow output from slave)
+		MCFWriteReg32( &sws, DMCONTROL, 0x80000001 );            // Make the debug module work properly.
+		MCFWriteReg32( &sws, DMCONTROL, 0x80000003 );            // Reboot.
+		MCFWriteReg32( &sws, DMCONTROL, 0x80000001 );            // Re-initiate a halt request.
+		MCFWriteReg32( &sws, DMCONTROL, 0x80000001 );            // Re-initiate a halt request.
 
-	uint32_t reg;
-	int ret = MCFReadReg32( &sws, DMSTATUS, &reg );
+		uint32_t reg;
+		int ret = MCFReadReg32( &sws, DMSTATUS, &reg );
 
-	printf( "%08x %d\n", (int)reg, ret );
+		printf( "%08x %d\n", (int)reg, ret );
+	}
 
 	while(1)
 	{
