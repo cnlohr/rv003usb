@@ -165,12 +165,16 @@ TIM2->CH3CVR = 0;
 
 	// USART
 	// Enable RX, 
-	USART1->CTLR1 = USART_WordLength_8b | USART_Parity_No | USART_Mode_Rx;
+	USART1->CTLR1 = USART_WordLength_8b | USART_Parity_No | USART_Mode_Rx | USART_Mode_Tx;
 	USART1->CTLR2 = USART_StopBits_1;
 	USART1->CTLR3 = USART_HardwareFlowControl_None | USART_CTLR3_DMAR;
 
-	USART1->BRR = 16;
+	USART1->BRR = 1;
 	USART1->CTLR1 |= CTLR1_UE_Set;
+
+
+	USART1->DATAR = 0xaa;
+
 
 #if 1
 
@@ -236,7 +240,9 @@ int main()
 	printf( "Starting\n" );
 
 	funPinMode( PD6, GPIO_CFGLR_OUT_10Mhz_AF_OD );
-	funPinMode( PD2, GPIO_CFGLR_OUT_10Mhz_PP );
+	funPinMode( PD5, GPIO_CFGLR_OUT_10Mhz_AF_PP );
+	funPinMode( PC4, GPIO_CFGLR_IN_FLOAT );
+	funPinMode( PC4, GPIO_CFGLR );
 
 
 	SetupTimer1AndDMA();
