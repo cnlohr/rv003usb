@@ -1,7 +1,7 @@
 
 all : flash
 
-TARGET:=test_lcd_rvo12864h-wfi
+TARGET:=test_lcd_rbo12864h-wfi
 CH32V003FUN:=../../ch32v003fun/ch32v003fun
 MINICHLINK?=../../ch32v003fun/minichlink
 

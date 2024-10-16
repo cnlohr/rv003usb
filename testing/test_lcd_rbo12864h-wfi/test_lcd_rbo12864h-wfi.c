@@ -94,9 +94,9 @@ const uint8_t init_data[] = {
 int main()
 {
 	SystemInit();
-
+	
 	funGpioInitAll();
-	funPinMode( LCDLED, GPIO_CFGLR_OUT_50Mhz_PP );
+	funPinMode( LCDLED, GPIO_CFGLR_OUT_50Mhz_AF_PP );
 	funPinMode( LCDVDD, GPIO_CFGLR_OUT_50Mhz_PP );
 	funPinMode( LCDA0, GPIO_CFGLR_OUT_50Mhz_PP );
 	funPinMode( LCDCSB, GPIO_CFGLR_OUT_50Mhz_PP );
@@ -105,13 +105,23 @@ int main()
 	funPinMode( LCDRST, GPIO_CFGLR_OUT_50Mhz_PP );
 
 	funDigitalWrite( LCDRST, 0 );
-	funDigitalWrite( LCDLED, 1 );
 	funDigitalWrite( LCDVDD, 1 );
 	funDigitalWrite( LCDA0, 0 );
 	funDigitalWrite( LCDCSB, 1 );
 	funDigitalWrite( LCDSDA, 1 );
 	funDigitalWrite( LCDSCL, 1 );
 	funDigitalWrite( LCDRST, 1 );
+
+	// Enable Timer for PWM of LED pin.
+	RCC->APB2PCENR |= RCC_APB2Periph_TIM1 | RCC_APB2Periph_AFIO;
+	AFIO->PCFR1 |= AFIO_PCFR1_TIM1_REMAP_0;
+	TIM1->PSC = 0x0001; // Set Prescalar
+	TIM1->ATRLR = 255; // Set Period
+	TIM1->CCER = TIM_CC3E;
+	TIM1->CHCTLR2 = TIM_OC3M_2 | TIM_OC3M_1;
+	TIM1->CH3CVR = 64; // Set to 25% brightness
+	TIM1->BDTR = TIM_MOE;
+	TIM1->CTLR1 = TIM_CEN;
 
 	Delay_Ms(1); // Ensures USB re-enumeration after bootloader or reset; Spec demand >2.5µs ( TDDIS )
 	usb_setup();
@@ -133,10 +143,8 @@ int main()
 		if( start_data )
 		{
 			int group;
-			uint8_t * sp = scratch;
-
-			int request_id = *(sp++);
-			int backlight = *(sp++);
+			uint8_t * sp = scratch + 1;
+			TIM1->CH3CVR = *(sp++); // Set backlight
 			LCDCMD( 0, sp, 4 );
 			sp += 4;
 			for( group = 0; group < 8; group++ )

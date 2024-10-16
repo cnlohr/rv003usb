@@ -21,6 +21,7 @@ int ldx, ldy, ldd;
 int brightness = 135;
 int resistor_ratio = 100;
 int backlight = 200;
+int black_level = 200;
 
 void HandleKey( int keycode, int bDown ) { }
 void HandleButton( int x, int y, int button, int bDown ) { ldd = 1<<bDown; ldx = x; ldy = y; }
@@ -86,18 +87,11 @@ const int scale = 4;
 const int screen_w = 128;
 const int screen_h = 64;
 
-
 int main(int argc, char **argv)
 {
 	//Pass Interrupt Signal to our handler
 	signal(SIGINT, sighandler);
 
-	hid_device * hd = hid_open( 0xabcd, 0xc733, L"000"); // third parameter is "serial"
-	if( !hd )
-	{
-		fprintf( stderr, "Error: Failed to open device.\n" );
-		return -4;
-	}
 
 	XInitThreads();
 	display = XOpenDisplay(NULL);
@@ -133,6 +127,21 @@ int main(int argc, char **argv)
 
 	CNFGSetup( "Example App", 290, 290 );
 
+	int is_reconnecting = 0;
+reconnect:
+	hid_device * hd = hid_open( 0xabcd, 0xc733, L"000"); // third parameter is "serial"
+	if( !hd )
+	{
+		fprintf( stderr, "Error: Failed to open device.\n" );
+		if( is_reconnecting )
+		{
+			usleep(300000);
+			goto reconnect;
+		}
+		return -4;
+	}
+	is_reconnecting = 1;
+
 	// Size of buffers must match the report descriptor size in the special_hid_desc
 	//  NOTE: You are permitted to have multiple entries.
 	uint8_t buffer0[1064] = { 0 }; // NOTE: This must be ONE MORE THAN what is in the hid descriptor.
@@ -155,11 +164,11 @@ int main(int argc, char **argv)
 		DrawBar( brightness, 0, "CR:" );
 		DrawBar( resistor_ratio, 60, "RR:" );
 		DrawBar( backlight, 120, "BL:" );
+		DrawBar( black_level, 180, "CL:" );
 
 
 		if( ldd )
 		{
-			printf( "%d %d\n", ldx,ldy );
 			int brt = 265 - ldy;
 			if( brt < 0 ) brt = 0;
 			if( brt >= 255 ) brt = 255;
@@ -170,6 +179,8 @@ int main(int argc, char **argv)
 				resistor_ratio = brt;
 			if( ldx > 120 && ldx < 164 )
 				backlight = brt;
+			if( ldx > 180 && ldx < 214 )
+				black_level = brt;
 		}
 
 		CNFGSwapBuffers();
@@ -187,6 +198,7 @@ int main(int argc, char **argv)
 
 		*(pb++) = 0xab;
 		*(pb++) = backlight;
+
 		*(pb++) = 0x81;
 		*(pb++) = brightness>>2;
 		*(pb++) = 0x20 + (resistor_ratio>>5);
@@ -197,7 +209,7 @@ int main(int argc, char **argv)
 		{
 			*(pb++) = ST7567_PAGE_ADDR | (y>>3);
 			*(pb++) = ST7567_COL_ADDR_H | 0;
-			*(pb++) = ST7567_COL_ADDR_L | 0;
+			*(pb++) = ST7567_COL_ADDR_L | 1;
 			*(pb++) = ST7567_RMW;
 			for( x = 0; x < screen_w; x++ )
 			{
@@ -205,7 +217,12 @@ int main(int argc, char **argv)
 				int prow = 0;
 				for( row = 0; row < 8; row++ )
 				{
-					uint32_t d = imagedata[screen_w*(y+row)*scale*scale+x*scale];
+					const int flip = 1;
+					int ry = (y+row);
+					int rx = x;
+					if( flip ) ry = screen_h - ry - 1;
+					if( flip ) rx = screen_w - x - 1;
+					uint32_t d = imagedata[screen_w*(ry)*scale*scale+rx*scale];
 					int b = d&0xff;
 					int g = (d>>8)&0xff;
 					int r = (d>>16)&0xff;
@@ -225,19 +242,28 @@ int main(int argc, char **argv)
 						if( g > 255 ) g = 255;
 						if( b > 255 ) b = 255;
 					}
-					int px = (r+g+b) > 300;
+					int px = (r+g+b) < black_level*3;
 					prow |= px<<row;
 					//uint16_t v = (b>>3) | ((g>>2) << 5) | ((r>>3) << 11 );
 				}
 				*(pb++) = prow;
 			}
 		}
+
+		// Leftover
+		*(pb++) = 0xaa;
+		*(pb++) = 0xaa;
 		
 		dStartSend = OGGetAbsoluteTime();
 		r = hid_send_feature_report( hd, buffer0, pb-buffer0 );
 		dSendTotal += OGGetAbsoluteTime() - dStartSend;
 
-		printf( "R: %d\n", r );
+		char cts[128];
+		sprintf( cts, "R: %d\n", r );
+		CNFGPenX = 6;
+		CNFGPenY = 274;
+		CNFGDrawText( cts, 2 );
+		if( r < 0 ) goto reconnect;
 	}
 
 	hid_close( hd );
