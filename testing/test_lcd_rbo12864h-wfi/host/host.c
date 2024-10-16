@@ -125,7 +125,7 @@ int main(int argc, char **argv)
 	image->data = shminfo.shmaddr;
 	imagedata = malloc( screen_w*4*scale*screen_h*scale );
 
-	CNFGSetup( "Example App", 290, 290 );
+	CNFGSetup( "Example App", 320, 290 );
 
 	int is_reconnecting = 0;
 reconnect:
@@ -154,6 +154,9 @@ reconnect:
 	double dStartSend = 0.0;
 	double dSendTotal = 0;
 	double dRecvTotal = 0;
+
+	static int nStoreFPS;
+	static double dStoreSendTimeS;
 	for( j = 0; ; j++ )
 	{
 		frame++;
@@ -258,10 +261,23 @@ reconnect:
 		r = hid_send_feature_report( hd, buffer0, pb-buffer0 );
 		dSendTotal += OGGetAbsoluteTime() - dStartSend;
 
+		if( OGGetAbsoluteTime() - dSecond >= 1 )
+		{
+			nStoreFPS = framesThisSecond;
+	 		dStoreSendTimeS = dSendTotal;
+			dSecond++;
+			dSendTotal = 0;
+			framesThisSecond = 0;
+		}
+
+		double dStart = OGGetAbsoluteTime();
+		double dSecond = dStart;
+
+
 		char cts[128];
-		sprintf( cts, "R: %d\n", r );
-		CNFGPenX = 6;
-		CNFGPenY = 274;
+		sprintf( cts, "R: %d\nFPS: %d\nSend %.3fms", r, nStoreFPS, dStoreSendTimeS*1000 );
+		CNFGPenX = 220;
+		CNFGPenY = 30;
 		CNFGDrawText( cts, 2 );
 		if( r < 0 ) goto reconnect;
 	}
