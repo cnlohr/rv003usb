@@ -8,6 +8,10 @@ By now, you can't update the bootloader using itself and minichlink - you can on
 
 By default, the bootloader is active for the first ~5s after power-up, then user-code is started. But this boot-mode is highly configurable and can also be triggered by a boot button or USB Host detection instead.
 
+## Configuring
+
+Most CH32V003's should come from the factory by default booting to the bootloader, but you may need to set fuses. You can run the app in `configurebootloader` first to configure your chip to use the bootloader.
+
 ## Compiled size
 When you compile the bootloader, you'll notice that its size is almost 1920 Bytes and thus fills the available space almost completely. The following configuration changes, but also even just the GPIO pin numbers used, change the size of the compiled code and may cause it to exceed the 1920 bytes. So you need to do some trade-offs with the overall pin and boot-mode configuration!
 
