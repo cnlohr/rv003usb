@@ -50,6 +50,17 @@
 // -0x100000 = 302ms; -0x040000 = 75ms;
 #define BOOTLOADER_TIMEOUT_BASE -0x40000
 
+// Uncomment to be able to reboot into bootloader from firmware without pressing a button
+// For this to work add a following reboot function to your firmware code:
+// ----------------------------------
+// FLASH->BOOT_MODEKEYR = 0x45670123;
+// FLASH->BOOT_MODEKEYR = 0xCDEF89AB;
+// FLASH->STATR = 0x4000;
+// RCC->RSTSCKR |= 0x1000000;
+// PFIC->CFGR = 0xBEEF0080;
+// ----------------------------------
+// #define SOFT_REBOOT_TO_BOOTLOADER
+
 #define SCRATCHPAD_SIZE 128
 extern volatile int32_t runwordpad;
 static uint32_t runwordpadready = 0;
@@ -196,9 +207,17 @@ int main()
 
 #if defined(BOOTLOADER_BTN_PORT) && defined(BOOTLOADER_BTN_TRIG_LEVEL) && defined(BOOTLOADER_BTN_PIN)
 	#if BOOTLOADER_BTN_TRIG_LEVEL == 0
-		if(LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->INDR & (1<<BOOTLOADER_BTN_PIN)) boot_usercode();
+    #if defined(SOFT_REBOOT_TO_BOOTLOADER)
+      if(LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->INDR & (1<<BOOTLOADER_BTN_PIN) && !(RCC->RSTSCKR == 0x10000000)) boot_usercode();
+    #else
+		  if(LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->INDR & (1<<BOOTLOADER_BTN_PIN)) boot_usercode();
+    #endif
 	#else
-		if((LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->INDR & (1<<BOOTLOADER_BTN_PIN)) == 0) boot_usercode();
+    #if defined(SOFT_REBOOT_TO_BOOTLOADER)
+		  if((LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->INDR & (1<<BOOTLOADER_BTN_PIN)) == 0 && !(RCC->RSTSCKR == 0x10000000)) boot_usercode();
+    #else
+      if((LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->INDR & (1<<BOOTLOADER_BTN_PIN)) == 0) boot_usercode();
+    #endif
 	#endif
 #endif
 
