@@ -285,24 +285,9 @@ void ButtonMatrix_Scan_Debounced(ButtonMatrix* matrix, DebounceInfo* db_info, ui
                             keypressed[0] = 1;
                         }
                     }
-                    // db_info->last_debounce_time[row][col] = current_time;
                 }             
                 matrix->measuring[row][col] = 0;
-                // matrix->measuring[row][col] = pressed;
             }
-                // if(pressed)keypressed = keymap[row][col];
-            // if(pressed != matrix->debounced_state[row][col]) {
-
-      
-            //     db_info->last_debounce_time[row][col] = current_time;
-            // }
-
-            // if((current_time - db_info->last_debounce_time[row][col]) >= DEBOUNCE_TIME_MS) {
-            //     if(pressed)keypressed = keymap[row][col];
-            //     matrix->debounced_state[row][col] = matrix->measuring[row][col];
-            //     matrix->measuring[row][col] = pressed;
-            // }
-            //     if(pressed)keypressed = keymap[row][col];
 
         }
         // printf("\n\r");
