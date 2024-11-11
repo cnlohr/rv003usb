@@ -3,6 +3,13 @@
 #include <string.h>
 #include "rv003usb.h"
 
+// IO Configuration:
+//  Target SWIO: PA2 - hard connect - PC4 - 10k ohm - PD2
+//  Target VCC:  PD2
+//
+// DMA1_Channel4->CFGR = TIM1->CH4CVR, for input.  (PC4 configured as GPIO_CFGLR_IN_FLOAT)
+// DMA1_Channel5->CFGR = TIM1->CH2CVR, for output. (PA1 configured as GPIO_CFGLR_OUT_10Mhz_AF_OD)
+//
 
 #define IRAM_ATTR
 #include "ch32v003_swio.h"
@@ -42,18 +49,25 @@ static void FinishBuffer()
 	buffptr = 0;
 }
 
-#define TPERIOD 51
+// (when bit0 = 32 period, TPERIOD can be as low as 48, but that is risky)
+// When bit0 = 40, TPERIOD CAN work as low as 50, but that's too risky.
+// Let's bump it up to 56.
+// Period = 1.16us
+#define TPERIOD 56
 
 static void Send1Bit()
 {
-	// 224-236ns low pulse.
-	command_buffer[buffptr++] = 2;
+	// 288-296ns low pulse. (Ideal period) - OK @ 2..15
+	// Period is "technically" 166ns, but, it takes about 120ns to rise.
+	command_buffer[buffptr++] = 8;
 }
 
 static void Send0Bit()
 {
-	// 862-876ns
-	command_buffer[buffptr++] = 30;
+	// 888-904ns - OK @ 32 (At TPERIOD=48) - @48 (At TPERIOD=56)
+	// Oddly, also works at =20 for TPERIOD=56
+	// Period is "technically" 759ns, but, it takes about 120ns to rise.
+	command_buffer[buffptr++] = 36;
 }
 
 static void IssueBuffer()
@@ -63,7 +77,7 @@ static void IssueBuffer()
 
 	// Reset input.
 	DMA1_Channel4->CFGR &=~DMA_CFGR1_EN;
-	DMA1_Channel4->CNTR = buffptr;
+	DMA1_Channel4->CNTR = buffptr+2;
 	DMA1_Channel4->CFGR |= DMA_CFGR1_EN;
 
 	// Actually run output. 
@@ -117,26 +131,24 @@ static int MCFReadReg32( struct SWIOState * state, uint8_t command, uint32_t * v
 	IssueBuffer();
 	FinishBuffer();
 
+	if( DMA1_Channel4->CNTR != 2 )
+	{
+		return -1;
+	}
+
 	uint32_t rv = 0;
 
-	if( 0 )
-	{
-		for( i = 0; i < sizeof(reply_buffer) / sizeof(reply_buffer[0]); i++ )
-		{
-			printf( "%d:%d ", i, (int)reply_buffer[i] );
-		}
-		printf( "\n" );
-	}
-
-	for( i = 9; i < 42; i++ )
+	for( i = 9; i < 41; i++ )
 	{
 		// 11 to 48 for extremes.  Pick a middleground shifted smaller.
-		rv = (rv << 1) | (reply_buffer[i] < 25);
-		printf( "%d ", (int)reply_buffer[i] );
+		// For slackier systems, the bottom end can move upward.
+		// It is not unusual to see it go as high as 17 or 18.
+		// This is the "length of the low pulse"
+		rv = (rv << 1) | (reply_buffer[i] < 28);
+		//printf( "%d ", (int)reply_buffer[i] );
 	}
-	printf( "Plus %d\n", reply_buffer[i] );
-
-
+	//printf( "Plus %d\n", reply_buffer[i] );
+	printf( "CNT: %d\n", DMA1_Channel4->CNTR );
 	*value = rv;
 
 	return 0;
@@ -180,8 +192,6 @@ void SetupTimer1AndDMA()
 	TIM1->DMAINTENR = TIM_CC4DE | TIM_UDE; // Enable DMA motion.
 	TIM1->CTLR1 |= TIM_URS;   // Trigger DMA on overflow ONLY.
 
-
-#if 1
 	//TIM1_UP
 	DMA1_Channel5->MADDR = (uint32_t)command_buffer;
 	DMA1_Channel5->PADDR = (uint32_t)&TIM1->CH2CVR; // This is the output register for out buffer.
@@ -196,9 +206,6 @@ void SetupTimer1AndDMA()
 		0                 |                  // NO Whole-trigger
 		DMA_CFGR1_EN;                        // Enable
 
-#endif
-
-#if 1
 	// TIM1_TRIG/TIM1_COM/TIM1_CH4
 	DMA1_Channel4->MADDR = (uint32_t)reply_buffer;
 	DMA1_Channel4->PADDR = (uint32_t)&TIM1->CH4CVR; // This is the output register for out buffer.
@@ -212,7 +219,6 @@ void SetupTimer1AndDMA()
 		0                 |                  // NO Half-trigger
 		0                 |                  // NO Whole-trigger
 		DMA_CFGR1_EN;                        // Enable
-#endif
 
 
 }
@@ -263,9 +269,9 @@ int main()
 		Delay_Ms(1);
 		MCFWriteReg32( &sws, DMSHDWCFGR, 0x5aa50000 | (1<<10) ); // Shadow Config Reg
 		MCFWriteReg32( &sws, DMCFGR, 0x5aa50000 | (1<<10) );     // CFGR (1<<10 == Allow output from slave)
+		MCFWriteReg32( &sws, DMSHDWCFGR, 0x5aa50000 | (1<<10) ); // Shadow Config Reg
+		MCFWriteReg32( &sws, DMCFGR, 0x5aa50000 | (1<<10) );     // CFGR (1<<10 == Allow output from slave)
 		MCFWriteReg32( &sws, DMCONTROL, 0x80000001 );            // Make the debug module work properly.
-		MCFWriteReg32( &sws, DMCONTROL, 0x80000003 );            // Reboot.
-		MCFWriteReg32( &sws, DMCONTROL, 0x80000001 );            // Re-initiate a halt request.
 		MCFWriteReg32( &sws, DMCONTROL, 0x80000001 );            // Re-initiate a halt request.
 
 		uint32_t reg;
