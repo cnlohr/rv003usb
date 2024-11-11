@@ -92,6 +92,8 @@ static void HandleCommandBuffer( uint8_t * buffer )
 				{
 					//DoSongAndDanceToEnterPgmMode( &state ); was 1.  But really we just want to init.
 					// if we expect this, we can use 0x0e to get status.
+					funPinMode( PIN_TARGETPOWER, GPIO_CFGLR_OUT_10Mhz_PP );
+					funDigitalWrite( PIN_TARGETPOWER, 1 );
 					int r = InitializeSWDSWIO( &state );
 					if( cmd == 0x0e )
 						*(retbuffptr++) = r;
@@ -99,10 +101,11 @@ static void HandleCommandBuffer( uint8_t * buffer )
 				}
 				case 0x02: // Power-down 
 					printf( "Power down\n" );
-					funDigitalWrite( PD2, 0 );
+					funDigitalWrite( PIN_TARGETPOWER, 0 );
 					break;
 				case 0x03: // Power-up
-					funDigitalWrite( PD2, 1 );
+					funPinMode( PIN_TARGETPOWER, GPIO_CFGLR_OUT_10Mhz_PP );
+					funDigitalWrite( PIN_TARGETPOWER, 1 );
 					break;
 				case 0x04: // Delay( uint16_t us )
 					Delay_Us(iptr[0] | (iptr[1]<<8) );

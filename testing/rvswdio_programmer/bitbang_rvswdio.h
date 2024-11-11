@@ -448,10 +448,12 @@ static int MCFReadReg32( struct SWIOState * state, uint8_t command, uint32_t * v
 
 static int InitializeSWDSWIO( struct SWIOState * state )
 {
-	for( int timeout = 100; timeout; timeout-- )
+	for( int timeout = 20; timeout; timeout-- )
 	{
-#if RUNNING_ON_ESP32S2
+#ifndef RUNNING_ON_ESP32S2
+		printf( "CFG FOR RV\n" );
 		ConfigureIOForRVSWIO();
+		printf( "DONE CFG FOR RV\n" );
 #endif
 		// Careful - don't halt the part, we might just want to attach for a debug printf or something.
 		state->target_chip_type = CHIP_UNKNOWN;
@@ -480,7 +482,9 @@ static int InitializeSWDSWIO( struct SWIOState * state )
 		GPIO.out_w1ts = state->pinmaskC;
 		GPIO.enable_w1ts = state->pinmaskC;
 #else
+		printf( "CFG FOR SWD\n" );
 		ConfigureIOForRVSWD();
+		printf( "DONE CFG FOR SWD\n" );
 #endif
 
 		//Otherwise Maybe it's SWD?
@@ -512,6 +516,7 @@ static int InitializeSWDSWIO( struct SWIOState * state )
 		BB_PRINTF_DEBUG( "Found RVSWD interface\n" );
 		return 0;
 	}
+	printf( "TIMEOUT\n" );
 	return -55;
 }
 

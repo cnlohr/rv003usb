@@ -7,7 +7,7 @@
 // Assume 
 //
 // For RVBB_REMAP
-//        PD2+PC3 = SWIO (Plus 5.1k pull-up to PD2)
+//        PD?+PC3 = SWIO (Plus 5.1k pull-up to PD2)
 // Otherwise (Ideal for 8-pin SOIC, because PC4+PA1 are bound)
 //        PC4+PA1 = SWIO (Plus 5.1k pull-up to PD2)
 //
@@ -27,7 +27,6 @@
 #endif
 
 //#define PIN_SWCLK   PC5     // Remappable.
-//#define PIN_TARGETPOWER PD2 // Remappable.
 
 #ifndef _BITBANG_RVSWDIO_CH32V003_H
 #define _BITBANG_RVSWDIO_CH32V003_H
@@ -49,7 +48,7 @@ void ConfigureIOForRVSWIO(void);
 // Let's bump it up to 56 => Period = 1.16us, but we're a little higher
 #define TPERIOD 64
 
-#define SWD_DELAY asm volatile( "c.nop; c.nop;" );
+#define SWD_DELAY DelaySysTick(15)
 
 
 static void FinishBuffer(void)
@@ -122,7 +121,7 @@ static void SendBitRVSWD( int val )
 	{
 		funDigitalWrite( PIN_SWD_OUT, 0 );
 	}
-	funPinMode( PIN_SWD_OUT, GPIO_CFGLR_OUT_50Mhz_AF_PP );
+	funPinMode( PIN_SWD_OUT, GPIO_CFGLR_OUT_10Mhz_OD );
 	SWD_DELAY;
 	funDigitalWrite( PIN_SWCLK, 1 );
 	SWD_DELAY;
@@ -152,7 +151,7 @@ static void RVFinishRegop(void)
 	funDigitalWrite( PIN_SWCLK, 0 );
 	SWD_DELAY;
 	funDigitalWrite( PIN_SWD_OUT, 0 );
-	funPinMode( PIN_SWD_OUT, GPIO_CFGLR_OUT_50Mhz_AF_PP );
+	funPinMode( PIN_SWD_OUT, GPIO_CFGLR_OUT_50Mhz_PP );
 	SWD_DELAY;
 	funDigitalWrite( PIN_SWCLK, 1 );
 	SWD_DELAY;
@@ -316,7 +315,7 @@ static int MCFReadReg32( struct SWIOState * state, uint8_t command, uint32_t * v
 
 		if( ReadBitRVSWD( ) != parity )
 		{
-			BB_PRINTF_DEBUG( "Parity Failed\n" );
+			//BB_PRINTF_DEBUG( "Parity Failed\n" );
 			RVFinishRegop();
 			return -1;
 		}
@@ -349,7 +348,6 @@ void ConfigureIOForRVSWIO(void)
 	RCC->APB2PCENR |= RCC_APB2Periph_AFIO;
 	RCC->AHBPCENR |= RCC_AHBPeriph_DMA1;
 
-	funDigitalWrite( PIN_TARGETPOWER, 0 );
 	funDigitalWrite( PIN_SWD_OUT, 1 );
 	funDigitalWrite( PIN_SWD_IN, 1 );
 
@@ -357,7 +355,6 @@ void ConfigureIOForRVSWIO(void)
 
 	funPinMode( PIN_SWD_OUT, GPIO_CFGLR_OUT_10Mhz_AF_OD ); // Timer Channel 4
 	funPinMode( PIN_SWD_IN, GPIO_CFGLR_IN_PUPD );          // Timer Channel 2
-	funPinMode( PIN_TARGETPOWER, GPIO_CFGLR_OUT_10Mhz_PP );
 
 #if RVBB_TIM2
 	AFIO->PCFR1 |= AFIO_PCFR1_TIM2_REMAP_PARTIALREMAP1;
