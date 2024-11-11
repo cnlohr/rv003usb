@@ -72,7 +72,7 @@ static const uint8_t config_descriptor[] = {
 	0x80,					// bmAttributes (was 0xa0)
 	0x64,					// bMaxPower (200mA)
 
-	//Joystick  (It is unusual that this would be here)
+	//class FF device
 	9,					// bLength
 	4,					// bDescriptorType
 	0,		            // bInterfaceNumber  = 1 instead of 0 -- well make it second.
