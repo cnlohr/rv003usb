@@ -1,11 +1,11 @@
 all : flash
 
-TARGET:=swio_programmer
+TARGET:=rvswdio_programmer
 CH32V003FUN:=../../ch32v003fun/ch32v003fun
 MINICHLINK?=../../ch32v003fun/minichlink
 
 ADDITIONAL_C_FILES+=../../rv003usb/rv003usb.S ../../rv003usb/rv003usb.c
-EXTRA_CFLAGS:=-I../../lib -I../../rv003usb
+EXTRA_CFLAGS:=-I../../lib -I../../rv003usb -mstrict-align
 
 include ../../ch32v003fun/ch32v003fun/ch32v003fun.mk
 
