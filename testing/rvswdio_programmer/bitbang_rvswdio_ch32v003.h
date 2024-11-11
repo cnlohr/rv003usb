@@ -250,12 +250,7 @@ static int MCFReadReg32( struct SWIOState * state, uint8_t command, uint32_t * v
 
 		if( DMA_IN->CNTR != 3 )
 		{
-			printf( "RVR EXCEPT: %08x\n", DMA_IN->CNTR );
-			for( i = 0; i < 48; i++ )
-			{
-				printf( "%d ", reply_buffer[i] );
-			}
-			printf( "\n" );
+			printf( "RVR EXCEPT: %08x\n", (int)DMA_IN->CNTR );
 			return -1;
 		}
 

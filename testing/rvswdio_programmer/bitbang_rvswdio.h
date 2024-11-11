@@ -364,7 +364,7 @@ static int MCFReadReg32( struct SWIOState * state, uint8_t command, uint32_t * v
 			if( r == 2 )
 			{
 				EnableISR();
-				return -1;
+				return -21;
 			}
 		}
 		*value = rval;
@@ -408,16 +408,15 @@ static int MCFReadReg32( struct SWIOState * state, uint8_t command, uint32_t * v
 			if( r == 2 )
 			{
 				EnableISR();
-				return -1;
+				return -21;
 			}
 		}
 		*value = rval;
 
 		if( ReadBitRVSWD( t1coeff, pinmaskD, pinmaskC ) != parity )
 		{
-			BB_PRINTF_DEBUG( "Parity Failed\n" );
 			EnableISR();
-			return -1;
+			return -23;
 		}
 
 		ReadBitRVSWD( t1coeff, pinmaskD, pinmaskC ); // ???
@@ -449,74 +448,82 @@ static int MCFReadReg32( struct SWIOState * state, uint8_t command, uint32_t * v
 
 static int InitializeSWDSWIO( struct SWIOState * state )
 {
-#if RUNNING_ON_ESP32S2
-	ConfigureIOForRVSWIO();
-#endif
-	// Careful - don't halt the part, we might just want to attach for a debug printf or something.
-	state->target_chip_type = CHIP_UNKNOWN;
-	state->sectorsize = 64;
-
-	state->opmode = 1; // Try SWIO first
-	// First try to see if there is an 003.
-	MCFWriteReg32( state, DMSHDWCFGR, 0x5aa50000 | (1<<10) ); // Shadow Config Reg
-	MCFWriteReg32( state, DMCFGR, 0x5aa50000 | (1<<10) ); // CFGR (1<<10 == Allow output from slave)
-	MCFWriteReg32( state, DMSHDWCFGR, 0x5aa50000 | (1<<10) ); // Try twice just in case
-	MCFWriteReg32( state, DMCFGR, 0x5aa50000 | (1<<10) );
-
-	MCFWriteReg32( state, DMCONTROL, 0x00000001 );
-	MCFWriteReg32( state, DMCONTROL, 0x00000001 );
-
-	// See if we can see a chip here...
-	uint32_t value = 0;
-	int readdm = MCFReadReg32( state, DMCFGR, &value );
-	if( readdm == 0 && ( value & 0xffff0000 ) == ( 0x5aa50000 ) )
+	for( int timeout = 100; timeout; timeout-- )
 	{
-		BB_PRINTF_DEBUG( "Found RVSWIO interface.\n" );
+#if RUNNING_ON_ESP32S2
+		ConfigureIOForRVSWIO();
+#endif
+		// Careful - don't halt the part, we might just want to attach for a debug printf or something.
+		state->target_chip_type = CHIP_UNKNOWN;
+		state->sectorsize = 64;
+
+		state->opmode = 1; // Try SWIO first
+		// First try to see if there is an 003.
+		MCFWriteReg32( state, DMSHDWCFGR, 0x5aa50000 | (1<<10) ); // Shadow Config Reg
+		MCFWriteReg32( state, DMCFGR, 0x5aa50000 | (1<<10) ); // CFGR (1<<10 == Allow output from slave)
+		MCFWriteReg32( state, DMSHDWCFGR, 0x5aa50000 | (1<<10) ); // Try twice just in case
+		MCFWriteReg32( state, DMCFGR, 0x5aa50000 | (1<<10) );
+
+		MCFWriteReg32( state, DMCONTROL, 0x00000001 );
+		MCFWriteReg32( state, DMCONTROL, 0x00000001 );
+
+		// See if we can see a chip here...
+		uint32_t value = 0;
+		int readdm = MCFReadReg32( state, DMCFGR, &value );
+		if( readdm == 0 && ( value & 0xffff0000 ) == ( 0x5aa50000 ) )
+		{
+			BB_PRINTF_DEBUG( "Found RVSWIO interface.\n" );
+			return 0;
+		}
+
+#if RUNNING_ON_ESP32S2
+		GPIO.out_w1ts = state->pinmaskC;
+		GPIO.enable_w1ts = state->pinmaskC;
+#else
+		ConfigureIOForRVSWD();
+#endif
+
+		//Otherwise Maybe it's SWD?
+		state->opmode = 2;
+
+		MCFWriteReg32( state, DMCONTROL, 0x00000001 );
+		MCFWriteReg32( state, DMCONTROL, 0x00000001 );
+
+		uint32_t dmstatus, dmcontrol;
+		if( MCFReadReg32( state, DMSTATUS, &dmstatus ) != 0 || 
+			MCFReadReg32( state, DMCONTROL, &dmcontrol ) != 0 )
+		{
+			//BB_PRINTF_DEBUG( "Could not read from RVSWD connection\n" );
+			state->opmode = 0;
+			continue;
+		}
+
+		// See if we can see a chip here...
+		if( ( ( ( dmstatus >> 8 ) & 0xf ) != 0x0c &&
+			( ( dmstatus >> 8 ) & 0xf ) != 0x03 ) ||
+			dmcontrol != 1 )
+		{
+			//BB_PRINTF_DEBUG( "DMSTATUS invalid (Probably no RVSWD chip)\n" );
+			state->opmode = 0;
+			continue;
+		}
+
+		MCFWriteReg32( state, DMABSTRACTCS, 0x08000302 ); // Clear out abstractcs register.
+		BB_PRINTF_DEBUG( "Found RVSWD interface\n" );
 		return 0;
 	}
-
-#if RUNNING_ON_ESP32S2
-	GPIO.out_w1ts = state->pinmaskC;
-	GPIO.enable_w1ts = state->pinmaskC;
-#else
-	ConfigureIOForRVSWD();
-#endif
-
-	//Otherwise Maybe it's SWD?
-	state->opmode = 2;
-
-	MCFWriteReg32( state, DMCONTROL, 0x00000001 );
-	MCFWriteReg32( state, DMCONTROL, 0x00000001 );
-
-	uint32_t dmstatus, dmcontrol;
-	if( MCFReadReg32( state, DMSTATUS, &dmstatus ) != 0 || 
-		MCFReadReg32( state, DMCONTROL, &dmcontrol ) != 0 )
-	{
-		BB_PRINTF_DEBUG( "Could not read from RVSWD connection\n" );
-		state->opmode = 0;
-		return -1;
-	}
-
-	// See if we can see a chip here...
-	if( ( ( ( dmstatus >> 8 ) & 0xf ) != 0x0c &&
-		( ( dmstatus >> 8 ) & 0xf ) != 0x03 ) ||
-		dmcontrol != 1 )
-	{
-		BB_PRINTF_DEBUG( "DMSTATUS invalid (Probably no RVSWD chip)\n" );
-		state->opmode = 0;
-		return -1;
-	}
-
-	MCFWriteReg32( state, DMABSTRACTCS, 0x08000302 ); // Clear out abstractcs register.
-	BB_PRINTF_DEBUG( "Found RVSWD interface\n" );
-
-	return 0;
+	return -55;
 }
 
 static int DetermineChipTypeAndSectorInfo( struct SWIOState * iss )
 {
 	if( iss->target_chip_type == CHIP_UNKNOWN )
 	{
+		if( iss->opmode == 0 )
+		{
+			int r = InitializeSWDSWIO( iss );
+			if( r ) return r;
+		}
 		uint32_t rr;
 		if( MCFReadReg32( iss, DMHARTINFO, &rr ) )
 		{
@@ -549,7 +556,11 @@ static int DetermineChipTypeAndSectorInfo( struct SWIOState * iss )
 		MCFWriteReg32( iss, DMPROGBUF0, 0x90024000 );		// c.ebreak <<== c.lw x8, 0(x8)
 		MCFWriteReg32( iss, BDMDATA0, 0x1ffff704 );			// Special chip ID location.
 		MCFWriteReg32( iss, DMCOMMAND, 0x00271008 );		// Copy data to x8, and execute.
-		WaitForDoneOp( iss );
+
+		uint32_t abstractcscheck = 0;
+		MCFReadReg32( iss, DMABSTRACTCS, &abstractcscheck );
+
+		WaitForDoneOp( iss ); //Doesn't need to actually do this, but we can wait here.
 
 		MCFWriteReg32( iss, DMCOMMAND, 0x00221008 );		// Copy data from x8.
 		MCFReadReg32( iss, BDMDATA0, &vendorid );
@@ -568,22 +579,22 @@ static int DetermineChipTypeAndSectorInfo( struct SWIOState * iss )
 		else if( data0offset == 0xe0000380 )
 		{
 			// All other known chips.
-			uint32_t chip_type = (vendorid & 0xfff00000)>>20;
+			uint32_t chip_type = (vendorid & 0xff000000)>>24;
 			switch( chip_type )
 			{
-				case 0x103:
+				case 0x10:
 					iss->target_chip_type = CHIP_CH32V10x;
 					iss->sectorsize = 256; // test me!
 					break;
-				case 0x035: case 0x033:
+				case 0x03: // x03x
 					iss->target_chip_type = CHIP_CH32X03x;
 					iss->sectorsize = 256;  // Should be 128, but, doesn't work with 128, only 256
 					break;
-				case 0x203: case 0x205: case 0x208:
+				case 0x20: // v20x
 					iss->target_chip_type = CHIP_CH32V20x;
 					iss->sectorsize = 256;
 					break;
-				case 0x303: case 0x305: case 0x307:
+				case 0x30:
 					iss->target_chip_type = CHIP_CH32V30x;
 					iss->sectorsize = 256;
 					break;
@@ -595,6 +606,7 @@ static int DetermineChipTypeAndSectorInfo( struct SWIOState * iss )
 		BB_PRINTF_DEBUG( "HARTINFO: %08x\n", (unsigned)rr );
 
 		iss->statetag = STTAG( "XXXX" );
+		if( !iss->target_chip_type ) return -5;
 	}
 	return 0;
 }
@@ -629,11 +641,13 @@ static int WaitForDoneOp( struct SWIOState * iss )
 	int r;
 	uint32_t rrv;
 	int ret = 0;
+	int timeout = 10000;
 	struct SWIOState * dev = iss;
 	do
 	{
 		r = MCFReadReg32( dev, DMABSTRACTCS, &rrv );
 		if( r ) return r;
+		if( timeout-- == 0 ) return -8;
 	}
 	while( rrv & (1<<12) );
 	if( (rrv >> 8 ) & 7 )
@@ -644,9 +658,9 @@ static int WaitForDoneOp( struct SWIOState * iss )
 	return ret;
 }
 
-static void StaticUpdatePROGBUFRegs( struct SWIOState * dev )
+static int StaticUpdatePROGBUFRegs( struct SWIOState * dev )
 {
-	if( DetermineChipTypeAndSectorInfo( dev ) ) return;
+	if( DetermineChipTypeAndSectorInfo( dev ) ) return -9;
 
 	MCFWriteReg32( dev, DMABSTRACTAUTO, 0 ); // Disable Autoexec.
 	uint32_t rr;
@@ -666,6 +680,7 @@ static void StaticUpdatePROGBUFRegs( struct SWIOState * dev )
 	MCFWriteReg32( dev, BDMDATA0, 0x00010000|0x00040000 );
 
 	MCFWriteReg32( dev, DMCOMMAND, 0x0023100d ); // Copy data to x13
+	return 0;
 }
 
 static void ResetInternalProgrammingState( struct SWIOState * iss )
@@ -691,7 +706,8 @@ static int ReadWord( struct SWIOState * iss, uint32_t address_to_read, uint32_t 
 		{
 			if( iss->statetag != STTAG( "WRSQ" ) )
 			{
-				StaticUpdatePROGBUFRegs( dev );
+				int r = StaticUpdatePROGBUFRegs( dev );
+				if( r ) return r;
 			}
 
 			MCFWriteReg32( dev, DMABSTRACTAUTO, 0 ); // Disable Autoexec.
@@ -762,7 +778,8 @@ static int WriteWord( struct SWIOState * iss, uint32_t address_to_write, uint32_
 
 			if( iss->statetag != STTAG( "RDSQ" ) )
 			{
-				StaticUpdatePROGBUFRegs( dev );
+				int r = StaticUpdatePROGBUFRegs( dev );
+				if( r ) return r;
 			}
 
 			// Different address, so we don't need to re-write all the program regs.
