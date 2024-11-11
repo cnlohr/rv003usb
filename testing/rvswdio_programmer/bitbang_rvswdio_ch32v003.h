@@ -6,8 +6,8 @@
 // NewBSD licenses. You choose. (Can be included in commercial and copyleft work)
 // Assume 
 //
-// For RVBB_REMAP
-//        PD?+PC3 = SWIO (Plus 5.1k pull-up to PD2)
+// For RVBB_REMAP or default (great for QFN so you get CLKOUT optionally)
+//        PC2+PC3 = SWIO (Plus 5.1k pull-up to PD2)
 // Otherwise (Ideal for 8-pin SOIC, because PC4+PA1 are bound)
 //        PC4+PA1 = SWIO (Plus 5.1k pull-up to PD2)
 //
