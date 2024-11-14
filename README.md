@@ -116,10 +116,11 @@ This project is not ready for prime time, though it is sort of in a beta phase. 
 `✅` Use HID custom messages.  
 `✅` Improve sync sled.  I.e. coarse and fine sledding.  
 `✅` Abort on non-8-bit-aligned-frames.  
-`🔳` Make more demos  
-`🔳` API For self-flashing + printf from bootloader  
+`✅` Make more demos  
+`✅` API For self-flashing + `🔳` printf from bootloader  
 `🔳` Improve timing on send, for CRC bits.  Currently we are off by about 6 cycles total.  
-`❕` Further optimize Send/Receive PHY code. (Please help)  
+`❕` Further optimize Send/Receive PHY code. (Please help) 
+`❕` Consider a timer-only approach (may never happen)
 `⚠️` Enable improved retiming (Requires a few more cycles) (Please help!)  
 `⚠️`  Arduino support (someone else will have to take this on)  
 
