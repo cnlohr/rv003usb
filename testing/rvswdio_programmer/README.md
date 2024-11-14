@@ -1,5 +1,9 @@
 # ch32v003 programmer for WCH V- and X- chips
 
+While this is in `master`, it should still be considered somewhat experimental.  It may make sense to instead of use two pins, use two timers on a single pin.
+
+This is still a bit of an RFC and should not be considered the "real path" moving forward.
+
 ## A minichlink-compatible programmer
 
 Simply use a CH32V003, connected as follows:
