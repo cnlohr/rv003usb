@@ -13,10 +13,10 @@
 #define RV003USB_OPTIMIZE_FLASH    1
 #define RV003USB_EVENT_DEBUGGING   0
 #define RV003USB_HANDLE_IN_REQUEST 1
-#define RV003USB_OTHER_CONTROL     1
+#define RV003USB_OTHER_CONTROL     0
 #define RV003USB_HANDLE_USER_DATA  1
 #define RV003USB_HID_FEATURES      1
-
+#define RV003USB_USER_DATA_HANDLES_TOKEN 1
 
 #ifndef __ASSEMBLER__
 
@@ -33,8 +33,8 @@ static const uint8_t device_descriptor[] = {
 	0x0, //Device Subclass
 	0x0, //Device Protocol  (000 = use config descriptor)
 	0x08, //Max packet size for EP0 (This has to be 8 because of the USB Low-Speed Standard)
-	0x09, 0x12, //ID Vendor
-	0x03, 0xd0, //ID Product
+	0x06, 0x12, //ID Vendor
+	0x10, 0x5d, //ID Product
 	0x02, 0x00, //ID Rev
 	1, //Manufacturer string
 	2, //Product string
@@ -47,12 +47,8 @@ static const uint8_t special_hid_desc[] = {
 	HID_USAGE      ( 0x00 ),
 	HID_REPORT_SIZE ( 8 ),
 	HID_COLLECTION ( HID_COLLECTION_LOGICAL ),
-		HID_REPORT_COUNT   ( 254 ),
-		HID_REPORT_ID      ( 0xaa )
-		HID_USAGE          ( 0x01 ),
-		HID_FEATURE        ( HID_DATA | HID_VARIABLE | HID_ABSOLUTE ) ,
-		HID_REPORT_COUNT   ( 63 ), // For use with `hidapitester --vidpid 1209/D003 --open --read-feature 171`
-		HID_REPORT_ID      ( 0xab )
+		HID_REPORT_COUNT   ( 78 ),
+		HID_REPORT_ID      ( 0xad )
 		HID_USAGE          ( 0x01 ),
 		HID_FEATURE        ( HID_DATA | HID_VARIABLE | HID_ABSOLUTE ) ,
 	HID_COLLECTION_END,
@@ -72,7 +68,7 @@ static const uint8_t config_descriptor[] = {
 	0x80,					// bmAttributes (was 0xa0)
 	0x64,					// bMaxPower (200mA)
 
-	//class FF device
+	//Class FF device.
 	9,					// bLength
 	4,					// bDescriptorType
 	0,		            // bInterfaceNumber  = 1 instead of 0 -- well make it second.
@@ -100,8 +96,8 @@ static const uint8_t config_descriptor[] = {
 };
 
 #define STR_MANUFACTURER u"CNLohr"
-#define STR_PRODUCT      u"RV003 Custom Device"
-#define STR_SERIAL       u"CUSTOMDEVICE000"
+#define STR_PRODUCT      u"RV003 RVSWDIO Programmer"
+#define STR_SERIAL       u"RVSWDIO003-01"
 
 struct usb_string_descriptor_struct {
 	uint8_t bLength;
