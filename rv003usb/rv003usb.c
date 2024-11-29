@@ -130,6 +130,22 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	uint8_t * sendnow;
 	int sendtok = e->toggle_in?0b01001011:0b11000011;
 
+
+
+#if RV003USB_USE_REBOOT_FEATURE_REPORT
+	if( ist->reboot_armed == 2 )
+	{
+		usb_send_empty( sendtok );
+
+		// Initiate boot into bootloader
+		FLASH->BOOT_MODEKEYR = FLASH_KEY1;
+		FLASH->BOOT_MODEKEYR = FLASH_KEY2;
+		FLASH->STATR = 1<<14; // 1<<14 is zero, so, boot bootloader code. Unset for user code.
+		FLASH->CTLR = CR_LOCK_Set;
+		PFIC->SCTLR = 1<<31;
+	}
+#endif
+
 #if RV003USB_HANDLE_IN_REQUEST
 	if( e->custom || endp )
 	{
@@ -187,10 +203,31 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 
 	e->toggle_out = !e->toggle_out;
 
-#if RV003USB_HANDLE_USER_DATA
+
+#if RV003USB_HANDLE_USER_DATA || RV003USB_USE_REBOOT_FEATURE_REPORT
 	if( epno || ( !ist->setup_request && length > 3 )  )
 	{
+#if RV003USB_USE_REBOOT_FEATURE_REPORT
+		if( ist->reboot_armed )
+		{
+			uint32_t * base = __builtin_assume_aligned( data_in, 4 );
+			if( epno == 0 && base[0] == 0xaa3412fd && (base[1] & 0x00ffffff) == 0x00ddccbb )
+			{
+				e->count = 7;
+				ist->reboot_armed = 2;
+				goto just_ack;
+			}
+			else
+			{
+				ist->reboot_armed = 0;
+			}
+		}
+#endif
+
+
+#if RV003USB_HANDLE_USER_DATA
 		usb_handle_user_data( e, epno, data_in, length, ist );
+#endif
 #if RV003USB_USER_DATA_HANDLES_TOKEN
 		return;
 #endif
@@ -243,17 +280,24 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 		uint32_t reqShl = s->wRequestTypeLSBRequestMSB >> 1;
 
 		//LogUEvent( 0, s->wRequestTypeLSBRequestMSB, wvi, s->wLength );
+
+		if( reqShl == (0x0921>>1) )
+		{
+			// Class request (Will be writing)  This is hid_send_feature_report
+#if RV003USB_USE_REBOOT_FEATURE_REPORT
+			if( wvi == 0x000003fd ) ist->reboot_armed = 1;
+#endif
+#if RV003USB_HID_FEATURES
+			usb_handle_hid_set_report_start( e, wLength, wvi );
+#endif
+		}
+		else
 #if RV003USB_HID_FEATURES
 		if( reqShl == (0x01a1>>1) )
 		{
 			// Class read request.
 			// The host wants to read back from us. hid_get_feature_report
 			usb_handle_hid_get_report_start( e, wLength, wvi );
-		}
-		else if( reqShl == (0x0921>>1) )
-		{
-			// Class request (Will be writing)  This is hid_send_feature_report
-			usb_handle_hid_set_report_start( e, wLength, wvi );
 		}
 		else
 #endif
