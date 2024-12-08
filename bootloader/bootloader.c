@@ -17,6 +17,17 @@
 #define LOCAL_EXP(A, B) LOCAL_CONCAT(A,B)
 #define PORTID_EQUALS(A, B) (LOCAL_CONCAT(PORTID,A) == LOCAL_CONCAT(PORTID,B))
 
+// We have found some ch32v003's that do not behave well unless this flag is
+// set, there is no clear guidance on why this would be.  But, it seems rather
+// night and day for the 003's that fail.
+//
+// The datasheet only says
+// Core voltage modes.
+//   0: Normal voltage mode (Default)
+//   1: Boost voltage mode << When RV003USB_ENABLE_LDO_TRIM is set, this is on.
+#define RV003USB_ENABLE_LDO_TRIM 1
+
+
 // To use time debugging, enable thsi here, and RV003USB_DEBUG_TIMING in the .S
 // You must update in tandem
 //#define RV003USB_DEBUG_TIMING 1
@@ -90,6 +101,11 @@ int main()
 	// In the bootloader, the normal ch32v003fun startup doesn't happen, so to enable the systick, we have to manually enable it,
 	// and configure it.  This enables and configures it for high speed.
 	SysTick->CTLR = 5;
+
+#ifdef RV003USB_ENABLE_LDO_TRIM
+	// See comment above for RV003USB_ENABLE_LDO_TRIM
+	EXTEND->CTR = EXTEN_LDO_TRIM | EXTEN_LOCKUP_EN;
+#endif
 
 	// Enable GPIOs, TIMERs
 	RCC->APB2PCENR = RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOC | RCC_APB2Periph_TIM1 | RCC_APB2Periph_GPIOA  | RCC_APB2Periph_AFIO | RCC_APB2Periph_TIM1;
