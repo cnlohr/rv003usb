@@ -9,6 +9,10 @@
 
 #include "ch32v003fun.h"
 
+#if RV003USB_USB_TERMINAL
+#include "swio.h"
+#endif
+
 #define ENDPOINT0_SIZE 8 //Fixed for USB 1.1, Low Speed.
 
 #if RV003USB_EVENT_DEBUGGING
@@ -156,12 +160,22 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	}
 #endif
 
-	tosend = 0;
-
 	// Handle IN (sending data back to PC)
 	// Do this down here.
 	// We do this because we are required to have an in-endpoint.  We don't
 	// have to do anything with it, though.
+#if RV003USB_USB_TERMINAL
+	if( e->opaque == DMDATA0 )
+	{
+		usb_send_data( DMDATA0, ENDPOINT0_SIZE, 0, sendtok );
+		*DMDATA0 = 0;
+		*DMDATA1 = 0;
+		e->opaque = 0;
+		return;
+	}
+#endif
+
+
 	uint8_t * tsend = e->opaque;
 
 	int offset = (e->count)<<3;
@@ -195,6 +209,10 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 	length -= 3;
 	uint8_t * data_in = __builtin_assume_aligned( data, 4 );
 
+#if RV003USB_USB_TERMINAL
+	int send_to_terminal = 0;
+#endif
+
 	// Already received this packet.
 	if( e->toggle_out != which_data )
 	{
@@ -204,7 +222,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 	e->toggle_out = !e->toggle_out;
 
 
-#if RV003USB_HANDLE_USER_DATA || RV003USB_USE_REBOOT_FEATURE_REPORT
+#if RV003USB_HANDLE_USER_DATA || RV003USB_USE_REBOOT_FEATURE_REPORT || RV003USB_USB_TERMINAL
 	if( epno || ( !ist->setup_request && length > 3 )  )
 	{
 #if RV003USB_USE_REBOOT_FEATURE_REPORT
@@ -223,7 +241,28 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			}
 		}
 #endif
+#if RV003USB_USB_TERMINAL
+		if( epno == 0 && data_in[0] == 0xfd )
+		{
+			uint32_t *base = __builtin_assume_aligned( data_in, 4 );
 
+			*DMDATA0 = base[0];
+			*DMDATA1 = base[1];
+			*DMDATA0 &= ~( 0xFF );
+
+			int i;
+			for( i = 1; i < 8; i++ )
+			{
+				if( data_in[i] == 0 )
+				{
+					*DMDATA0 |= i + 3;
+					break;
+				}
+			}
+
+			goto just_ack;
+		}
+#endif
 
 #if RV003USB_HANDLE_USER_DATA
 		usb_handle_user_data( e, epno, data_in, length, ist );
@@ -291,17 +330,34 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			usb_handle_hid_set_report_start( e, wLength, wvi );
 #endif
 		}
-		else
-#if RV003USB_HID_FEATURES
-		if( reqShl == (0x01a1>>1) )
+		else if( reqShl == (0x01a1>>1) )
 		{
 			// Class read request.
 			// The host wants to read back from us. hid_get_feature_report
+			e->max_len = 1;
+#if RV003USB_HID_FEATURES
 			usb_handle_hid_get_report_start( e, wLength, wvi );
-		}
-		else
 #endif
-		if( reqShl == (0x0680>>1) ) // GET_DESCRIPTOR = 6 (msb)
+#if RV003USB_USB_TERMINAL
+			if( ( wvi & 0xff ) == 0xfd )
+			{
+				if( !*DMSTATUS_SENTINEL )
+				{
+					if( ( *DMDATA0 & 0x80 ) && ( ( *DMDATA0 & 0xf ) - 4 ) )
+					{
+						e->opaque = DMDATA0;
+						e->max_len = ( *DMDATA0 & 0xf ) - 4;
+						// e->max_len = 8;
+					}
+				}
+				else
+				{
+					attempt_unlock( 2 );
+				}
+			}
+#endif
+		}
+		else if( reqShl == (0x0680>>1) ) // GET_DESCRIPTOR = 6 (msb)
 		{
 			int i;
 			const struct descriptor_list_struct * dl;
