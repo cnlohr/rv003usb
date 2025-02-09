@@ -7,7 +7,7 @@
 
 #if !defined(RV003USB_CUSTOM_C) || RV003USB_CUSTOM_C == 0
 
-#include "ch32v003fun.h"
+#include "ch32fun.h"
 
 #define ENDPOINT0_SIZE 8 //Fixed for USB 1.1, Low Speed.
 

@@ -2,7 +2,7 @@
 #define SYSTEM_CORE_CLOCK 48000000
 #define SYSTICK_USE_HCLK
 
-#include "ch32v003fun.h"
+#include "ch32fun.h"
 #include <stdio.h>
 #include <string.h>
 
