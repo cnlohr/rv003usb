@@ -1049,8 +1049,9 @@ static int Write64Block( struct SWIOState * iss, uint32_t address_to_write, uint
 				WriteWord( dev, 0x40022010, CR_PAGE_PG | (1<<21) ); // Page Start
 				if( WaitForFlash( dev ) ) return -13;
 			}
-			else if ( iss->target_chip_type == CHIP_CH32V003 || iss->target_chip_type == CHIP_CH32X03x || (iss->target_chip_type >= CHIP_CH32V002 && iss->target_chip_type <= CHIP_CH32V006 ) )
-			{
+			// TODO: What about the v10x?
+			else // if ( iss->target_chip_type == CHIP_CH32V003 || iss->target_chip_type == CHIP_CH32X03x || (iss->target_chip_type >= CHIP_CH32V002 && iss->target_chip_type <= CHIP_CH32V006 ) )
+			{	
 				// Datasheet says the x03x needs to have this called every group-of-16, but that's not true, it should be every 16-words.
 
 				WriteWord( dev, 0x40022014, group );  //0x40022014 -> FLASH->ADDR
