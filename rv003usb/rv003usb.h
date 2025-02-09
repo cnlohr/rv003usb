@@ -37,8 +37,21 @@
 #define RV003USB_DEBUG_TIMING        0
 #define RV003USB_CUSTOM_C            0
 
+#define RV003USB_USE_REBOOT_FEATURE_REPORT 1
+
 #define RV003USB_USER_DATA_HANDLES_TOKEN 0
 */
+
+
+#ifndef RV003USB_USE_REBOOT_FEATURE_REPORT
+#define RV003USB_USE_REBOOT_FEATURE_REPORT 1
+/* Reboot:
+	hid_device * hd = hid_open( 0x1209, 0xd003, 0 );
+	uint8_t bufferX[7] = { 0xfd, 0x12, 0x34, 0xaa, 0xbb, 0xcc, 0xdd };
+	r = hid_send_feature_report( hd, bufferX, sizeof(bufferX) );
+*/
+#endif
+
 
 #ifndef __ASSEMBLER__
 
@@ -164,7 +177,11 @@ struct rv003usb_internal
 	TURBO8TYPE current_endpoint; // Can this be combined with setup_request?
 	TURBO8TYPE my_address;       // Will be 0 until set up.
 	TURBO8TYPE setup_request;    // 0 for non-setup request, 1 after setup token, is allowed to be 2 for control-out if RV003USB_SUPPORT_CONTROL_OUT is set.
+#if RV003USB_USE_REBOOT_FEATURE_REPORT
+	TURBO8TYPE reboot_armed;     // If in a 0xFD set feature report.
+#else
 	TURBO8TYPE reserved;
+#endif
 	uint32_t last_se0_cyccount;
 	int32_t delta_se0_cyccount;
 	uint32_t se0_windup;
