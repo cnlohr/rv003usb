@@ -1,6 +1,6 @@
 // Test
 
-#include "ch32v003fun.h"
+#include "ch32fun.h"
 #include "rv003usb.h"
 
 #define CFGLR_OFFSET 0
@@ -856,6 +856,10 @@ InterruptVector:
 2:
 	//XXX WARNING: NO .DATA SECTION IS AVAILABLE HERE!
 	/* SystemInit48HSI */
+
+	// RCC_BASE     = 0x40021000
+	// FLASH_R_BASE = 0x40022000
+	// EXTEND       = 0x40023800
 	la a2, RCC_BASE
 	la a3, FLASH_R_BASE
 	li a1, 0x00000001 | 0x01000000 | 0x80 /* RCC->CTLR RCC_HSION | RCC_PLLON | ((HSITRIM) << 3) */
