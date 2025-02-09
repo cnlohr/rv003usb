@@ -12,6 +12,14 @@ LINKER_SCRIPT:=ch32v003fun-usb-bootloader.ld
 WRITE_SECTION:=bootloader
 FLASH_COMMAND:=$(CH32V003FUN)/../minichlink/minichlink -a -w $(TARGET).bin $(WRITE_SECTION) -B
 
+optionbytes :
+	#$(MINICHLINK)/minichlink -w +a55af708 option # Default (But what does it mean??)
+	$(MINICHLINK)/minichlink -w +a55aff00 option # Enable bootloader, disable RESET
+	#$(MINICHLINK)/minichlink -w +a55aef10 option # Enable bootloader, enable RESET
+	#$(MINICHLINK)/minichlink -w +a55adf20 option # Disable bootloader, disable RESET
+	#$(MINICHLINK)/minichlink -w +a55acf30 option # Disable bootloader, enable RESET
+
+
 include ../ch32v003fun/ch32v003fun/ch32v003fun.mk
 
 flash : cv_flash
