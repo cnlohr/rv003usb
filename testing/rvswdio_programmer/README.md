@@ -8,9 +8,8 @@ This is still a bit of an RFC and should not be considered the "real path" movin
 
 Simply use a CH32V003, connected as follows:
 
-![Schematic](https://github.com/cnlohr/rv003usb/blob/swio_programmer/testing/rvswdio_programmer/schematic.png?raw=true)
+![Schematic](schematic.png)
 
 And you can program, semihost and run basic GDB on a variety of WCH chips including the CH32V003, 20x, 30x and x03x.
 
 It's actually only a little slower than the normal programmer somehow, in spite of bit banging USB?
-
