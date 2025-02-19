@@ -340,6 +340,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 #if RV003USB_HID_FEATURES
 			usb_handle_hid_get_report_start( e, wLength, wvi );
 #endif
+#if RV003USB_USB_TERMINAL
 			if( ( wvi & 0xff ) == 0xfd )
 			{
 				if( !*DMSTATUS_SENTINEL )
@@ -360,7 +361,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 					attempt_unlock( 2 );
 				}
 			}
-
+#endif
 		}
 		else
 #endif
