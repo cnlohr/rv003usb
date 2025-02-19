@@ -332,7 +332,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 		}
 		else
 #if RV003USB_HID_FEATURES || RV003USB_USB_TERMINAL
-		if( reqShl == ( 0x01a1 >> 1 ) )
+		if( reqShl == (0x01a1>>1) )
 		{
 			// Class read request.
 			// The host wants to read back from us. hid_get_feature_report
@@ -364,7 +364,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 		}
 		else
 #endif
-		if( reqShl == ( 0x0680 >> 1 ) ) // GET_DESCRIPTOR = 6 (msb)
+		if( reqShl == (0x0680>>1) ) // GET_DESCRIPTOR = 6 (msb)
 		{
 			int i;
 			const struct descriptor_list_struct * dl;
