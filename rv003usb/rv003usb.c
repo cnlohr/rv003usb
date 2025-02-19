@@ -345,7 +345,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			{
 				if( !*DMSTATUS_SENTINEL )
 				{
-					if( ( *DMDATA0 & 0x80 ) && ( ( *DMDATA0 & 0xf ) - 4 ) )
+					if( ( *DMDATA0 & 0x80 ) )
 					{
 						e->opaque = (uint8_t *)DMDATA0;
 						e->max_len = ( *DMDATA0 & 0xf ) - 4;
