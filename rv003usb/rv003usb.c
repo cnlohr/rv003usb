@@ -10,7 +10,11 @@
 #include "ch32v003fun.h"
 
 #if RV003USB_USB_TERMINAL
-#include "swio.h"
+#if FUNCONF_USE_DEBUGPRINTF
+#include "../lib/swio_self.h" // Needed for unlocking DM
+#else 
+#define RV003USB_USB_TERMINAL 0
+#endif
 #endif
 
 #define ENDPOINT0_SIZE 8 //Fixed for USB 1.1, Low Speed.
@@ -165,9 +169,9 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	// We do this because we are required to have an in-endpoint.  We don't
 	// have to do anything with it, though.
 #if RV003USB_USB_TERMINAL
-	if( e->opaque == DMDATA0 )
+	if( e->opaque == (uint8_t *)DMDATA0 )
 	{
-		usb_send_data( DMDATA0, ENDPOINT0_SIZE, 0, sendtok );
+		usb_send_data( (void *)DMDATA0, ENDPOINT0_SIZE, 0, sendtok );
 		*DMDATA0 = 0;
 		*DMDATA1 = 0;
 		e->opaque = 0;
@@ -208,10 +212,6 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 
 	length -= 3;
 	uint8_t * data_in = __builtin_assume_aligned( data, 4 );
-
-#if RV003USB_USB_TERMINAL
-	int send_to_terminal = 0;
-#endif
 
 	// Already received this packet.
 	if( e->toggle_out != which_data )
@@ -345,9 +345,13 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 				{
 					if( ( *DMDATA0 & 0x80 ) && ( ( *DMDATA0 & 0xf ) - 4 ) )
 					{
-						e->opaque = DMDATA0;
+						e->opaque = (uint8_t *)DMDATA0;
 						e->max_len = ( *DMDATA0 & 0xf ) - 4;
 						// e->max_len = 8;
+					}
+					else if( ( *DMDATA0 & 0xc0 ) == 0xc0 )
+					{
+						*DMDATA0 = 0;
 					}
 				}
 				else
