@@ -330,15 +330,16 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			usb_handle_hid_set_report_start( e, wLength, wvi );
 #endif
 		}
-		else if( reqShl == (0x01a1>>1) )
+		else 
+#if RV003USB_HID_FEATURES || RV003USB_USB_TERMINAL
+    if( reqShl == (0x01a1>>1) )
 		{
 			// Class read request.
 			// The host wants to read back from us. hid_get_feature_report
-			e->max_len = 1;
+			e->max_len = 1; // If 0 - terminal is sent to the stratosphere
 #if RV003USB_HID_FEATURES
 			usb_handle_hid_get_report_start( e, wLength, wvi );
 #endif
-#if RV003USB_USB_TERMINAL
 			if( ( wvi & 0xff ) == 0xfd )
 			{
 				if( !*DMSTATUS_SENTINEL )
