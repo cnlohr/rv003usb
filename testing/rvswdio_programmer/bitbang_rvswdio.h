@@ -40,6 +40,12 @@ enum RiscVChip {
 	CHIP_CH58x = 0x07,
 	CHIP_CH32V003 = 0x09,
 	CHIP_CH32X03x = 0x0d,
+
+
+	CHIP_CH32V002 = 0x22,
+	CHIP_CH32V004 = 0x24,
+	CHIP_CH32V005 = 0x25,
+	CHIP_CH32V006 = 0x26,
 };
 
 struct SWIOState
@@ -577,9 +583,17 @@ static int DetermineChipTypeAndSectorInfo( struct SWIOState * iss )
 
 		if( data0offset == 0xe00000f4 )
 		{
-			// Only known processor with this signature is a CH32V003.
-			iss->target_chip_type = CHIP_CH32V003;
-			iss->sectorsize = 64;
+			// Only known processor with this signature = 0 is a CH32V003.
+			switch( vendorid >> 20 )
+			{
+			case 0x002: iss->target_chip_type = CHIP_CH32V002; iss->sectorsize = 256; break;
+			case 0x004: iss->target_chip_type = CHIP_CH32V004; iss->sectorsize = 256; break;
+			case 0x005: iss->target_chip_type = CHIP_CH32V005; iss->sectorsize = 256; break;
+			case 0x006: iss->target_chip_type = CHIP_CH32V006; iss->sectorsize = 256; break;
+			default:    iss->target_chip_type = CHIP_CH32V003; iss->sectorsize = 64; break; // not usually 003
+			}
+			// Examples:
+			// 00000012 = CHIP_CH32V003
 		}
 		else if( data0offset == 0xe0000380 )
 		{
@@ -814,7 +828,7 @@ static int WriteWord( struct SWIOState * iss, uint32_t address_to_write, uint32_
 			// fc75 c.bnez x8, -4
 			// c.ebreak
 			MCFWriteReg32( dev, DMPROGBUF3, 
-				(iss->target_chip_type == CHIP_CH32X03x || iss->target_chip_type == CHIP_CH32V003) ? 
+				(iss->target_chip_type == CHIP_CH32X03x || iss->target_chip_type == CHIP_CH32V003 || (iss->target_chip_type >= CHIP_CH32V002 && iss->target_chip_type <= CHIP_CH32V006 ) ) ? 
 				0x4200c254 : 0x42000001  );
 
 			MCFWriteReg32( dev, DMPROGBUF4,
@@ -1035,8 +1049,9 @@ static int Write64Block( struct SWIOState * iss, uint32_t address_to_write, uint
 				WriteWord( dev, 0x40022010, CR_PAGE_PG | (1<<21) ); // Page Start
 				if( WaitForFlash( dev ) ) return -13;
 			}
-			else if ( iss->target_chip_type == CHIP_CH32V003 || iss->target_chip_type == CHIP_CH32X03x )
-			{
+			// TODO: What about the v10x?
+			else // if ( iss->target_chip_type == CHIP_CH32V003 || iss->target_chip_type == CHIP_CH32X03x || (iss->target_chip_type >= CHIP_CH32V002 && iss->target_chip_type <= CHIP_CH32V006 ) )
+			{	
 				// Datasheet says the x03x needs to have this called every group-of-16, but that's not true, it should be every 16-words.
 
 				WriteWord( dev, 0x40022014, group );  //0x40022014 -> FLASH->ADDR
@@ -1102,6 +1117,10 @@ static int PollTerminal( struct SWIOState * iss, uint8_t * buffer, int maxlen, u
 			memcpy( buffer, ((uint8_t*)&rr)+1, firstrem );
 			buffer[num_printf_chars] = 0;
 			ret = num_printf_chars;
+		}
+		else if( num_printf_chars <= 0 )
+		{
+			ret = num_printf_chars - 1;
 		}
 		if( leavevalA )
 		{

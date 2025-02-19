@@ -7,7 +7,7 @@
 
 #if !defined(RV003USB_CUSTOM_C) || RV003USB_CUSTOM_C == 0
 
-#include "ch32v003fun.h"
+#include "ch32fun.h"
 
 #if RV003USB_USB_TERMINAL
 #if FUNCONF_USE_DEBUGPRINTF
