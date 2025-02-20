@@ -9,6 +9,14 @@
 
 #include "ch32fun.h"
 
+#if RV003USB_USB_TERMINAL
+#if FUNCONF_USE_DEBUGPRINTF
+#include "../lib/swio_self.h" // Needed for unlocking DM
+#else 
+#define RV003USB_USB_TERMINAL 0
+#endif
+#endif
+
 #define ENDPOINT0_SIZE 8 //Fixed for USB 1.1, Low Speed.
 
 #if RV003USB_EVENT_DEBUGGING
@@ -156,12 +164,22 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	}
 #endif
 
-	tosend = 0;
-
 	// Handle IN (sending data back to PC)
 	// Do this down here.
 	// We do this because we are required to have an in-endpoint.  We don't
 	// have to do anything with it, though.
+#if RV003USB_USB_TERMINAL
+	if( e->opaque == (uint8_t *)DMDATA0 )
+	{
+		usb_send_data( (void *)DMDATA0, ENDPOINT0_SIZE, 0, sendtok );
+		*DMDATA0 = 0;
+		*DMDATA1 = 0;
+		e->opaque = 0;
+		return;
+	}
+#endif
+
+
 	uint8_t * tsend = e->opaque;
 
 	int offset = (e->count)<<3;
@@ -204,7 +222,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 	e->toggle_out = !e->toggle_out;
 
 
-#if RV003USB_HANDLE_USER_DATA || RV003USB_USE_REBOOT_FEATURE_REPORT
+#if RV003USB_HANDLE_USER_DATA || RV003USB_USE_REBOOT_FEATURE_REPORT || RV003USB_USB_TERMINAL
 	if( epno || ( !ist->setup_request && length > 3 )  )
 	{
 #if RV003USB_USE_REBOOT_FEATURE_REPORT
@@ -223,7 +241,28 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 			}
 		}
 #endif
+#if RV003USB_USB_TERMINAL
+		if( epno == 0 && data_in[0] == 0xfd )
+		{
+			uint32_t *base = __builtin_assume_aligned( data_in, 4 );
 
+			*DMDATA0 = base[0];
+			*DMDATA1 = base[1];
+			*DMDATA0 &= ~( 0xFF );
+
+			int i;
+			for( i = 1; i < 8; i++ )
+			{
+				if( data_in[i] == 0 )
+				{
+					*DMDATA0 |= i + 3;
+					break;
+				}
+			}
+
+			goto just_ack;
+		}
+#endif
 
 #if RV003USB_HANDLE_USER_DATA
 		usb_handle_user_data( e, epno, data_in, length, ist );
@@ -292,12 +331,37 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 #endif
 		}
 		else
-#if RV003USB_HID_FEATURES
+#if RV003USB_HID_FEATURES || RV003USB_USB_TERMINAL
 		if( reqShl == (0x01a1>>1) )
 		{
 			// Class read request.
 			// The host wants to read back from us. hid_get_feature_report
+			e->max_len = 1; // If 0 - terminal is sent to the stratosphere
+#if RV003USB_HID_FEATURES
 			usb_handle_hid_get_report_start( e, wLength, wvi );
+#endif
+#if RV003USB_USB_TERMINAL
+			if( ( wvi & 0xff ) == 0xfd )
+			{
+				if( !*DMSTATUS_SENTINEL )
+				{
+					if( ( *DMDATA0 & 0x80 ) )
+					{
+						e->opaque = (uint8_t *)DMDATA0;
+						e->max_len = ( *DMDATA0 & 0xf ) - 4;
+						// e->max_len = 8;
+					}
+					else if( ( *DMDATA0 & 0xc0 ) == 0xc0 )
+					{
+						*DMDATA0 = 0;
+					}
+				}
+				else
+				{
+					attempt_unlock( 2 );
+				}
+			}
+#endif
 		}
 		else
 #endif
