@@ -839,16 +839,15 @@ InterruptVector:
 	.align  2
 .option push
 .option norelax
-	la gp, __global_pointer$
-	mv sp, gp //_eusrstack
 #if __GNUC__ > 10
 .option arch, +zicsr
 #endif
+	la sp, _eusrstack  // SP = 0x20000800
 	li a0, 0x80
 	csrw mstatus, a0
-	c.li a0, 3
-	csrw mtvec, a0
-	addi a0, gp, -2048 // will be 0x20000000
+	csrw mtvec, 3
+	addi a0, sp, -2048 // A0 = 0x20000000
+	addi gp, a0, 0x3fc // GP = 0x200003fc
 	c.li a4, 0
 1:	c.sw a4, 0(a0)	// Clear RAM
 	c.addi a0, 4

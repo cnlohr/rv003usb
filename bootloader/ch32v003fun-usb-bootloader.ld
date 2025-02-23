@@ -107,11 +107,11 @@ SECTIONS
 	.data :
 	{
 		. = ALIGN(4);
+		__global_pointer$ = . + 0x3fc;
 		*(.gnu.linkonce.r.*)
 		*(.data .data.*)
 		*(.gnu.linkonce.d.*)
 		. = ALIGN(4);
-		PROVIDE( __global_pointer$ = . + 0x800 );
 		*(.sdata .sdata.*)
 		*(.sdata2*)
 		*(.gnu.linkonce.s.*)
