@@ -52,6 +52,10 @@
 */
 #endif
 
+#ifndef RV003USB_USB_TERMINAL
+#define RV003USB_USB_TERMINAL 0
+#endif
+
 
 #ifndef __ASSEMBLER__
 
