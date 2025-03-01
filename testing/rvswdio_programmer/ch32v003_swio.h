@@ -483,7 +483,7 @@ static int WriteWord( struct SWIOState * iss, uint32_t address_to_write, uint32_
 	int ret = 0;
 
 	int is_flash = 0;
-	if( ( address_to_write & 0xff000000 ) == 0x08000000 || ( address_to_write & 0x1FFFF800 ) == 0x1FFFF000 )
+	if( ( address_to_write & 0xff000000 ) == 0x08000000 || ( address_to_write & 0x1FFF0000 ) == 0x1FFF0000 )
 	{
 		// Is flash.
 		is_flash = 1;
@@ -592,6 +592,7 @@ static int UnlockFlash( struct SWIOState * iss )
 			return -9;
 		}
 	}
+	iss->statetag = STTAG( "XXXX" );
 	iss->flash_unlocked = 1;
 	return 0;
 }
@@ -659,7 +660,7 @@ static int Write64Block( struct SWIOState * iss, uint32_t address_to_write, uint
 	int is_flash = 0;
 	int rw = 0;
 
-	if( (address_to_write & 0xff000000) == 0x08000000 || (address_to_write & 0xff000000) == 0x00000000  || (address_to_write & 0x1FFFF800) == 0x1FFFF000  ) 
+	if( (address_to_write & 0xff000000) == 0x08000000 || (address_to_write & 0xff000000) == 0x00000000  || (address_to_write & 0x1FFF0800) == 0x1FFF0000  ) 
 	{
 		// Need to unlock flash.
 		// Flash reg base = 0x40022000,
@@ -693,6 +694,8 @@ static int Write64Block( struct SWIOState * iss, uint32_t address_to_write, uint
 			group = (wp & 0xffffffc0);
 			WriteWord( dev, 0x40022010, CR_PAGE_PG ); // THIS IS REQUIRED, (intptr_t)&FLASH->CTLR = 0x40022010   (PG Performs quick page programming operations.)
 			WriteWord( dev, 0x40022010, CR_BUF_RST | CR_PAGE_PG );  // (intptr_t)&FLASH->CTLR = 0x40022010
+			if( iss->target_chip_type & 0xf0 ) == 0x20 )
+				if( (rw = WaitForFlash( dev ) ) ) return rw;   // This is purely precautionary. I've never seen this not be the case.
 
 			int j;
 			for( j = 0; j < 16; j++ )
