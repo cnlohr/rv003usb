@@ -1,6 +1,6 @@
 // For use with a ST7567 driver in an LCD.
 
-#include "ch32v003fun.h"
+#include "ch32fun.h"
 #include <stdio.h>
 #include <string.h>
 #include "rv003usb.h"
