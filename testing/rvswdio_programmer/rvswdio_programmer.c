@@ -17,6 +17,7 @@
 // If you are using the MCO feature
 //        PC4 = MCO (optional)
 //
+#define RVBB_REMAP 1 // To put SWD on PC1/PC2
 
 #define IRAM_ATTR
 #define MAX_IN_TIMEOUT 1000
@@ -25,9 +26,10 @@
 #define BB_PRINTF_DEBUG printf
 #include "bitbang_rvswdio.h"
 
+#define PROGRAMMER_PROTOCOL_NUMBER 4
+
 #define PIN_SWCLK   PC5     // Remappable.
 #define PIN_TARGETPOWER PD2 // Remappable
-#define RVBB_REMAP 1 // To put SWD on PC1/PC2
 
 #include "bitbang_rvswdio_ch32v003.h"
 
@@ -46,14 +48,13 @@ static void SetupProgrammer(void)
 	programmer_mode = 0;
 }
 
-
 static void SwitchMode( uint8_t ** liptr, uint8_t ** lretbuffptr )
 {
-	programmer_mode = *(*liptr++);
+	programmer_mode = *((*liptr)++);
 	// Unknown Programmer
-	*(*lretbuffptr++) = 0;
-	*(*lretbuffptr++) = programmer_mode;
-	printf( "Changing programming mode to %d\n", programmer_mode );
+	*((*lretbuffptr)++) = PROGRAMMER_PROTOCOL_NUMBER;
+	*((*lretbuffptr)++) = programmer_mode;
+	printf( "PM %d\n", programmer_mode );
 	if( programmer_mode == 0 )
 	{
 		SetupProgrammer();
@@ -132,7 +133,7 @@ static void HandleCommandBuffer( uint8_t * buffer )
 				}
 				case 0x09: // Read Data32.
 				{
-					if( remain >= 5 )
+					if( remain >= 4 )
 					{
 						int r = ReadWord( &state, iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24), (uint32_t*)&retbuffptr[1] );
 						iptr += 4;
@@ -207,8 +208,18 @@ static void HandleCommandBuffer( uint8_t * buffer )
 					}
 					break;
 				}
+				case 0x0f: // Override chip type, etc.
+					if( remain >= 8 )
+					{
+						state.target_chip_type = *(iptr++);
+						state.sectorsize = iptr[0] | (iptr[1]<<8);
+						iptr += 2;
+						// Rest is reserved.
+						iptr += 5;
+						*(retbuffptr++) = 0; // Reply is always 0.
+					}
+					break;
 				// Done
-
 				}
 			} else if( cmd == 0xff )
 			{

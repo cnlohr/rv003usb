@@ -123,7 +123,9 @@ static int PollTerminal( struct SWIOState * iss, uint8_t * buffer, int maxlen, u
 #define FLASH_STATR_WRPRTERR       ((uint8_t)0x10) 
 #define CR_PAGE_PG                 ((uint32_t)0x00010000)
 #define CR_BUF_LOAD                ((uint32_t)0x00040000)
+#ifndef FLASH_CTLR_MER
 #define FLASH_CTLR_MER             ((uint16_t)0x0004)     /* Mass Erase */
+#endif
 #define CR_STRT_Set                ((uint32_t)0x00000040)
 #define CR_PAGE_ER                 ((uint32_t)0x00020000)
 #define CR_BUF_RST                 ((uint32_t)0x00080000)
@@ -457,9 +459,9 @@ static int InitializeSWDSWIO( struct SWIOState * state )
 	for( int timeout = 20; timeout; timeout-- )
 	{
 #ifndef RUNNING_ON_ESP32S2
-		printf( "CFG FOR RV\n" );
+		//printf( "CFG FOR RV\n" );
 		ConfigureIOForRVSWIO();
-		printf( "DONE CFG FOR RV\n" );
+		//printf( "DONE CFG FOR RV\n" );
 #endif
 		// Careful - don't halt the part, we might just want to attach for a debug printf or something.
 		state->target_chip_type = CHIP_UNKNOWN;
@@ -488,9 +490,9 @@ static int InitializeSWDSWIO( struct SWIOState * state )
 		GPIO.out_w1ts = state->pinmaskC;
 		GPIO.enable_w1ts = state->pinmaskC;
 #else
-		printf( "CFG FOR SWD\n" );
+		//printf( "CFG FOR SWD\n" );
 		ConfigureIOForRVSWD();
-		printf( "DONE CFG FOR SWD\n" );
+		//printf( "DONE CFG FOR SWD\n" );
 #endif
 
 		//Otherwise Maybe it's SWD?
@@ -522,7 +524,7 @@ static int InitializeSWDSWIO( struct SWIOState * state )
 		BB_PRINTF_DEBUG( "Found RVSWD interface\n" );
 		return 0;
 	}
-	printf( "TIMEOUT\n" );
+	//printf( "TIMEOUT\n" );
 	return -55;
 }
 
@@ -619,10 +621,10 @@ static int DetermineChipTypeAndSectorInfo( struct SWIOState * iss )
 					break;
 			}
 		}
-		BB_PRINTF_DEBUG( "Detected %d / %d\n", iss->target_chip_type, iss->sectorsize );
-		BB_PRINTF_DEBUG( "Vendored: %08x\n", (unsigned)vendorid );
-		BB_PRINTF_DEBUG( "marchid : %08x\n", (unsigned)marchid );
-		BB_PRINTF_DEBUG( "HARTINFO: %08x\n", (unsigned)rr );
+		//BB_PRINTF_DEBUG( "Detected %d / %d\n", iss->target_chip_type, iss->sectorsize );
+		//BB_PRINTF_DEBUG( "Vendored: %08x\n", (unsigned)vendorid );
+		//BB_PRINTF_DEBUG( "marchid : %08x\n", (unsigned)marchid );
+		//BB_PRINTF_DEBUG( "HARTINFO: %08x\n", (unsigned)rr );
 
 		iss->statetag = STTAG( "XXXX" );
 		if( !iss->target_chip_type ) return -5;
@@ -660,7 +662,7 @@ static int WaitForDoneOp( struct SWIOState * iss )
 	int r;
 	uint32_t rrv;
 	int ret = 0;
-	int timeout = 10000;
+	int timeout = 1000;
 	struct SWIOState * dev = iss;
 	do
 	{
@@ -1045,20 +1047,23 @@ static int Write64Block( struct SWIOState * iss, uint32_t address_to_write, uint
 				wp += 4;
 			}
 
-			if( is_last_block && ( iss->target_chip_type == CHIP_CH32V20x || iss->target_chip_type == CHIP_CH32V30x ) )
+
+			if( ( iss->target_chip_type == CHIP_CH32V20x || iss->target_chip_type == CHIP_CH32V30x ) )
 			{
-				WriteWord( dev, 0x40022010, CR_PAGE_PG | (1<<21) ); // Page Start
-				if( WaitForFlash( dev ) ) return -13;
+				if( is_last_block )
+				{
+					WriteWord( dev, 0x40022010, CR_PAGE_PG | (1<<21) ); // Page Start
+					if( WaitForFlash( dev ) ) return -13;
+				}
 			}
-			// TODO: What about the v10x?
-			else // if ( iss->target_chip_type == CHIP_CH32V003 || iss->target_chip_type == CHIP_CH32X03x || (iss->target_chip_type >= CHIP_CH32V002 && iss->target_chip_type <= CHIP_CH32V006 ) )
-			{	
+			else // TODO: What about the v10x?
+			{
 				// Datasheet says the x03x needs to have this called every group-of-16, but that's not true, it should be every 16-words.
 
 				WriteWord( dev, 0x40022014, group );  //0x40022014 -> FLASH->ADDR
 				//if( MCF.PrepForLongOp ) MCF.PrepForLongOp( dev );  // Give the programmer a headsup this next operation could take a while.
 				WriteWord( dev, 0x40022010, CR_PAGE_PG|CR_STRT_Set ); // 0x40022010 -> FLASH->CTLR
-				if( WaitForFlash( dev ) ) return -13;
+				if( WaitForFlash( dev ) ) return -16;
 			}
 		}
 		else
