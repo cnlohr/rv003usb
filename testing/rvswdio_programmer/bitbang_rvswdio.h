@@ -1124,10 +1124,6 @@ static int PollTerminal( struct SWIOState * iss, uint8_t * buffer, int maxlen, u
 			buffer[num_printf_chars] = 0;
 			ret = num_printf_chars;
 		}
-		else if( num_printf_chars <= 0 )
-		{
-			ret = num_printf_chars - 1;
-		}
 		if( leavevalA )
 		{
 			MCFWriteReg32( dev, BDMDATA1, leavevalB );
