@@ -150,6 +150,7 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 		FLASH->BOOT_MODEKEYR = FLASH_KEY2;
 		FLASH->STATR = 1<<14; // 1<<14 is zero, so, boot bootloader code. Unset for user code.
 		FLASH->CTLR = CR_LOCK_Set;
+		RCC->RSTSCKR |= 0x1000000;
 		PFIC->SCTLR = 1<<31;
 	}
 #endif
