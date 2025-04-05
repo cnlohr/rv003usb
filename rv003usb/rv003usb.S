@@ -29,6 +29,12 @@
 #define SAVE_DEBUG_MARKER(x)	sw	x4, x(sp)
 #endif
 
+#define ANOTHER_INTERRUPT
+#ifdef ANOTHER_INTERRUPT
+#define ANOTHER_INT_PIN 7
+#define ANOTHER_PIN_PORT GPIOC
+.global another_interrupt_flag
+#endif
 
 .global test_memory
 .global rv003usb_internal_data
@@ -57,6 +63,14 @@ EXTI7_0_IRQHandler:
 
 	sw	a1, 4(sp)
 	sw	a2, 8(sp)
+; /*
+#ifdef ANOTHER_INTERRUPT
+	la a1, 0x40010414 //	R32_EXTI_INTFR
+	c.lw a2, 0(a1)
+	c.andi a2, USB_DMASK
+	c.beqz a2, another_interrupt_symbol
+#endif
+; */
 	sw	a3, 12(sp)
 	sw	a4, 16(sp)
 	sw	s1, 28(sp)
@@ -421,7 +435,35 @@ interrupt_complete:
 	c.j 1f; 1: // Extra little bit of delay to make sure we don't accidentally false fire.
 
 	la a5, EXTI_BASE + 20
+#ifdef ANOTHER_INTERRUPT
+	lw a0, 0(a5)
+	andi a0, a0, 0x00080
+	c.bnez a0, another_interrupt_symbol
+#endif
 	li a0, (1<<USB_PIN_DM)
+	sw a0, 0(a5)
+	
+	// Restore stack.
+	lw	a0, 0(sp)
+	lw	a5, 20(sp)
+	addi	sp,sp,80
+	mret
+
+#ifdef ANOTHER_INTERRUPT
+another_interrupt_symbol:
+	lw	s1, 28(sp)
+	lw	a2, 8(sp)
+/*
+	lui	a5,0x40011
+ 	lui	a0,0x10
+ 	sw	a0,16(a5)
+*/
+	la a5, another_interrupt_flag
+	li a0, 1
+	sw a0, 0(a5)
+
+	la a5, EXTI_BASE + 20
+	li a0, (1<<ANOTHER_INT_PIN|1<<USB_PIN_DM)
 	sw a0, 0(a5)
 
 	// Restore stack.
@@ -429,6 +471,7 @@ interrupt_complete:
 	lw	a5, 20(sp)
 	addi	sp,sp,80
 	mret
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////
 // High level functions.
@@ -889,4 +932,8 @@ always0:
 
 #endif
 
-
+#ifdef ANOTHER_INTERRUPT
+.section .data
+another_interrupt_flag:
+	.word 0x00
+#endif
