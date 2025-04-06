@@ -45,11 +45,7 @@ Compressed:
 
 .section .text.vector_handler
 .global EXTI7_0_IRQHandler
-/*
-#ifdef RV003_ADD_EXTI_MASK
-.extern another_interrupt_handler
-#endif
-*/
+
 .balign 4
 EXTI7_0_IRQHandler:
 	addi	sp,sp,-80
@@ -69,7 +65,7 @@ EXTI7_0_IRQHandler:
 	la a1, 0x40010414 //	R32_EXTI_INTFR
 	c.lw a2, 0(a1)
 	c.andi a2, USB_DMASK
-	c.beqz a2, another_interrupt_handler
+	c.beqz a2, another_interrupt_check
 #endif
 
 	SAVE_DEBUG_MARKER( 48 );
