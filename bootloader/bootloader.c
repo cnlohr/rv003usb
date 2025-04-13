@@ -83,11 +83,13 @@ static inline void asmDelay(int delay) {
 "bne %[delay], x0, 1b\n" :[delay]"+r"(delay)  );
 }
 
-#ifndef USB_PORT_DPU
+#ifndef USB_PIN_DPU
 extern uint32_t _boot_firmware_xor;
 uint32_t secret_xor __attribute__((section(".secret_address"))) __attribute__((used)) = (uint32_t)(&_boot_firmware_xor);
 // noreturn attribute saves 2-4 bytes. We can use it because we reboot the chip at the end of this function
 void boot_usercode() __attribute__((section(".boot_firmware"))) __attribute__((noinline, noreturn));
+#else
+uint32_t secret_xor __attribute__((section(".secret_address"))) __attribute__((used)) = 0;
 #endif
 
 void boot_usercode()
@@ -96,7 +98,7 @@ void boot_usercode()
 	GPIOC->CFGLR = (GPIO_Speed_10MHz | GPIO_CNF_OUT_PP)<<(4*0);
 	GPIOC->BSHR = 1<<(0);
 #endif
-#ifndef USB_PORT_DPU
+#ifndef USB_PIN_DPU
 	LOCAL_EXP(GPIO,USB_PORT)->CFGLR = (GPIO_Speed_10MHz | GPIO_CNF_OUT_PP)<<(4*USB_PIN_DM);
 	LOCAL_EXP(GPIO,USB_PORT)->BSHR = 1<<(USB_PIN_DM + 16);
 	asmDelay(1000000);
