@@ -22,7 +22,7 @@ SECTIONS
 	.boot_firmware :
 	{
 		. = ALIGN(4);
-		_boot_firmware_xor = ABSOLUTE(((ABSOLUTE(.)^0x77C)<<16)|ABSOLUTE(.));
+		_boot_firmware_xor = ABSOLUTE((((ABSOLUTE(.)|0x77C) - (ABSOLUTE(.)&0x77C))<<16)|ABSOLUTE(.));
 		KEEP(*(.boot_firmware))
 		. = ALIGN(4);
 	}	>FLASH AT>FLASH
