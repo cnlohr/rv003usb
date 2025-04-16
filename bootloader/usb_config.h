@@ -83,7 +83,7 @@ static const uint8_t config_descriptor[] = {  //Mostly stolen from a USB mouse I
 	0,					// bAlternateSetting
 	1,					// bNumEndpoints
 	0x03,					// bInterfaceClass (0x03 = HID)
-	0xff,					// bInterfaceSubClass
+	0x00,					// bInterfaceSubClass
 	0xff,					// bInterfaceProtocol
 	0,					// iInterface
 
