@@ -20,6 +20,10 @@
 #define DMCFGR         0x7D
 #define DMSHDWCFGR     0x7E
 
+#ifndef AFIO_PCFR1_SWJ_CFG_DISABLE
+#define AFIO_PCFR1_SWJ_CFG_DISABLE              ((uint32_t)0x04000000)
+#endif
+
 #define DISABLE_SWIO AFIO->PCFR1 |= AFIO_PCFR1_SWJ_CFG_DISABLE
 #define ENABLE_SWIO AFIO->PCFR1 &= ~(AFIO_PCFR1_SWJ_CFG_DISABLE)
 
@@ -81,12 +85,9 @@ void attempt_unlock(uint8_t t1coeff) {
     funPinMode(PD1, GPIO_Speed_10MHz | GPIO_CNF_OUT_PP);
     MCFWriteReg32(DMSHDWCFGR, 0x5aa50000 | (1<<10), t1coeff);
     MCFWriteReg32(DMCFGR, 0x5aa50000 | (1<<10), t1coeff);
-    *DMDATA0 = 0; // Clear garbage before using it for prints
-    // The next steps seems unneeded for the purpose
-    // MCFWriteReg32(DMCFGR, 0x5aa50000 | (1<<10), t1coeff);
-    // MCFWriteReg32(DMABSTRACTAUTO, 0x00000000, t1coeff);
-    // MCFWriteReg32(DMCONTROL, 0x80000001 | (1<<10), t1coeff);
-    // MCFWriteReg32(DMCONTROL, 0x40000001 | (1<<10), t1coeff);
+    Delay_Ms(10);
+    MCFWriteReg32(DMCONTROL, 0x40000001, t1coeff);
+		*DMDATA0 = 0; // Clear garbage before using it for prints
   }
 }
 #endif
