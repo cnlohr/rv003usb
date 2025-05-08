@@ -1,3 +1,11 @@
+/*
+ * @file    uard_cdc.c
+ * @brief   usb cdc to uart demo for CH32V003
+ *
+ * @author Kanken6174
+ * @date 08/05/2025
+ *
+ */
 #include "ch32fun.h"
 #include "rv003usb.h"
 #include "ch32v003_GPIO_branchless.h"
