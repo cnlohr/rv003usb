@@ -1,5 +1,5 @@
 /*
- * @file    uard_cdc.c
+ * @file    uart_cdc.c
  * @brief   usb cdc to uart demo for CH32V003
  *
  * @author Kanken6174
