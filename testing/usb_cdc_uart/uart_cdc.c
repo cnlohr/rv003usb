@@ -76,7 +76,7 @@ static void start_tx_dma(void)
 __attribute__((interrupt))
 void USART1_IRQHandler(void)
 {
-    if (USART1->STATR & USART_STATR_IDLE) {                    // idle line detected, might be 0 here if a reset has occured
+    if (USART1->STATR & USART_STATR_IDLE) {                    // idle line detected, DMA1_Channel5->CNTR might be 0 here if a reset has occured
         (void)USART1->STATR;                                   // clear flags
         (void)USART1->DATAR;
         rx_write_pos = (UART_BUFFER_SIZE - DMA1_Channel5->CNTR)
