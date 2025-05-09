@@ -30,10 +30,10 @@ static volatile uint16_t tx_last_len = 0;
 
 static void uart_setup(void)
 {
-     // turn on GPIOD, UART1, the sram and DMA1 in RCC
+    // turn on GPIOD, UART1, the sram and DMA1 in RCC
     RCC->APB2PCENR |= RCC_APB2Periph_GPIOD | RCC_APB2Periph_USART1 | RCC_AHBPeriph_SRAM | RCC_AHBPeriph_DMA1;
     funPinMode(PD5, GPIO_CFGLR_OUT_10Mhz_AF_PP);                    // PD5 is uart TX, push pull alt function
-    funPinMode(PD6, GPIO_CFGLR_OUT_10Mhz_AF_OD);                    // PD6 is uart RX, open drain alt function
+    GPIO_pinMode(GPIOv_from_PORT_PIN(GPIO_port_D, 6), GPIO_pinMode_I_floating, GPIO_Speed_10MHz);// PD6 is uart RX, open drain alt function
     USART1->CTLR1 = USART_WordLength_8b | USART_Parity_No | USART_Mode_Tx | USART_Mode_Rx; //setup no parity, 8bit, rx/tx uart
     USART1->CTLR2 = USART_StopBits_1;                               // 1 stop bit
     USART1->CTLR3 = USART_DMAReq_Tx | USART_DMAReq_Rx;              // enable dma requests both ways
