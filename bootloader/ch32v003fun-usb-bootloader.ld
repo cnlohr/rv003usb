@@ -3,7 +3,8 @@ ENTRY( InterruptVector )
 MEMORY
 {
 	/* Actually at 0x1FFFF000 but the system maps it to 0x00000000 */
-	FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 1920
+	FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 1916
+	SECRET (rx) : ORIGIN = 0x0000077C, LENGTH = 4
 	RAM (xrw)	: ORIGIN = 0x20000000, LENGTH = 2K
 }
 
@@ -17,6 +18,14 @@ SECTIONS
 		. = ALIGN(4);
 		_einit = .;
 	} >FLASH AT>FLASH
+
+	.boot_firmware :
+	{
+		. = ALIGN(4);
+		_boot_firmware_xor = ABSOLUTE((((ABSOLUTE(.)|0x77C) - (ABSOLUTE(.)&0x77C))<<16)|ABSOLUTE(.));
+		KEEP(*(.boot_firmware))
+		. = ALIGN(4);
+	}	>FLASH AT>FLASH
 
 	.text :
 	{
@@ -104,14 +113,20 @@ SECTIONS
 		PROVIDE(_data_lma = .);
 	} >FLASH AT>FLASH
 
+	.secret_address :
+	{
+		. = ALIGN(4);
+		KEEP(*(.secret_address))
+	} >SECRET
+
 	.data :
 	{
 		. = ALIGN(4);
+		__global_pointer$ = . + 0x3fc;
 		*(.gnu.linkonce.r.*)
 		*(.data .data.*)
 		*(.gnu.linkonce.d.*)
 		. = ALIGN(4);
-		PROVIDE( __global_pointer$ = . + 0x800 );
 		*(.sdata .sdata.*)
 		*(.sdata2*)
 		*(.gnu.linkonce.s.*)
