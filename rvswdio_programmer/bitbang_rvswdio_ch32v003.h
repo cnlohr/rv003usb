@@ -12,7 +12,7 @@
 //        PC4+PA1 = SWIO (Plus 5.1k pull-up to PD2)
 //
 
-#ifdef RVBB_REMAP
+#if RVBB_REMAP
 #define PIN_SWD_OUT PC2
 #define PIN_SWD_IN  PC1
 #define RVBB_TIM2   1
