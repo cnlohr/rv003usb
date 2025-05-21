@@ -24,9 +24,9 @@
 #endif
 
 #define RV003USB_HANDLE_IN_REQUEST 1
-#define RV003USB_OTHER_CONTROL     1
+#define RV003USB_OTHER_CONTROL	   1
 #define RV003USB_HANDLE_USER_DATA  1
-#define RV003USB_HID_FEATURES      0
+#define RV003USB_HID_FEATURES	   0
 #define RV003USB_EVENT_DEBUGGING   1
 
 #ifndef __ASSEMBLER__
@@ -59,29 +59,29 @@ static const uint8_t config_descriptor[] = {
 	// configuration descriptor, USB spec 9.6.3, page 264-266, Table 9-10
 	// based on https://gist.github.com/tai/acd59b125a007ad47767
 
-	9,                        // bLength;
+	9,						  // bLength;
 	TUSB_DESC_CONFIGURATION,  // bDescriptorType;
-	67, 0x00,                 // wTotalLength  	
-	0x02,                     // bNumInterfaces (Normally 1)
-	0x01,                     // bConfigurationValue
-	0x00,                     // iConfiguration
-	0x80,                     // bmAttributes (was 0xa0)
-	0x64,                     // bMaxPower (200mA)
+	67, 0x00,				  // wTotalLength	
+	0x02,					  // bNumInterfaces (Normally 1)
+	0x01,					  // bConfigurationValue
+	0x00,					  // iConfiguration
+	0x80,					  // bmAttributes (was 0xa0)
+	0x64,					  // bMaxPower (200mA)
 
-	9,                        // bLength
-	TUSB_DESC_INTERFACE,      // bDescriptorType
-	0,                        // bInterfaceNumber (unused, would normally be used for HID)
-	0,                        // bAlternateSetting
-	1,                        // bNumEndpoints
-	TUSB_CLASS_CDC,           // bInterfaceClass    (CDC)
+	9,						  // bLength
+	TUSB_DESC_INTERFACE,	  // bDescriptorType
+	0,						  // bInterfaceNumber (unused, would normally be used for HID)
+	0,						  // bAlternateSetting
+	1,						  // bNumEndpoints
+	TUSB_CLASS_CDC, 		  // bInterfaceClass	(CDC)
 	CDC_COMM_SUBCLASS_ABSTRACT_CONTROL_MODEL,  // bInterfaceSubClass (ABSTRACT CONTROL MODEL)
-	CDC_COMM_PROTOCOL_ATCOMMAND,               // bInterfaceProtocol (V25TER_PROTOCOL)
-	0x00,                     // iInterface (For getting the other descriptor)
+	CDC_COMM_PROTOCOL_ATCOMMAND,			   // bInterfaceProtocol (V25TER_PROTOCOL)
+	0x00,					  // iInterface (For getting the other descriptor)
 
 	0x05,
 	TUSB_DESC_CS_INTERFACE,
 	CDC_FUNC_DESC_HEADER,
-	0x10, 0x01,               // CS_INTERFACE (Release #) (CDC_FUNC_DESCR_HEADER)
+	0x10, 0x01, 			  // CS_INTERFACE (Release #) (CDC_FUNC_DESCR_HEADER)
 
 	0x04,
 	TUSB_DESC_CS_INTERFACE,
@@ -98,16 +98,16 @@ static const uint8_t config_descriptor[] = {
 	CDC_FUNC_DESC_CALL_MANAGEMENT,
 	0x02, 0x01, // CS_INTERFACE (Management) (CDC_FUNC_DESCR_CALL_MGMNT)
 
-	7,                    // endpoint descriptor (For endpoint 1)
+	7,					  // endpoint descriptor (For endpoint 1)
 	TUSB_DESC_ENDPOINT,   // Endpoint Descriptor (Must be 5)
-	0x81,                 // Endpoint Address
-	0x03,                 // Attributes
-	0x08,	0x00,         // Size
-	1,                    // Interval
+	0x81,				  // Endpoint Address
+	0x03,				  // Attributes
+	0x08,	0x00,		  // Size
+	1,					  // Interval
 
 	0x09,
 	0x04,
-	1, 			// interface index
+	1,			// interface index
 	0,			// altsetting index
 	2,			// n endpoints	
 	TUSB_CLASS_CDC_DATA,	// interface class = CDC-Data
@@ -115,24 +115,24 @@ static const uint8_t config_descriptor[] = {
 	CDC_DATA_PROTOCOL_TRANSPARENT,		// interface protocol code class = None  <<<<<<<<< THIS IS MEGA SUS.
 	0,			// interface descriptor string index
 
-	7,            // endpoint descriptor (For endpoint 1)
-	0x05,         // Endpoint Descriptor (Must be 5)
-	0x02,         // Endpoint Address
-	0x03,         // Attributes
+	7,			  // endpoint descriptor (For endpoint 1)
+	0x05,		  // Endpoint Descriptor (Must be 5)
+	0x02,		  // Endpoint Address
+	0x03,		  // Attributes
 	0x08,	0x00, // Size
-	1,            // Interval
+	1,			  // Interval
 
-	7,            // endpoint descriptor (For endpoint 1)
-	0x05,         // Endpoint Descriptor (Must be 5)
-	0x83,         // Endpoint Address
-	0x03,         // Attributes
+	7,			  // endpoint descriptor (For endpoint 1)
+	0x05,		  // Endpoint Descriptor (Must be 5)
+	0x83,		  // Endpoint Address
+	0x03,		  // Attributes
 	0x08,	0x00, // Size
-	1,            // Interval
+	1,			  // Interval
 };
 
 #define STR_MANUFACTURER u"Kanken6174"
-#define STR_PRODUCT      u"soft usb uart bridge"
-#define STR_SERIAL       u"0101"
+#define STR_PRODUCT 	 u"soft usb uart bridge"
+#define STR_SERIAL		 u"0101"
 
 struct usb_string_descriptor_struct {
 	uint8_t bLength;
