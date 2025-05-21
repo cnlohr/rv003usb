@@ -77,6 +77,7 @@ And the following largely incomplete, but proof-of-concept projects:
 | Example      | Description | ❖ | 🐧 |
 | ------------ | ----------- | --------------- | ------------- |
 | [cdc_exp](https://github.com/cnlohr/rv003usb/tree/master/testing/cdc_exp) | Enumerate as a USB Serial port and send and receive Data (incomplete, very simple) | `⚠️` | `✅` | :question: |
+| [usb_cdc_uart](https://github.com/cnlohr/rv003usb/tree/master/testing/usb_cdc_uart) | Enumerate as a USB to UART bridge (115200 baud) (very similar issues to cdc_exp, only slightly more complete, tested on linux) | `⚠️` | `✅` | :question: |
 | [demo_midi](https://github.com/cnlohr/rv003usb/tree/master/testing/demo_midi) | MIDI-IN and MIDI-OUT | `✅` | `✅` |
 | [test_ethernet](https://github.com/cnlohr/rv003usb/tree/master/testing/test_ethernet) | RNDIS Device (note: VERY SLOW) | `⚠️` | `✅` |
 
