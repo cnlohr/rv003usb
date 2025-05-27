@@ -61,6 +61,10 @@
 // ----------------------------------
 // #define SOFT_REBOOT_TO_BOOTLOADER
 
+#if defined(BOOTLOADER_BTN_PORT) && (0 != BOOTLOADER_TIMEOUT_PWR)
+#warning "BOOTLOADER_BTN_PORT is defined, but BOOTLOADER_TIMEOUT_PWR is not set to 0. Code might not fit"
+#endif
+
 #define SCRATCHPAD_SIZE 128
 extern volatile int32_t runwordpad;
 static uint32_t runwordpadready = 0;
