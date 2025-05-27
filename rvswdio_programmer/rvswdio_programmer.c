@@ -30,6 +30,9 @@
 
 #define PIN_SWCLK   PC5     // Remappable.
 #define PIN_TARGETPOWER PD2 // Remappable
+#define POWER_ON 1
+#define POWER_OFF 0
+#define PIN_TARGETPOWER_MODE GPIO_CFGLR_OUT_10Mhz_PP
 
 #include "bitbang_rvswdio_ch32v003.h"
 
@@ -93,8 +96,8 @@ static void HandleCommandBuffer( uint8_t * buffer )
 				{
 					//DoSongAndDanceToEnterPgmMode( &state ); was 1.  But really we just want to init.
 					// if we expect this, we can use 0x0e to get status.
-					funPinMode( PIN_TARGETPOWER, GPIO_CFGLR_OUT_10Mhz_PP );
-					funDigitalWrite( PIN_TARGETPOWER, 1 );
+					funPinMode( PIN_TARGETPOWER, PIN_TARGETPOWER_MODE );
+					funDigitalWrite( PIN_TARGETPOWER, POWER_ON );
 					int r = InitializeSWDSWIO( &state );
 					if( cmd == 0x0e )
 						*(retbuffptr++) = r;
@@ -102,11 +105,11 @@ static void HandleCommandBuffer( uint8_t * buffer )
 				}
 				case 0x02: // Power-down 
 					printf( "Power down\n" );
-					funDigitalWrite( PIN_TARGETPOWER, 0 );
+					funDigitalWrite( PIN_TARGETPOWER, POWER_OFF );
 					break;
 				case 0x03: // Power-up
-					funPinMode( PIN_TARGETPOWER, GPIO_CFGLR_OUT_10Mhz_PP );
-					funDigitalWrite( PIN_TARGETPOWER, 1 );
+					funPinMode( PIN_TARGETPOWER, PIN_TARGETPOWER_MODE );
+					funDigitalWrite( PIN_TARGETPOWER, POWER_ON );
 					break;
 				case 0x04: // Delay( uint16_t us )
 					Delay_Us(iptr[0] | (iptr[1]<<8) );
