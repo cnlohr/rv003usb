@@ -3,6 +3,8 @@
 #include <string.h>
 #include "rv003usb.h"
 
+#define CH5xx_SUPPORT 1
+
 // For RVBB_REMAP
 //        PC1+PC2 = SWIO (Plus 5.1k pull-up to PD2)
 // Otherwise (Ideal for 8-pin SOIC, because PC4+PA1 are bound)
@@ -26,7 +28,7 @@
 #define BB_PRINTF_DEBUG printf
 #include "bitbang_rvswdio.h"
 
-#define PROGRAMMER_PROTOCOL_NUMBER 4
+#define PROGRAMMER_PROTOCOL_NUMBER 5
 
 #define PIN_SWCLK   PC5     // Remappable.
 #define PIN_TARGETPOWER PD2 // Remappable
@@ -34,15 +36,25 @@
 #define POWER_OFF 0
 #define PIN_TARGETPOWER_MODE GPIO_CFGLR_OUT_10Mhz_PP
 
+#define STATUS_LED PC0
+#ifdef STATUS_LED
+#define STATUS_LED_OFF 0
+#define STATUS_LED_ON 1
+#endif
+
 #include "bitbang_rvswdio_ch32v003.h"
+
+#if CH5xx_SUPPORT
+#include "ch5xx.h"
+#endif
 
 struct SWIOState state;
 
 // Allow reading and writing to the scratchpad via HID control messages.
-uint8_t scratch[72];
-uint8_t retbuff[72];
-volatile uint8_t scratch_run = 0;
-volatile uint8_t scratch_return = 0;
+__attribute__ ((aligned(4))) uint8_t scratch[264];
+__attribute__ ((aligned(4))) uint8_t retbuff[264];
+volatile uint32_t scratch_run = 0;
+volatile uint32_t scratch_return = 0;
 uint8_t programmer_mode = 0;
 
 static void SetupProgrammer(void)
@@ -72,7 +84,9 @@ static void HandleCommandBuffer( uint8_t * buffer )
 	uint8_t * iptr = &buffer[1];
 	uint8_t * retbuffptr = retbuff+1;
 	#define reqlen (sizeof(scratch)-1)
-
+#ifdef STATUS_LED
+	funDigitalWrite( STATUS_LED, STATUS_LED_ON );
+#endif
 	while( iptr - buffer < reqlen )	
 	{
 		uint8_t cmd = *(iptr++);
@@ -98,6 +112,7 @@ static void HandleCommandBuffer( uint8_t * buffer )
 					// if we expect this, we can use 0x0e to get status.
 					funPinMode( PIN_TARGETPOWER, PIN_TARGETPOWER_MODE );
 					funDigitalWrite( PIN_TARGETPOWER, POWER_ON );
+					Delay_Ms(10);
 					int r = InitializeSWDSWIO( &state );
 					if( cmd == 0x0e )
 						*(retbuffptr++) = r;
@@ -153,7 +168,7 @@ static void HandleCommandBuffer( uint8_t * buffer )
 				case 0x0b:
 					if( remain >= 68 )
 					{
-						int r = Write64Block( &state, iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24), (uint8_t*)&iptr[4] );
+						int r = WriteBlock( &state, iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24), (uint8_t*)&iptr[4], 64, 1 );
 						iptr += 68;
 						*(retbuffptr++) = r;
 					}
@@ -222,6 +237,124 @@ static void HandleCommandBuffer( uint8_t * buffer )
 						*(retbuffptr++) = 0; // Reply is always 0.
 					}
 					break;
+
+				case 0x10: //DetermineChip
+					{
+						int r = DetermineChipTypeAndSectorInfo( &state, &retbuffptr[1] );
+						retbuffptr[0] = r;
+						if( r < 0 )
+							memset( &retbuffptr[1], 0, 6 );
+						retbuffptr += 7;
+					}
+					break;
+				// case 0x11:
+					//Set clock
+					// break;
+				case 0x12: //WriteBlock
+					if( remain >= 70 )
+					{
+						uint32_t length = iptr[4];
+						uint8_t erase = iptr[5];
+						int r = WriteBlock( &state, iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24), (uint8_t*)&iptr[6], length, erase );
+						iptr += length + 2;
+						*(retbuffptr++) = r;
+					}
+					break;
+#if CH5xx_SUPPORT
+				case 0x20: //ch5xx_write_flash
+				case 0x21:
+					if( remain >= 260 )
+					{
+						int8_t r = 0;
+						uint32_t length = iptr[4];
+						if( length == 0 ) length = 256;
+						if( cmd == 0x20 ) r = ch5xx_write_flash( &state, iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24), (uint8_t*)&iptr[5], length );
+						else r = ch5xx_write_flash_using_microblob( &state, iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24), (uint8_t*)&iptr[5], length ); 
+						iptr += 260;
+						*(retbuffptr++) = r;
+					}
+					break;
+				case 0x22: // End writing
+					{
+						if( state.microblob_running > -1 ) ch5xx_microblob_end( &state );
+						if( state.writing_flash > 0 )
+						{
+							ch5xx_flash_close( &state );
+							state.writing_flash = 0;
+						}
+					}
+					break;
+				case 0x23: // CH5xx read EEPROM
+					if( remain >= 6 ) {
+						uint32_t length = iptr[4] | (iptr[5]<<8);
+						if( length < sizeof(retbuff) - 1 )
+						{
+							int8_t r = ch5xx_read_eeprom( &state, iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24), &retbuffptr[1], length );
+							retbuffptr[0] = r;
+							if( r < 0 )
+								memset( &retbuffptr[1], 0, length );
+							retbuffptr += length + 1;
+						}
+						else
+						{
+							retbuffptr[0] = -100;
+						}
+						iptr += 8;
+					}
+					break;
+				case 0x24: // CH5xx read Option Bytes
+					if( remain >= 6 ) {
+						uint32_t length = iptr[4] | (iptr[5]<<8);
+						if( length < (retbuffptr - retbuff - 1) )
+						{
+							int8_t r = ch5xx_read_options_bulk( &state, iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24), &retbuffptr[1], length );
+							retbuffptr[0] = r;
+							if( r < 0 )
+								memset( &retbuffptr[1], 0, length );
+							retbuffptr += length + 1;
+						}
+						else
+						{
+							retbuffptr[0] = -100;
+						}
+						iptr += 8;
+					}
+					break;
+				case 0x25: //CH5xx Erase
+					if( remain >= 9 )
+					{
+						int8_t r = CH5xxErase( &state, iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24), iptr[4] | (iptr[5]<<8) | (iptr[6]<<16) | (iptr[7]<<24), (enum MemoryArea)(iptr[8]));
+						iptr += 9;
+						*(retbuffptr++) = r;
+					}
+					break;
+				case 0x26: // Can disable this for extra 500 bytes of free flash
+					if( ((uint32_t)&retbuffptr - (uint32_t)&retbuff - 1) > 8 )
+					{
+						int8_t r = ch5xx_read_uuid( &state, &retbuffptr[1] );
+						retbuffptr[0] = r;
+						if( r < 0 )
+							memset( &retbuffptr[1], 0, 8 );
+						retbuffptr += 9;
+					}
+					else
+					{
+						retbuffptr[0] = -100;
+					}
+					iptr++;
+					break;
+				case 0x27: // This also optional, disabling gives 400 bytes
+					ch570_disable_read_protection( &state );
+					break;
+				case 0x28:
+					if( remain >= 4 )
+					{
+						int8_t r = ch5xx_set_clock( &state, iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24) );
+						iptr += 4;
+						*(retbuffptr++) = r;
+					}
+					break;
+#endif
 				// Done
 				}
 			} else if( cmd == 0xff )
@@ -233,12 +366,15 @@ static void HandleCommandBuffer( uint8_t * buffer )
 				// Otherwise it's a regular command.
 				// 7-bit-cmd .. 1-bit read(0) or write(1) 
 				// if command lines up to a normal QingKeV2 debug command, treat it as that command.
+				// Now addresses are shifted by -1 to fit 0x7f register
 
 				if( cmd & 1 )
 				{
 					if( remain >= 4 )
 					{
-						MCFWriteReg32( &state, cmd>>1, iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24) );
+						cmd = (cmd >> 1) + 1; // Unshift from -1 to be able to read 0x7f
+						if( cmd >= DMPROGBUF0 && cmd <= DMPROGBUF7 ) state.statetag = STTAG( "XXXX" ); // Reset statetag in case we are writing to progbuf from outside
+						MCFWriteReg32( &state, cmd, iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24) );
 						iptr += 4;
 					}
 				}
@@ -246,7 +382,8 @@ static void HandleCommandBuffer( uint8_t * buffer )
 				{
 					if( remain >= 1 && (sizeof(retbuff)-(retbuffptr - retbuff)) >= 4 )
 					{
-						int r = MCFReadReg32( &state, cmd>>1, (uint32_t*)&retbuffptr[1] );
+						cmd = (cmd >> 1) + 1;
+						int r = MCFReadReg32( &state, cmd, (uint32_t*)&retbuffptr[1] );
 						retbuffptr[0] = r;
 						if( r < 0 )
 							memset( &retbuffptr[1], 0, 4 );
@@ -381,6 +518,9 @@ static void HandleCommandBuffer( uint8_t * buffer )
 		}
 	}
 	retbuff[0] = (retbuffptr - retbuff) - 1;
+#ifdef STATUS_LED
+	funDigitalWrite( STATUS_LED, STATUS_LED_OFF );
+#endif
 }
 
 int main()
@@ -392,6 +532,10 @@ int main()
 	funGpioInitAll();
 
 	ConfigureIOForRVSWIO();
+#ifdef STATUS_LED
+	funPinMode( STATUS_LED, GPIO_Speed_10MHz | GPIO_CNF_OUT_PP );
+	funDigitalWrite( STATUS_LED, STATUS_LED_OFF );
+#endif
 
 	Delay_Ms(10);
 
@@ -535,6 +679,3 @@ void usb_handle_hid_set_report_start( struct usb_endpoint * e, int reqLen, uint3
 	e->max_len = reqLen;
 	LogUEvent( 2, reqLen, lValueLSBIndexMSB, 0 );
 }
-
-
-
