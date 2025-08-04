@@ -5,7 +5,6 @@
 */
 
 #include "ch5xx.h"
-#include "ch32fun.h"
 #include "ch5xx.h"
 #include "bitbang_rvswdio.h"
 
@@ -651,7 +650,7 @@ int ch5xx_microblob_init(struct SWIOState * iss, uint32_t start_addr) {
 	
 	MCFWriteReg32(dev, BDMDATA1, 1);
 	MCFWriteReg32(dev, DMCONTROL, 0x40000001);
-	if (iss->target_chip_type == CHIP_CH570) MCFWriteReg32(dev, DMCONTROL, 0x40000001);
+	if (iss->target_chip_type == CHIP_CH570 || iss->target_chip_type == CHIP_CH585) MCFWriteReg32(dev, DMCONTROL, 0x40000001);
 
 	MCFWriteReg32(dev, BDMDATA0, 0);
 	MCFWriteReg32(dev, BDMDATA1, 0);
