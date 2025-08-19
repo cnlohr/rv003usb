@@ -22,8 +22,8 @@ int main()
 
 void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_t * data, int len, struct rv003usb_internal * ist )
 {
-	if (current_endpoint == 2 && len > 0) {
-		LogUEvent(1139, data[0], 0, 0);
+	if (len > 0) {
+		LogUEvent(1139, data[0], 0, current_endpoint);
 	}
 }
 
