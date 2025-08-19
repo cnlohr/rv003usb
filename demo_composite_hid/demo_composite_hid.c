@@ -20,6 +20,13 @@ int main()
 	}
 }
 
+void usb_handle_user_data( struct usb_endpoint * e, int current_endpoint, uint8_t * data, int len, struct rv003usb_internal * ist )
+{
+	if (len > 0) {
+		LogUEvent(1139, data[0], 0, current_endpoint);
+	}
+}
+
 void usb_handle_user_in_request( struct usb_endpoint * e, uint8_t * scratchpad, int endp, uint32_t sendtok, struct rv003usb_internal * ist )
 {
 	if( endp == 1 )

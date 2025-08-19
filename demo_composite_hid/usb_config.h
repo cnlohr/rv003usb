@@ -13,7 +13,7 @@
 #define RV003USB_EVENT_DEBUGGING 0
 #define RV003USB_HANDLE_IN_REQUEST 1
 #define RV003USB_OTHER_CONTROL 0
-#define RV003USB_HANDLE_USER_DATA 0
+#define RV003USB_HANDLE_USER_DATA 1
 #define RV003USB_HID_FEATURES 0
 
 #ifndef __ASSEMBLER__
@@ -104,11 +104,14 @@ static const uint8_t keyboard_hid_desc[] = {   /* USB report descriptor */
 		HID_REPORT_COUNT( 1 ),                        //     REPORT_COUNT (1)
 		HID_REPORT_SIZE( 3 ),                         //     REPORT_SIZE (3)
 		HID_OUTPUT( 0x03 ),                           //     OUTPUT (Cnst,Var,Abs) ; LED report padding
+		HID_REPORT_COUNT( 7 ),                        //     REPORT_COUNT (7)
+		HID_REPORT_SIZE( 8 ),                         //     REPORT_SIZE (8)
+		HID_OUTPUT( 0x03 ),						      //     OUTPUT (Cnst,Var,Abs) ; Padding to fill buffer to 8 bytes
 		HID_REPORT_COUNT( 6 ),                        //     REPORT_COUNT (6)
 		HID_REPORT_SIZE( 8 ),                         //     REPORT_SIZE (8)
 		HID_LOGICAL_MIN( 0 ),                         //     LOGICAL_MINIMUM (0)
 		HID_LOGICAL_MAX( 167 ),                       //     LOGICAL_MAXIMUM (167)  (Normally would be 101, but we want volume buttons)
-    	HID_USAGE_PAGE( HID_USAGE_PAGE_KEYBOARD ),     //     USAGE_PAGE (Keyboard)(Key Codes)
+    	HID_USAGE_PAGE( HID_USAGE_PAGE_KEYBOARD ),    //     USAGE_PAGE (Keyboard)(Key Codes)
     	HID_USAGE_MIN( 0x00 ),                        //     USAGE_MINIMUM (0)
 	    HID_USAGE_MAX( 167 ),                         //     USAGE_MAXIMUM (Keyboard Application)(101) (Now 167)
 	HID_INPUT( 0 ),                                   //   INPUT (Data,Ary,Abs)
