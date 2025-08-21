@@ -96,6 +96,15 @@ void boot_usercode() __attribute__((section(".boot_firmware"))) __attribute__((n
 uint32_t secret_xor __attribute__((section(".secret_address"))) __attribute__((used)) = 0;
 #endif
 
+void sysreset_flow()
+{
+    FLASH->BOOT_MODEKEYR = FLASH_KEY1;
+    FLASH->BOOT_MODEKEYR = FLASH_KEY2;
+    FLASH->STATR = 0; // 1<<14 is zero, so, boot user code.
+    // FLASH->CTLR = CR_LOCK_Set;    // Not needed, flash is locked at reboot (soft reboot counts, I checked)
+    PFIC->SCTLR = 1<<31;
+}
+
 void boot_usercode()
 {
 #ifdef BOOTLOADER_DEBUG_BOOT
@@ -107,11 +116,7 @@ void boot_usercode()
 	LOCAL_EXP(GPIO,USB_PORT)->BSHR = 1<<(USB_PIN_DM + 16);
 	asmDelay(1000000);
 #endif
-	FLASH->BOOT_MODEKEYR = FLASH_KEY1;
-	FLASH->BOOT_MODEKEYR = FLASH_KEY2;
-	FLASH->STATR = 0; // 1<<14 is zero, so, boot user code.
-	// FLASH->CTLR = CR_LOCK_Set;	// Not needed, flash is locked at reboot (soft reboot counts, I checked)
-	PFIC->SCTLR = 1<<31;
+	sysreset_flow();
 }
 
 int main()
@@ -277,11 +282,7 @@ int main()
 			{
 				// Boot to user program.
 #ifndef DISABLE_BOOTLOAD
-				FLASH->BOOT_MODEKEYR = FLASH_KEY1;
-				FLASH->BOOT_MODEKEYR = FLASH_KEY2;
-				FLASH->STATR = 0; // 1<<14 is zero, so, boot user code.
-				FLASH->CTLR = CR_LOCK_Set;
-				PFIC->SCTLR = 1<<31;
+				sysreset_flow();
 #endif
 			}
 #ifdef BOOTLOADER_TIMEOUT_USB
