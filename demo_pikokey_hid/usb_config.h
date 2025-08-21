@@ -87,8 +87,8 @@ static const uint8_t keyboard_hid_desc[] = {   /* USB report descriptor */
 		HID_REPORT_SIZE( 1 ),                         //     REPORT_SIZE (8)
 		HID_REPORT_COUNT( 8 ),                        //     REPORT_COUNT (3)
 		HID_USAGE_PAGE( HID_USAGE_PAGE_KEYBOARD ),    //     USAGE_PAGE (Keyboard)(Key Codes)
-    	HID_USAGE_MIN( 0xe0 ),                        //     USAGE_MINIMUM (Keyboard LeftControl)(224)
-    	HID_USAGE_MAX( 0xe7 ),                        //     USAGE_MAXIMUM (Keyboard Right GUI)(231)
+		HID_USAGE_MIN( 0xe0 ),                        //     USAGE_MINIMUM (Keyboard LeftControl)(224)
+		HID_USAGE_MAX( 0xe7 ),                        //     USAGE_MAXIMUM (Keyboard Right GUI)(231)
 		HID_LOGICAL_MIN( 0 ),                         //     LOGICAL_MINIMUM (0)
 		HID_LOGICAL_MAX( 1 ),                         //     LOGICAL_MAXIMUM (1)
 		HID_INPUT( 0x02 ),                            //     INPUT (Data,Var,Abs) ; Modifier byte
@@ -98,8 +98,8 @@ static const uint8_t keyboard_hid_desc[] = {   /* USB report descriptor */
 		HID_REPORT_COUNT( 5 ),                        //     REPORT_COUNT (5)
 		HID_REPORT_SIZE( 1 ),                         //     REPORT_SIZE (1)
 		HID_USAGE_PAGE( HID_USAGE_PAGE_LED ),         //     USAGE_PAGE (LEDs)
-    	HID_USAGE_MIN( 0x01 ),                        //     USAGE_MINIMUM (Num Lock)
-	    HID_USAGE_MAX( 0x05 ),                        //     USAGE_MAXIMUM (Kana)
+		HID_USAGE_MIN( 0x01 ),                        //     USAGE_MINIMUM (Num Lock)
+		HID_USAGE_MAX( 0x05 ),                        //     USAGE_MAXIMUM (Kana)
 		HID_OUTPUT( 0x02 ),                           //     OUTPUT (Data,Var,Abs) ; LED report
 		HID_REPORT_COUNT( 1 ),                        //     REPORT_COUNT (1)
 		HID_REPORT_SIZE( 3 ),                         //     REPORT_SIZE (3)
@@ -108,11 +108,11 @@ static const uint8_t keyboard_hid_desc[] = {   /* USB report descriptor */
 		HID_REPORT_SIZE( 8 ),                         //     REPORT_SIZE (8)
 		HID_LOGICAL_MIN( 0 ),                         //     LOGICAL_MINIMUM (0)
 		HID_LOGICAL_MAX( 167 ),                       //     LOGICAL_MAXIMUM (167)  (Normally would be 101, but we want volume buttons)
-    	HID_USAGE_PAGE( HID_USAGE_PAGE_KEYBOARD ),     //     USAGE_PAGE (Keyboard)(Key Codes)
-    	HID_USAGE_MIN( 0x00 ),                        //     USAGE_MINIMUM (0)
-	    HID_USAGE_MAX( 167 ),                         //     USAGE_MAXIMUM (Keyboard Application)(101) (Now 167)
+		HID_USAGE_PAGE( HID_USAGE_PAGE_KEYBOARD ),     //     USAGE_PAGE (Keyboard)(Key Codes)
+		HID_USAGE_MIN( 0x00 ),                        //     USAGE_MINIMUM (0)
+		HID_USAGE_MAX( 167 ),                         //     USAGE_MAXIMUM (Keyboard Application)(101) (Now 167)
 	HID_INPUT( 0 ),                                   //   INPUT (Data,Ary,Abs)
-    HID_COLLECTION_END,                               // END_COLLECTION
+	HID_COLLECTION_END,                               // END_COLLECTION
 };
 
 //Ever wonder how you have more than 6 keys down at the same time on a USB keyboard?  It's easy. Enumerate two keyboards!

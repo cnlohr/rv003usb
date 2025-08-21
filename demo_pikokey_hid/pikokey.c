@@ -11,8 +11,8 @@ int main()
 	Delay_Ms(1); // Ensures USB re-enumeration after bootloader or reset; Spec demand >2.5µs ( TDDIS )
 	systick_init();
 	GPIO_Init_All();
-    ButtonMatrix_Init(&btn_matrix); // Initialize button matrix state
-    Debounce_Init(&debounce_info); // Initialize debounce info
+	ButtonMatrix_Init(&btn_matrix); // Initialize button matrix state
+	Debounce_Init(&debounce_info); // Initialize debounce info
 	// printf( "Start\n");
 
 	usb_setup();
@@ -25,11 +25,11 @@ int main()
 			printf( "%lu %lx %lx %lx\n", ue[0], ue[1], ue[2], ue[3] );
 		}
 #endif
-        uint32_t current_time = GetSystemTime();
+		uint32_t current_time = GetSystemTime();
 
-        // Scan the button matrix with debouncing
-        ButtonMatrix_Scan_Debounced(&btn_matrix, &debounce_info, current_time);
-        Delay_Ms(10);
+		// Scan the button matrix with debouncing
+		ButtonMatrix_Scan_Debounced(&btn_matrix, &debounce_info, current_time);
+		Delay_Ms(10);
 
 	}
 }

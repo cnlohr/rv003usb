@@ -158,9 +158,9 @@ static inline uint32_t FastMultiply( uint32_t big_num, uint32_t small_num )
 	// This is functionally equivelent and much faster.
 	//
 	// Perf numbers, with small_num set to 180V.
-	//  No multiply:         21.3% CPU Usage
-	//  Assembly below:      42.4% CPU Usage  (1608 bytes for whole program)
-	//  C version:           41.4% CPU Usage  (1600 bytes for whole program)
+	//  No multiply:		 21.3% CPU Usage
+	//  Assembly below:	  42.4% CPU Usage  (1608 bytes for whole program)
+	//  C version:			41.4% CPU Usage  (1600 bytes for whole program)
 	//  Using GCC (__mulsi3) 65.4% CPU Usage  (1652 bytes for whole program)
 	//
 	// The multiply can be done manually:
@@ -180,7 +180,7 @@ static inline uint32_t FastMultiply( uint32_t big_num, uint32_t small_num )
 /*
 	uint32_t ret = 0;
 	asm volatile( "\n\
-		.option   rvc;\n\
+		.option	rvc;\n\
 	1:	andi t0, %[small], 1\n\
 		beqz t0, 2f\n\
 		add %[ret], %[ret], %[big]\n\
@@ -196,30 +196,30 @@ static inline uint32_t FastMultiply( uint32_t big_num, uint32_t small_num )
 
 static inline uint32_t TweenHexColors(uint32_t a, uint32_t b, int alpha)
 {
-    /* Clamp early so the common cases exit in one cycle */
-    if (alpha <= 0)   return a;
-    if (alpha >= 255) return b;
+	/* Clamp early so the common cases exit in one cycle */
+	if (alpha <= 0)	return a;
+	if (alpha >= 255) return b;
 
-    uint8_t a_inv = (uint8_t)(255 - alpha);   /* A’s weight   */
-    uint8_t b_wgt = (uint8_t)alpha;           /* B’s weight   */
+	uint8_t a_inv = (uint8_t)(255 - alpha);	/* A’s weight	*/
+	uint8_t b_wgt = (uint8_t)alpha;			/* B’s weight	*/
 
-    /* Extract channels (layout: 0x00GGRRBB) */
-    uint8_t a_b =  a        & 0xFF;
-    uint8_t a_r = (a >>  8) & 0xFF;
-    uint8_t a_g = (a >> 16) & 0xFF;
+	/* Extract channels (layout: 0x00GGRRBB) */
+	uint8_t a_b =  a		& 0xFF;
+	uint8_t a_r = (a >>  8) & 0xFF;
+	uint8_t a_g = (a >> 16) & 0xFF;
 
-    uint8_t b_b =  b        & 0xFF;
-    uint8_t b_r = (b >>  8) & 0xFF;
-    uint8_t b_g = (b >> 16) & 0xFF;
+	uint8_t b_b =  b		& 0xFF;
+	uint8_t b_r = (b >>  8) & 0xFF;
+	uint8_t b_g = (b >> 16) & 0xFF;
 
-    /* 8×8-bit multiply without MUL, +128 for rounding, >>8 */
+	/* 8×8-bit multiply without MUL, +128 for rounding, >>8 */
 #define MUL8(a_, b_) (( (a_)*(uint16_t)(b_) + 128 ) >> 8)
 
-    uint8_t o_b = MUL8(a_b, a_inv) + MUL8(b_b, b_wgt);
-    uint8_t o_r = MUL8(a_r, a_inv) + MUL8(b_r, b_wgt);
-    uint8_t o_g = MUL8(a_g, a_inv) + MUL8(b_g, b_wgt);
+	uint8_t o_b = MUL8(a_b, a_inv) + MUL8(b_b, b_wgt);
+	uint8_t o_r = MUL8(a_r, a_inv) + MUL8(b_r, b_wgt);
+	uint8_t o_g = MUL8(a_g, a_inv) + MUL8(b_g, b_wgt);
 
-    return (uint32_t)o_g << 16 | (uint32_t)o_r << 8 | o_b;
+	return (uint32_t)o_g << 16 | (uint32_t)o_r << 8 | o_b;
 }
 
 #endif

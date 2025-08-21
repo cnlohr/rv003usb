@@ -25,19 +25,19 @@ uint32_t WS2812BLEDCallback( int ledno )
 	uint8_t rs = rsbase>>3;
 	uint32_t fire = ((huetable[(rs+190)&0xff]>>1)<<16) | (huetable[(rs+30)&0xff]) | ((huetable[(rs+0)]>>1)<<8);
 	uint32_t ice  = 0x7f0000 | ((rsbase>>1)<<8) | ((rsbase>>1));
-    if(rgbmode ==0){
-        fire = 0x0;
-        ice = 0x0;
-    }
-    if(rgbmode ==1){
-        fire = 0xffffffff;
-        ice = 0xffffffff;
-    }
-    int16_t a = tween + ledno;
-    if (a < 0)   a = 0;
-    if (a > 255) a = 255;
+	if(rgbmode ==0){
+		fire = 0x0;
+		ice = 0x0;
+	}
+	if(rgbmode ==1){
+		fire = 0xffffffff;
+		ice = 0xffffffff;
+	}
+	int16_t a = tween + ledno;
+	if (a < 0) a = 0;
+	if (a > 255) a = 255;
 
-    return TweenHexColors(fire, ice, (uint8_t)a);
+	return TweenHexColors(fire, ice, (uint8_t)a);
 }
 
 void FlashOptionData(uint8_t data0, uint8_t data1) {
@@ -65,12 +65,12 @@ void FlashOptionData(uint8_t data0, uint8_t data1) {
 	FLASH->OBKEYR = FLASH_KEY2;
 
 	FLASH->CTLR |= CR_OPTER_Set;			// OBER RW Perform user-selected word erasure	
-	FLASH->CTLR |= CR_STRT_Set;    			// STRT RW1 Start. Set 1 to start an erase action,hw automatically clears to 0
+	FLASH->CTLR |= CR_STRT_Set;				// STRT RW1 Start. Set 1 to start an erase action,hw automatically clears to 0
 	while (FLASH->STATR & FLASH_BUSY);		// Wait for flash operation to be done
 	FLASH->CTLR &= CR_OPTER_Reset; 			// Disable erasure mode	
 
 	// Write the held values back one-by-one
-	FLASH->CTLR |= CR_OPTPG_Set;   			// OBG  RW Perform user-selected word programming
+	FLASH->CTLR |= CR_OPTPG_Set;			// OBG  RW Perform user-selected word programming
 	uint16_t *ob16p=(uint16_t *)OB_BASE;
 	for (int i=0;i<sizeof(hold)/sizeof(hold[0]); i++) {
 		ob16p[i]=hold[i];
@@ -89,27 +89,27 @@ uint8_t gain_now = 2;
 
 // Define Rows (Inputs)
 const int rows_ports[NUM_ROWS] = {
-    GPIO_port_C, // Row 0 - PC0
-    GPIO_port_C, // Row 1 - PC7
-    GPIO_port_C, // Row 2 - PC1
-    GPIO_port_C, // Row 3 - PC2
-    GPIO_port_C, // Row 4 - PC3
-    GPIO_port_D, // Row 4 - PD6
+	GPIO_port_C, // Row 0 - PC0
+	GPIO_port_C, // Row 1 - PC7
+	GPIO_port_C, // Row 2 - PC1
+	GPIO_port_C, // Row 3 - PC2
+	GPIO_port_C, // Row 4 - PC3
+	GPIO_port_D, // Row 4 - PD6
 };
 
 const uint8_t rows_pins[NUM_ROWS] = {
-    0, // PC0
-    7, // PC7
-    1, // PC1
-    2, // PC2
-    3, // PC3
-    6, // PD6
-    };
+	0, // PC0
+	7, // PC7
+	1, // PC1
+	2, // PC2
+	3, // PC3
+	6, // PD6
+	};
 
 // Button Matrix State
 typedef struct {
-    uint8_t measuring[NUM_ROWS][NUM_COLS];
-    uint8_t debounced_state[NUM_ROWS][NUM_COLS];
+	uint8_t measuring[NUM_ROWS][NUM_COLS];
+	uint8_t debounced_state[NUM_ROWS][NUM_COLS];
 } ButtonMatrix;
 
 ButtonMatrix btn_matrix;
@@ -119,106 +119,105 @@ ButtonMatrix btn_matrix;
 #define DEBOUNCE_TIME_MS 50
 
 typedef struct {
-    uint32_t last_debounce_time[NUM_ROWS][NUM_COLS];
+	uint32_t last_debounce_time[NUM_ROWS][NUM_COLS];
 } DebounceInfo;
 
 DebounceInfo debounce_info;
 
 // Function to Initialize GPIOs
 void GPIO_Init_All(void) {
-    // Enable GPIO Ports
-    GPIO_port_enable(GPIO_port_A);
-    GPIO_port_enable(GPIO_port_C);
-    GPIO_port_enable(GPIO_port_D);
+	// Enable GPIO Ports
+	GPIO_port_enable(GPIO_port_A);
+	GPIO_port_enable(GPIO_port_C);
+	GPIO_port_enable(GPIO_port_D);
 
-    for(int row = 0; row < NUM_ROWS; row++) {
-        GPIO_pinMode(GPIOv_from_PORT_PIN(rows_ports[row], rows_pins[row]), GPIO_pinMode_I_pullDown, GPIO_Speed_In);
-    }
+	for(int row = 0; row < NUM_ROWS; row++) {
+		GPIO_pinMode(GPIOv_from_PORT_PIN(rows_ports[row], rows_pins[row]), GPIO_pinMode_I_pullDown, GPIO_Speed_In);
+	}
 
 	GPIO_pinMode(GPIOv_from_PORT_PIN(GPIO_port_A,1), GPIO_pinMode_I_analog, GPIO_Speed_In);
 	GPIO_pinMode(GPIOv_from_PORT_PIN(GPIO_port_A,2), GPIO_pinMode_I_analog, GPIO_Speed_In);
 	GPIO_pinMode(GPIOv_from_PORT_PIN(GPIO_port_C,4), GPIO_pinMode_I_analog, GPIO_Speed_In);
 	GPIO_pinMode(GPIOv_from_PORT_PIN(GPIO_port_D,2), GPIO_pinMode_I_analog, GPIO_Speed_In);
 
-	GPIO_ADCinit();    
+	GPIO_ADCinit();
 }
 
 // Initialize Button Matrix State
 void ButtonMatrix_Init(ButtonMatrix* matrix) {
-    for(int row = 0; row < NUM_ROWS; row++) {
-        for(int col = 0; col < NUM_COLS; col++) {
-            matrix->measuring[row][col] = 0;
-            matrix->debounced_state[row][col] = 1;
-        }
-    }
+	for(int row = 0; row < NUM_ROWS; row++) {
+		for(int col = 0; col < NUM_COLS; col++) {
+			matrix->measuring[row][col] = 0;
+			matrix->debounced_state[row][col] = 1;
+		}
+	}
 }
 
 // Initialize Debounce Info
 void Debounce_Init(DebounceInfo* db_info) {
-    for(int row = 0; row < NUM_ROWS; row++) {
-        for(int col = 0; col < NUM_COLS; col++) {
-            db_info->last_debounce_time[row][col] = 0;
-        }
-    }
+	for(int row = 0; row < NUM_ROWS; row++) {
+		for(int col = 0; col < NUM_COLS; col++) {
+			db_info->last_debounce_time[row][col] = 0;
+		}
+	}
 }
 
 // Scan the Button Matrix with Debouncing
 uint8_t keypressed[8] = {0};
 void ButtonMatrix_Scan_Debounced(ButtonMatrix* matrix, DebounceInfo* db_info, uint32_t current_time) {
-    for(int col = 0; col < NUM_COLS; col++) {
-        // Read all rows
-        for(int row = 0; row < NUM_ROWS; row++) {
-            uint8_t measured_state = GPIO_digitalRead(GPIOv_from_PORT_PIN(rows_ports[row], rows_pins[row])); // Active high
-            if(measured_state != matrix->debounced_state[row][col] && matrix->measuring[row][col] == 1) {
-                db_info->last_debounce_time[row][col] = current_time;
-                matrix->measuring[row][col] = 1;
-            }
+	for(int col = 0; col < NUM_COLS; col++) {
+		// Read all rows
+		for(int row = 0; row < NUM_ROWS; row++) {
+			uint8_t measured_state = GPIO_digitalRead(GPIOv_from_PORT_PIN(rows_ports[row], rows_pins[row])); // Active high
+			if(measured_state != matrix->debounced_state[row][col] && matrix->measuring[row][col] == 1) {
+				db_info->last_debounce_time[row][col] = current_time;
+				matrix->measuring[row][col] = 1;
+			}
 
-            if((current_time - db_info->last_debounce_time[row][col]) >= DEBOUNCE_TIME_MS) {
-                bool changed = false;
-                if(measured_state != matrix->debounced_state[row][col])changed=true;
-                matrix->debounced_state[row][col] = measured_state;
-                for(int coll = 0; coll < NUM_COLS; coll++) {
-                    for(int roww = 0; roww < NUM_ROWS; roww++) {
-                        if(matrix->debounced_state[roww][coll] == 0){
-                            if(changed) {
-                                if(roww == 0)keypressed[1] |= 0b00000001;
-                                else if(roww == 5)keypressed[1] |= 0b00000001;
-                                else if(roww == 1)keypressed[1] |= 0b00000010;
-                                else if(roww == 2){
-                                    rgbmode++;
-                                    if(rgbmode == 3)rgbmode=0;
-                                    FlashOptionData(rgbmode,gain_now);
-                                }
-                                else if(roww == 3){
-                                    if(gain_now < 5){
-                                        gain_now+=1;
-                                        FlashOptionData(rgbmode,gain_now);
-                                    }
-                                }
-                                else if(roww == 4){
-                                    if(gain_now > 1){
-                                        gain_now-=1;
-                                        FlashOptionData(rgbmode,gain_now);
-                                    }
-                                }
-                            }
-                        }else{
-                            if(changed) {
-                                if(roww == 0)keypressed[1] &= 0b11111110;
-                                else if(roww == 5 && (!(keypressed[1] & 0b00000001)))keypressed[1] &= 0b11111110;
-                                else if(roww == 1)keypressed[1] &= 0b11111101;
-                            }                                
-                        }
+			if((current_time - db_info->last_debounce_time[row][col]) >= DEBOUNCE_TIME_MS) {
+				bool changed = false;
+				if(measured_state != matrix->debounced_state[row][col])changed=true;
+				matrix->debounced_state[row][col] = measured_state;
+				for(int coll = 0; coll < NUM_COLS; coll++) {
+					for(int roww = 0; roww < NUM_ROWS; roww++) {
+						if(matrix->debounced_state[roww][coll] == 0){
+							if(changed) {
+								if(roww == 0)keypressed[1] |= 0b00000001;
+								else if(roww == 5)keypressed[1] |= 0b00000001;
+								else if(roww == 1)keypressed[1] |= 0b00000010;
+								else if(roww == 2){
+									rgbmode++;
+									if(rgbmode == 3)rgbmode=0;
+									FlashOptionData(rgbmode,gain_now);
+								}
+								else if(roww == 3){
+									if(gain_now < 5){
+										gain_now+=1;
+										FlashOptionData(rgbmode,gain_now);
+									}
+								}
+								else if(roww == 4){
+									if(gain_now > 1){
+										gain_now-=1;
+										FlashOptionData(rgbmode,gain_now);
+									}
+								}
+							}
+						}else{
+							if(changed) {
+								if(roww == 0)keypressed[1] &= 0b11111110;
+								else if(roww == 5 && (!(keypressed[1] & 0b00000001)))keypressed[1] &= 0b11111110;
+								else if(roww == 1)keypressed[1] &= 0b11111101;
+							}
+						}
+						}
+					}
+				matrix->measuring[row][col] = 0;
+			}
 
-                        }
-                    }
-                matrix->measuring[row][col] = 0;
-            }
-
-        }
-    }
-    }
+		}
+	}
+	}
 
 volatile uint32_t SysTick_Count;
 
@@ -267,5 +266,5 @@ void SysTick_Handler(void)
 
 // Get Current Time in ms
 uint32_t GetSystemTime(void) {
-    return SysTick_Count;
+	return SysTick_Count;
 }
