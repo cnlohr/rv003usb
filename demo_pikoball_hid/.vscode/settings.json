@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "compare": "c",
+        "stdio.h": "c",
+        "string.h": "c"
+    }
+}
