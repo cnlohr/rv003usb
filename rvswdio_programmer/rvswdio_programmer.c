@@ -112,7 +112,6 @@ static void HandleCommandBuffer( uint8_t * buffer )
 					// if we expect this, we can use 0x0e to get status.
 					funPinMode( PIN_TARGETPOWER, PIN_TARGETPOWER_MODE );
 					funDigitalWrite( PIN_TARGETPOWER, POWER_ON );
-					Delay_Ms(10);
 					int r = InitializeSWDSWIO( &state );
 					if( cmd == 0x0e )
 						*(retbuffptr++) = r;

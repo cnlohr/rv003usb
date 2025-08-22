@@ -12,7 +12,7 @@
 // Mostly tested, though, not may not be perfect. Expect to tweak some things.
 // The 003 code is pretty hardened, the other code may not be.
 //
-// The only resources used to produce this file were publicly available docs
+// Originally the only resources used to produce this file were publicly available docs
 // and playing with the chips.  The only leveraged tool was this:
 //   https://github.com/perigoso/sigrok-rvswd
 
@@ -843,7 +843,7 @@ chip_identified:
 			reply[0] = sevenf_id;
 			reply[5] = chip_id >> 8;
 			reply[4] = chip_id;
-			if( read_protection == 1 ) reply[5] |= 0x8000;
+			if( read_protection == 1 ) reply[5] |= 0x80;
 		}
 		
 		// Cleanup
