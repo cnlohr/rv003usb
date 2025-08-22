@@ -47,10 +47,26 @@ static const uint8_t special_hid_desc[] = {
 	HID_USAGE      ( 0x00 ),
 	HID_REPORT_SIZE ( 8 ),
 	HID_COLLECTION ( HID_COLLECTION_LOGICAL ),
+		HID_REPORT_COUNT   ( 7 ),
+		HID_REPORT_ID      ( 0xaa )
+		HID_USAGE          ( 0x01 ),
+		HID_FEATURE        ( HID_DATA | HID_VARIABLE | HID_ABSOLUTE ),
+		HID_REPORT_COUNT   ( 63 ),
+		HID_REPORT_ID      ( 0xab )
+		HID_USAGE          ( 0x01 ),
+		HID_FEATURE        ( HID_DATA | HID_VARIABLE | HID_ABSOLUTE ),
+		HID_REPORT_COUNT   ( 127 ),
+		HID_REPORT_ID      ( 0xac )
+		HID_USAGE          ( 0x01 ),
+		HID_FEATURE        ( HID_DATA | HID_VARIABLE | HID_ABSOLUTE ),
 		HID_REPORT_COUNT   ( 78 ),
 		HID_REPORT_ID      ( 0xad )
 		HID_USAGE          ( 0x01 ),
-		HID_FEATURE        ( HID_DATA | HID_VARIABLE | HID_ABSOLUTE ) ,
+		HID_FEATURE        ( HID_DATA | HID_VARIABLE | HID_ABSOLUTE ),
+    HID_REPORT_COUNT_N ( 263, 2 ),
+		HID_REPORT_ID      ( 0xae )
+		HID_USAGE          ( 0x01 ),
+		HID_FEATURE        ( HID_DATA | HID_VARIABLE | HID_ABSOLUTE ),
 	HID_COLLECTION_END,
 };
 
