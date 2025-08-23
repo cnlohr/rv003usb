@@ -110,7 +110,7 @@ void boot_usercode()
 	FLASH->BOOT_MODEKEYR = FLASH_KEY1;
 	FLASH->BOOT_MODEKEYR = FLASH_KEY2;
 	FLASH->STATR = 0; // 1<<14 is zero, so, boot user code.
-	// FLASH->CTLR = CR_LOCK_Set;	// Not needed, flash is locked at reboot (soft reboot counts, I checked)
+	// FLASH->CTLR = CR_LOCK_Set;    // Not needed, flash is locked at reboot (soft reboot counts, I checked)
 	PFIC->SCTLR = 1<<31;
 }
 
@@ -277,11 +277,7 @@ int main()
 			{
 				// Boot to user program.
 #ifndef DISABLE_BOOTLOAD
-				FLASH->BOOT_MODEKEYR = FLASH_KEY1;
-				FLASH->BOOT_MODEKEYR = FLASH_KEY2;
-				FLASH->STATR = 0; // 1<<14 is zero, so, boot user code.
-				FLASH->CTLR = CR_LOCK_Set;
-				PFIC->SCTLR = 1<<31;
+				boot_usercode();
 #endif
 			}
 #ifdef BOOTLOADER_TIMEOUT_USB
