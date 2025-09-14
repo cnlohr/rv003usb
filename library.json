@@ -1,0 +1,35 @@
+{
+    "$schema": "https://raw.githubusercontent.com/platformio/platformio-core/develop/platformio/assets/schema/library.json",
+    "name": "rv003usb",
+    "version": "0.0.0",
+    "description": "CH32V003 RISC-V Pure Software USB Controller",
+    "keywords": "ch32v003, ch32v, riscv, usb",
+    "repository":
+    {
+        "type": "git",
+        "url": "https://github.com/cnlohr/rv003usb.git"
+    },
+    "authors":
+    [
+        {
+            "name": "CNLohr",
+            "url": "https://github.com/cnlohr",
+            "maintainer": true
+        }
+    ],
+    "license": "MIT",
+    "frameworks": ["ch32v003fun", "ch32fun"],
+    "platforms": ["ch32v"],
+    "headers": ["rv003usb.h"],
+    "build": {
+        "includeDir": "rv003usb",
+        "srcDir": "rv003usb",
+        "libArchive": false,
+        "flags": ["-Ilib", "-I$PROJECT_DIR"],
+        "unflags": ["-DCH32V00x"],
+        "srcFilter": [
+            "+<rv003usb.c>"
+        ],
+        "extraScript": ".github/build_rv003usb_lib.py"
+    }
+}
