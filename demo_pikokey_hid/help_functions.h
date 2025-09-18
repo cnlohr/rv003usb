@@ -245,7 +245,7 @@ void ButtonMatrix_Scan_Debounced(ButtonMatrix* matrix, DebounceInfo* db_info, ui
 		GPIO_digitalWrite(GPIOv_from_PORT_PIN(columns_ports[col], columns_pins[col]), high); // high
 
 		// Small delay to allow signals to settle
-		Delay_Ms(1);
+		Delay_Us(100);
 		// Read all rows
 		for(int row = 0; row < NUM_ROWS; row++) {
 			uint8_t measured_state = GPIO_digitalRead(GPIOv_from_PORT_PIN(rows_ports[row], rows_pins[row])); // Active high
@@ -258,33 +258,6 @@ void ButtonMatrix_Scan_Debounced(ButtonMatrix* matrix, DebounceInfo* db_info, ui
 			if((current_time - db_info->last_debounce_time[row][col]) >= DEBOUNCE_TIME_MS) {
 				if(measured_state != matrix->debounced_state[row][col]) {
 					matrix->debounced_state[row][col] = measured_state;
-					if(measured_state){
-						if(keypressed[0] == 0){
-							uint8_t kpc=0;
-							for(int coll = 0; coll < NUM_COLS; coll++) {
-								for(int roww = 0; roww < NUM_ROWS; roww++) {
-									if(matrix->debounced_state[roww][coll]){
-										if(keymap[roww][coll] == HID_KEY_LEFT_CTRL)keypressed[1] |= 0b00000001;
-										else if(keymap[roww][coll] == HID_KEY_LEFT_SHIFT)keypressed[1] |= 0b00000010;
-										else if(keymap[roww][coll] == HID_KEY_LEFT_ALT)keypressed[1] |= 0b00000100;
-										else if(keymap[roww][coll] == HID_KEY_LEFT_WIN)keypressed[1] |= 0b00001000;
-										else if(keymap[roww][coll] == HID_KEY_RIGHT_CTRL)keypressed[1] |= 0b00010000;
-										else if(keymap[roww][coll] == HID_KEY_RIGHT_SHIFT)keypressed[1] |= 0b00100000;
-										else if(keymap[roww][coll] == HID_KEY_RIGHT_ALT)keypressed[1] |= 0b01000000;
-										else if(kpc<6){
-											if(matrix->debounced_state[7][0] == 1){
-												keypressed[2+kpc] = keymap2[roww][coll];
-											}else{
-												keypressed[2+kpc] = keymap[roww][coll];
-											}
-											kpc++;
-										}
-									}
-								}
-							}
-							keypressed[0] = 1;
-						}
-					}
 				} 
 				matrix->measuring[row][col] = 0;
 			}
@@ -294,6 +267,35 @@ void ButtonMatrix_Scan_Debounced(ButtonMatrix* matrix, DebounceInfo* db_info, ui
 		// Deactivate the current column
 		GPIO_digitalWrite(GPIOv_from_PORT_PIN(columns_ports[col], columns_pins[col]), low); // High
 	}
+
+	uint8_t kpc=0;
+	for(uint8_t k=0;k<6;k++){
+		keypressed[2+k]=0;
+	}
+	keypressed[1] = 0;
+	for(int coll = 0; coll < NUM_COLS; coll++) {
+		for(int roww = 0; roww < NUM_ROWS; roww++) {
+			if(matrix->debounced_state[roww][coll]){
+				if(keymap[roww][coll] == HID_KEY_LEFT_CTRL)keypressed[1] |= 0b00000001;
+				else if(keymap[roww][coll] == HID_KEY_LEFT_SHIFT)keypressed[1] |= 0b00000010;
+				else if(keymap[roww][coll] == HID_KEY_LEFT_ALT)keypressed[1] |= 0b00000100;
+				else if(keymap[roww][coll] == HID_KEY_LEFT_WIN)keypressed[1] |= 0b00001000;
+				else if(keymap[roww][coll] == HID_KEY_RIGHT_CTRL)keypressed[1] |= 0b00010000;
+				else if(keymap[roww][coll] == HID_KEY_RIGHT_SHIFT)keypressed[1] |= 0b00100000;
+				else if(keymap[roww][coll] == HID_KEY_RIGHT_ALT)keypressed[1] |= 0b01000000;
+				else if(kpc<6){
+					// if(matrix->debounced_state[3][3] == 1){ // Left V2.0
+					if(matrix->debounced_state[3][2] == 1){ // Right V2.0
+						keypressed[2+kpc] = keymap2[roww][coll];
+					}else{
+						keypressed[2+kpc] = keymap[roww][coll];
+					}
+					kpc++;
+				}
+			}
+		}
+	}
+
 	// printf("\n\r");
 	// printf("pressed %d\n\r",keypressed);
 	}
