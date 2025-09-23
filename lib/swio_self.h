@@ -1,5 +1,8 @@
 #ifndef SWIOSELFH
 #define SWIOSELFH
+
+#include <ch32fun.h>
+
 #define T1COEFF 2
 
 #define DMCONTROL      0x10

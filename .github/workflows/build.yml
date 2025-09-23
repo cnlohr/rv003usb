@@ -1,0 +1,47 @@
+name: Build CI
+
+on: [push, pull_request]
+
+jobs:
+  build-all:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          # remove man-db to avoid slow trigger step
+          sudo apt-get -yqq purge man-db || true
+          sudo apt-get install -y --no-install-recommends \
+            build-essential make libnewlib-dev gcc-riscv64-unknown-elf libusb-1.0-0-dev libudev-dev parallel
+
+      - name: Build all demos and bootloader
+        run: |
+          make V=1 -j1 all
+
+  # Build using PlatformIO
+  pio-build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+    - uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/pip
+          ~/.platformio/.cache
+        key: ${{ runner.os }}-pio
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.9'
+    - name: Install PlatformIO Core
+      run: pip install --upgrade platformio
+    - name: Build PlatformIO Project
+      run: pio run -v
