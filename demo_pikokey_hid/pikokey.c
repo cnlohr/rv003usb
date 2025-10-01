@@ -8,7 +8,7 @@
 int main()
 {
 	SystemInit();
-	Delay_Ms(1); // Ensures USB re-enumeration after bootloader or reset; Spec demand >2.5µs ( TDDIS )
+	Delay_Ms(100); // Ensures USB re-enumeration after bootloader or reset; Spec demand >2.5µs ( TDDIS )
 	systick_init();
 	GPIO_Init_All();
 
