@@ -32,6 +32,8 @@
 #ifndef _TUSB_CDC_H__
 #define _TUSB_CDC_H__
 
+#include <tusb_types.h>
+
 #ifdef __cplusplus
  extern "C" {
 #endif
