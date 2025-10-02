@@ -284,8 +284,7 @@ void ButtonMatrix_Scan_Debounced(ButtonMatrix* matrix, DebounceInfo* db_info, ui
 				else if(keymap[roww][coll] == HID_KEY_RIGHT_SHIFT)keypressed[1] |= 0b00100000;
 				else if(keymap[roww][coll] == HID_KEY_RIGHT_ALT)keypressed[1] |= 0b01000000;
 				else if(kpc<6){
-					// if(matrix->debounced_state[3][3] == 1){ // Left V2.0
-					if(matrix->debounced_state[3][2] == 1){ // Right V2.0
+					if(matrix->debounced_state[7][0] == 1){
 						keypressed[2+kpc] = keymap2[roww][coll];
 					}else{
 						keypressed[2+kpc] = keymap[roww][coll];
