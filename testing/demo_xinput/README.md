@@ -16,3 +16,7 @@ Under Windows unfortunately only the first 8 bytes are actually handled which li
 The spec does state that low speed should be possible, but how to do this is yet to be discovered. Something worth looking at is the Wireless adapter protocol.
 It is slightly different to the wired one and appears to have default report sizes of 8 bytes, so it may work if implemented, however it requires ALL optional interfaces to be implemented unlike the Wired protocol.
 This means implementing battery reports, audio reports and the peripheral port reports. Additionally it may or may not need Xbox Security Method 3 to be implemented. See here for more info on XSM3: https://github.com/oct0xor/xbox_security_method_3
+
+---
+
+![diagram](/testing/demo_xinput/diagram.png)
