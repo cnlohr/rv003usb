@@ -1,5 +1,5 @@
 
-PROJECTS:=bootloader demo_composite_hid demo_hidapi demo_gamepad demo_pikokey_hid testing/cdc_exp testing/demo_midi testing/sandbox testing/test_ethernet
+PROJECTS:=bootloader demo_composite_hid demo_hidapi demo_gamepad demo_pikokey_hid testing/cdc_exp testing/demo_midi testing/sandbox testing/test_ethernet testing/demo_xinput
 
 all : build
 
