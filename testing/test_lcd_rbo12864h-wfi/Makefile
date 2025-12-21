@@ -2,7 +2,7 @@
 all : flash
 
 TARGET:=test_lcd_rbo12864h-wfi
-CH32FUN:=../../ch32v003fun/ch32fun
+CH32FUN:=../../ch32fun/ch32fun
 TARGET_MCU:=CH32V003
 
 ADDITIONAL_C_FILES+=../../rv003usb/rv003usb.S ../../rv003usb/rv003usb.c

@@ -1,5 +1,5 @@
 TARGET:=demo_terminal
-CH32FUN:=../ch32v003fun/ch32fun
+CH32FUN:=../ch32fun/ch32fun
 
 ADDITIONAL_C_FILES+=../rv003usb/rv003usb.S ../rv003usb/rv003usb.c
 EXTRA_CFLAGS:=-I../lib -I../rv003usb

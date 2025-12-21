@@ -9,7 +9,7 @@ Edit ``usb_config.h`` to match your GPIO settings for USB;
 
 ``make flash``
 
-``make terminal_usb`` or ``../ch32v003fun/minichlink -kT -c 0x1209d003`` (VID=1209, PID=d003).
+``make terminal_usb`` or ``../ch32fun/minichlink -kT -c 0x1209d003`` (VID=1209, PID=d003).
 
 and use it like normal minichlink terminal.
 
@@ -45,7 +45,7 @@ Also enable debugprintf in ``funconfig.h``:
 
 By default ``printf`` uses a single wire programming interface to get those strings to the ``minichlink``'s terminal. You don't need to attach UART and use additional pins for it. Also it's fast.
 
-CH32V003 has a built-in Debug Module (further referenced as DM) that is used for programming and debugging via a compatible programmer. ``printf`` that is used by default in ch32v003fun leverages this DM to implement communication between the MCU and a host PC. How does it do this? It uses two debug registers ``DMDATA0`` and ``DMDATA1`` to write data to and read from.
+CH32V003 has a built-in Debug Module (further referenced as DM) that is used for programming and debugging via a compatible programmer. ``printf`` that is used by default in ch32fun leverages this DM to implement communication between the MCU and a host PC. How does it do this? It uses two debug registers ``DMDATA0`` and ``DMDATA1`` to write data to and read from.
 
 Now, what I thought, we could just read ``DMDATA0/1`` internally and send the contents of it via USB HID to a compatible terminal. Then we won't change any logic but only enhance it with our little addition. The pros of doing it this way are that we have both interface useful within same firmware with very little added code, and it becomes mostly portable.
 
