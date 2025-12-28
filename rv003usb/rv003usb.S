@@ -551,8 +551,6 @@ handle_se0_keepalive:
 	// 0x40021000 = RCC.CTLR
 	la a4, 0x40021000
 	lw a0, 0(a4)
-	srli a2, a0, 3 // Extract HSI Trim.
-	andi a2, a2, 0b11111
 	li a5, 0xffffff07  
 	and a0, a0, a5	// Mask off non-HSI
 
