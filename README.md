@@ -83,15 +83,15 @@ And the following largely incomplete, but proof-of-concept projects:
 
 Note: CDC In windows likely CAN work, but I can't figure out how to do it.  Linux explicitly blacklists all low-speed USB Ethernet that I could find.  The MIDI example only demonstrates MIDI-OUT.
 
-### It's built on ch32v003fun
+### It's built on ch32fun
 
-[ch32v003fun](https://github.com/cnlohr/ch32v003fun) is a minimal development SDK of sorts for the CH32V003, allowing for maximum flexability without needing lots of code surrounding a HAL.
+[ch32fun](https://github.com/cnlohr/ch32fun) is a minimal development SDK of sorts for the CH32s, allowing for maximum flexibility without needing lots of code surrounding a HAL.
 
 ## General developer notes
 
 ### Care surrounding interrupts and critical sections.
 
-You are allowed to use interrupts and have critical sections, however, you should keep critical sections to approximately 40 or fewer cycles if possible.  Additionally if you are going to be using interrupts that will take longer than about 40 cycles to execute, you must enable preemption on that interrup.  For an example of how that works you can check the ws2812b SPI DMA driver in ch32v003fun.  The external pin-chane-interrupt **must** be the highest priority. And it **must never** be preempted.  While it's OK to have a short delay before it is fired, interrupting the USB reception code mid-transfer is prohibited.
+You are allowed to use interrupts and have critical sections, however, you should keep critical sections to approximately 40 or fewer cycles if possible.  Additionally if you are going to be using interrupts that will take longer than about 40 cycles to execute, you must enable preemption on that interrupt.  For an example of how that works you can check the ws2812b SPI DMA driver in ch32fun. The external pin-change-interrupt **must** be the highest priority. And it **must never** be preempted.  While it's OK to have a short delay before it is fired, interrupting the USB reception code mid-transfer is prohibited.
 
 ### Modifying headers / `usb_config.h`
 

@@ -50,7 +50,7 @@ int main()
 	funDigitalWrite( PC7, 0 );	// Enable pull-down for external interrupt
 	funDigitalWrite( PC0, 1 );	// Pin to toggle for demonstration
 
-	AFIO->EXTICR |= AFIO_EXTICR1_EXTI7_PC;
+	AFIO->EXTICR |= AFIO_EXTICR_EXTI7_PC;
 	EXTI->INTENR |= EXTI_INTENR_MR7; // Enable EXT7
 	EXTI->RTENR |= EXTI_RTENR_TR7;  // Rising edge trigger
 

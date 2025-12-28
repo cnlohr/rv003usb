@@ -1,4 +1,4 @@
-#include "ch32v003fun.h"
+#include "ch32fun.h"
 
 //XXX TODO Make this so it can "run from main"
 void Scratchpad( uint8_t * buffer, uint32_t * keeprunning )

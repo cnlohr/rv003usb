@@ -2,7 +2,7 @@
 
 The CH32V003 features 1920 byte additional space for an optional bootloader that runs before your regular code.
 
-This code implements a bootloader that enumerates as USB HID device (so no drivers are needed) and allows for flashing the regular code via USB using a custom version of [minichlink](https://github.com/cnlohr/ch32v003fun/tree/master/minichlink). This means you need a dedicated programmer like the Link-E only once to flash the bootloader. After that, firmware updates can simply be flashed via USB.
+This code implements a bootloader that enumerates as USB HID device (so no drivers are needed) and allows for flashing the regular code via USB using a custom version of [minichlink](https://github.com/cnlohr/ch32fun/tree/master/minichlink). This means you need a dedicated programmer like the Link-E only once to flash the bootloader. After that, firmware updates can simply be flashed via USB.
 
 By now, you can't update the bootloader using itself and minichlink - you can only flash regular user code.
 

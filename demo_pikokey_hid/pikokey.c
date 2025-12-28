@@ -13,8 +13,8 @@ int main()
 	GPIO_Init_All();
 
 	// Convert PD1 from SWIO to GPIO
-	AFIO->PCFR1 &= ~(AFIO_PCFR1_SWJ_CFG);
-	AFIO->PCFR1 |= AFIO_PCFR1_SWJ_CFG_DISABLE;
+	AFIO->PCFR1 &= ~(AFIO_PCFR1_SWCFG);
+	AFIO->PCFR1 |= AFIO_PCFR1_SWCFG_DISABLE;
 
 	ButtonMatrix_Init(&btn_matrix); // Initialize button matrix state
 	Debounce_Init(&debounce_info); // Initialize debounce info
