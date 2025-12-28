@@ -11,7 +11,8 @@
 #define LOCAL_CONCAT(A, B) A##B
 #define LOCAL_EXP(A, B) LOCAL_CONCAT(A,B)
 
-#define SYSTICK_CNT 0xE000F008
+#define SYSTICK 0xE000F000
+#define SYSTICK_CNT_OFFSET 8
 
 // This is 6 * n + 3 cycles
 #define nx6p3delay( n, freereg ) li freereg, ((n)+1); 1: c.addi freereg, -1; c.bnez freereg, 1b
@@ -523,10 +524,10 @@ handle_se0_keepalive:
 	// In here, we want to do smart stuff with the
 	// 1ms tick.
 
-	la  a0, SYSTICK_CNT
+	la a0, SYSTICK
 	la a4, rv003usb_internal_data
 	c.lw a1, LAST_SE0_OFFSET(a4) //last cycle count   last_se0_cyccount
-	c.lw a2, 0(a0) //this cycle count
+	c.lw a2, SYSTICK_CNT_OFFSET(a0) //this cycle count, in SYSTICK_CNT
 	c.sw a2, LAST_SE0_OFFSET(a4) //store it back to last_se0_cyccount
 	c.sub a2, a1
 	c.sw a2, DELTA_SE0_OFFSET(a4) //record delta_se0_cyccount
