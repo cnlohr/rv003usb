@@ -545,9 +545,6 @@ handle_se0_keepalive:
 	c.add a1, a2
 	c.sw a1, SE0_WINDUP_OFFSET(a4) // save windup
 
-	// No further adjustments
-	beqz a1, ret_from_se0
-
 	// 0x40021000 = RCC.CTLR
 	la a4, 0x40021000
 	lw a0, 0(a4)
