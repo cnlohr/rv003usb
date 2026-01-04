@@ -132,7 +132,9 @@ static const uint8_t config_descriptor[] = {
 
 #define STR_MANUFACTURER u"Kanken6174"
 #define STR_PRODUCT 	 u"soft usb uart bridge"
+#ifndef STR_SERIAL
 #define STR_SERIAL		 u"0101"
+#endif
 
 struct usb_string_descriptor_struct {
 	uint8_t bLength;
