@@ -108,7 +108,9 @@ static const uint8_t config_descriptor[] = {
 
 #define STR_MANUFACTURER u"CNLohr"
 #define STR_PRODUCT      u"Monitor Test"
+#ifndef STR_SERIAL
 #define STR_SERIAL       u"000"
+#endif
 #define STR_INTERFACE    u"testmon"
 struct usb_string_descriptor_struct {
 	uint8_t bLength;

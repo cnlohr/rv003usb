@@ -109,7 +109,9 @@ static const uint8_t test_desc2[] = { 2, 3, 0x02, 0x00 };
 
 #define STR_MANUFACTURER u""
 #define STR_PRODUCT      u""
+#ifndef STR_SERIAL
 #define STR_SERIAL       u""
+#endif
 
 struct usb_string_descriptor_struct {
 	uint8_t bLength;
