@@ -11,7 +11,8 @@
 #define LOCAL_CONCAT(A, B) A##B
 #define LOCAL_EXP(A, B) LOCAL_CONCAT(A,B)
 
-#define SYSTICK_CNT 0xE000F008
+#define SYSTICK 0xE000F000
+#define SYSTICK_CNT_OFFSET 8
 
 // This is 6 * n + 3 cycles
 #define nx6p3delay( n, freereg ) li freereg, ((n)+1); 1: c.addi freereg, -1; c.bnez freereg, 1b
@@ -470,16 +471,15 @@ usb_pid_handle_ack:
 	c.lw a2, 0(a4) //ist->current_endpoint -> endp;
 	c.slli a2, 5
 	c.add a2, a4
-	c.addi a2, ENDP_OFFSET // usb_endpoint eps[ENDPOINTS];
 
-	c.lw a0, (EP_TOGGLE_IN_OFFSET)(a2) // toggle_in=!toggle_in
+	c.lw a0, (ENDP_OFFSET+EP_TOGGLE_IN_OFFSET)(a2) // toggle_in=!toggle_in
 	c.li a1, 1
 	c.xor a0, a1
-	c.sw a0, (EP_TOGGLE_IN_OFFSET)(a2)
+	c.sw a0, (ENDP_OFFSET+EP_TOGGLE_IN_OFFSET)(a2)
 
-	c.lw a0, (EP_COUNT_OFFSET)(a2) // count_in
+	c.lw a0, (ENDP_OFFSET+EP_COUNT_OFFSET)(a2) // count_in
 	c.addi a0, 1
-	c.sw a0, (EP_COUNT_OFFSET)(a2)
+	c.sw a0, (ENDP_OFFSET+EP_COUNT_OFFSET)(a2)
 
 	c.j done_usb_message_in
 
@@ -523,10 +523,10 @@ handle_se0_keepalive:
 	// In here, we want to do smart stuff with the
 	// 1ms tick.
 
-	la  a0, SYSTICK_CNT
+	la a0, SYSTICK
 	la a4, rv003usb_internal_data
 	c.lw a1, LAST_SE0_OFFSET(a4) //last cycle count   last_se0_cyccount
-	c.lw a2, 0(a0) //this cycle count
+	c.lw a2, SYSTICK_CNT_OFFSET(a0) //this cycle count, in SYSTICK_CNT
 	c.sw a2, LAST_SE0_OFFSET(a4) //store it back to last_se0_cyccount
 	c.sub a2, a1
 	c.sw a2, DELTA_SE0_OFFSET(a4) //record delta_se0_cyccount
@@ -545,14 +545,9 @@ handle_se0_keepalive:
 	c.add a1, a2
 	c.sw a1, SE0_WINDUP_OFFSET(a4) // save windup
 
-	// No further adjustments
-	beqz a1, ret_from_se0
-
 	// 0x40021000 = RCC.CTLR
 	la a4, 0x40021000
 	lw a0, 0(a4)
-	srli a2, a0, 3 // Extract HSI Trim.
-	andi a2, a2, 0b11111
 	li a5, 0xffffff07  
 	and a0, a0, a5	// Mask off non-HSI
 
