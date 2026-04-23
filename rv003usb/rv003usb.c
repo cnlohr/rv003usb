@@ -63,39 +63,66 @@ void usb_setup()
 	{
 		RCC->APB2PCENR |= RCC_APB2Periph_GPIOC | RCC_APB2Periph_TIM1;
 
-		GPIOC->CFGLR = (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*0) |
-			           (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF)<<(4*3) | // PC3 = T1C3
-			           (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF)<<(4*4) |
-			           (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*2);
+		GPIOC->CFGLR = (GPIO_CFGLR_OUT_50Mhz_PP)<<(4*0) |
+			           (GPIO_CFGLR_OUT_50Mhz_AF_PP)<<(4*3) | // PC3 = T1C3
+			           (GPIO_CFGLR_OUT_50Mhz_AF_PP)<<(4*4) |
+			           (GPIO_CFGLR_OUT_50Mhz_PP)<<(4*2);
 
 		// PC4 is MCO (for watching timing)
 		GPIOC->CFGLR &= ~(GPIO_CFGLR_MODE4 | GPIO_CFGLR_CNF4);
+#ifdef CH32V003
 		GPIOC->CFGLR |= GPIO_CFGLR_CNF4_1 | GPIO_CFGLR_MODE4_0 | GPIO_CFGLR_MODE4_1;
+#else
+		GPIOC->CFGLR |= GPIO_CFGLR_CNF4_1 | GPIO_CFGLR_MODE4_0;
+#endif
 		RCC->CFGR0 = (RCC->CFGR0 & ~RCC_CFGR0_MCO) | RCC_CFGR0_MCO_SYSCLK;
 
 		// PWM is used for debug timing. 
-		TIM1->PSC = 0x0000;
+		// Increase this to 1-2 to make debug pulse linger. 
+		// Important for debugging the timing with LA's that can't do 100MHz
+		TIM1->PSC = 0x0002;
 
 		// Auto Reload - sets period
 		TIM1->ATRLR = 0xffff;
 
+#if !defined(CH32V00x) || !CH32V00x
+// #warning "CH32V003 in C file"
 		// Reload immediately
 		TIM1->SWEVGR |= TIM_UG;
 
-		// Enable CH4 output, positive pol
+		// Enable CH3 output, positive pol
 		TIM1->CCER |= TIM_CC3E | TIM_CC3NP;
 
-		// CH2 Mode is output, PWM1 (CC1S = 00, OC1M = 110)
+		// CH3 Mode is output, PWM1 (CC1S = 00, OC1M = 110)
 		TIM1->CHCTLR2 |= TIM_OC3M_2 | TIM_OC3M_1;
 
 		// Set the Capture Compare Register value to 50% initially
 		TIM1->CH3CVR = 2;
-		
+
 		// Enable TIM1 outputs
 		TIM1->BDTR |= TIM_MOE;
-		
+
 		// Enable TIM1
 		TIM1->CTLR1 |= TIM_CEN;
+#else
+		// Reload immediately
+		TIM1->SWEVGR |= TIM1_SWEVGR_UG;
+
+		// Enable CH4 output, positive pol
+		TIM1->CCER |= TIM1_CCER_CC3E | TIM1_CCER_CC3NP;
+
+		// CH3 Mode is output, PWM1 (CC1S = 00, OC1M = 110)
+		TIM1->CHCTLR2 |= TIM1_CHCTLR2_OC3M_2 | TIM1_CHCTLR2_OC3M_1;
+
+		// Set the Capture Compare Register value to 50% initially
+		TIM1->CH3CVR = 2;
+
+		// Enable TIM1 outputs
+		TIM1->BDTR |= TIM1_BDTR_MOE;
+
+		// Enable TIM1
+		TIM1->CTLR1 |= TIM1_CTLR1_CEN;
+#endif
 	}
 #endif
 
@@ -109,10 +136,10 @@ void usb_setup()
 			) )) )
 		 |
 #ifdef USB_PIN_DPU
-		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_PIN_DPU) |
+		(GPIO_CFGLR_OUT_50Mhz_PP)<<(4*USB_PIN_DPU) |
 #endif
-		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_PIN_DP) | 
-		(GPIO_Speed_In | GPIO_CNF_IN_PUPD)<<(4*USB_PIN_DM);
+		(GPIO_Speed_In | GPIO_CNF_IN_FLOATING)<<(4*USB_PIN_DP) | 
+		(GPIO_Speed_In | GPIO_CNF_IN_FLOATING)<<(4*USB_PIN_DM);
 
 	// Configure USB_PIN_DM (D-) as an interrupt on falling edge.
 	AFIO->EXTICR = LOCAL_EXP(GPIO_PortSourceGPIO,USB_PORT)<<(USB_PIN_DM*2); // Configure EXTI interrupt for USB_PIN_DM
@@ -197,6 +224,7 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	}
 }
 
+// Ignored, the actual function used is in rv003usb.S
 void usb_pid_handle_out( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
 {
 	ist->current_endpoint = endp;

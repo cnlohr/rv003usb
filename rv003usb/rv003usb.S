@@ -14,8 +14,14 @@
 #define SYSTICK 0xE000F000
 #define SYSTICK_CNT_OFFSET 8
 
+#if !defined(CH32V00x) || !CH32V00x
 // This is 6 * n + 3 cycles
 #define nx6p3delay( n, freereg ) li freereg, ((n)+1); 1: c.addi freereg, -1; c.bnez freereg, 1b
+#define EXTRADELAY
+#else
+#define nx6p3delay( n, freereg ) li freereg, ((n)+1); 1: c.addi freereg, -1; .word 0x00000013; c.bnez freereg, 1b
+#define EXTRADELAY .word 0x00000013
+#endif
 
 //See RV003USB_DEBUG_TIMING note in .c file.
 #if defined( RV003USB_DEBUG_TIMING ) && RV003USB_DEBUG_TIMING
@@ -39,12 +45,17 @@
 .global always0
 
 /* Register map
-	zero, ra, sp, gp, tp, t0, t1, t2
+	zero, ra, sp, gp, tp, T0, T1, T2
 Compressed:
 	s0, s1,	a0, a1, a2, a3, a4, a5
 */
 
+#if !defined(CH32V00x) || !CH32V00x
+#warning "CH32V003"
 .section .text.vector_handler
+#else
+.section .srodata, "ax"
+#endif
 .global EXTI7_0_IRQHandler
 
 .balign 4
@@ -61,6 +72,7 @@ EXTI7_0_IRQHandler:
 	sw	a3, 12(sp)
 	sw	a4, 16(sp)
 	sw	s1, 28(sp)
+	sw	t0, 32(sp)  // XXX NOTE: This is actually unused register - remove some day?
 
 #if defined (RV003_ADD_EXTI_MASK) && defined (RV003_ADD_EXTI_HANDLER)
 	la a1, 0x40010414 //	R32_EXTI_INTFR
@@ -75,22 +87,39 @@ EXTI7_0_IRQHandler:
 	c.andi a1, USB_DMASK;
 
 	// Finish jump to se0
+#if defined(CH32V00x) && CH32V00x
+	EXTRADELAY
+	c.bnez a0, 1f
+	auipc t0, %hi(handle_se0_keepalive)
+	addi t0, t0, %lo(handle_se0_keepalive)
+	jalr x0, t0, 0
+	1:
+#else
 	c.beqz a0, handle_se0_keepalive
+#endif
 
+	EXTRADELAY
 	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
+	EXTRADELAY
 	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
+	EXTRADELAY
 	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
+	EXTRADELAY
 	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
+	EXTRADELAY
 	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
+	EXTRADELAY
 	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
+	EXTRADELAY
 	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
+	EXTRADELAY
 	c.j syncout
 syncout:
 	sw	s0, 24(sp)
 	li a2, 0
-	sw	t0, 32(sp)  // XXX NOTE: This is actually unused register - remove some day?
+	
 	sw	t1, 36(sp)
-
+	
 	// We are coarsely sync'd here.
 
 	// This will be called when we have synchronized our USB.  We can put our
@@ -107,10 +136,12 @@ preamble_loop:
 	DEBUG_TICK_MARK
 	c.lw a0, INDR_OFFSET(a5);
 	c.andi a0, USB_DMASK;
+	EXTRADELAY
 	c.beqz a0, done_usb_message // SE0 here?
 	c.xor a0, a1;
 	c.xor a1, a0; // Recover a1.
 	j 1f; 1: // 4 cycles?
+	EXTRADELAY
 	c.beqz a0, done_preamble
 	j 1f; 1: // 4 cycles?
 	c.lw s0, INDR_OFFSET(a5);
@@ -119,6 +150,7 @@ preamble_loop:
 
 	// TRICKY: This helps retime the USB sync.
 	// If s0 is nonzero, then it's changed (we're going too slow)
+	EXTRADELAY
 	c.bnez s0, 2f;  // This code takes 6 cycles or 8 cycles, depending.
 	c.j 1f; 1:
 	2:
@@ -135,8 +167,13 @@ done_preamble:
 	// This is the first bit that matters.
 	c.li s0, 6 // 1 runs.
 
-	c.nop; 
+	c.nop;
 
+	EXTRADELAY
+	EXTRADELAY
+	EXTRADELAY
+	EXTRADELAY
+	EXTRADELAY
 	// 8 extra cycles here cause errors.
 	// -5 cycles is too much.
 	// -4 to +6 cycles is OK
@@ -146,7 +183,7 @@ done_preamble:
 	/* register meanings:
 		* x4 = TP = used for triggering debug.
 
-		* T0 = Totally unushed.
+		* T0 = Totally unused. - lies
 		* T1 = TEMPORARY
 		* T2 = Pointer to the memory address we are writing to.
 
@@ -171,9 +208,15 @@ packet_type_loop:
 	li a4, 0xa001
 	addi  t2, sp, DATA_PTR_OFFSET //rv003usb_internal_data
 	la  t0, 0x80
+#if defined(CH32V00x) && CH32V00x
+	c.j 1f; 1:
+	c.j 1f; 1:
+#else 
 	c.nop
+#endif
 
-	DEBUG_TICK_MARK
+	DEBUG_TICK_MARK // Timing of this is not equal to EXTRADELAY (for not obvious reason)
+	// EXTRADELAY
 	c.lw a0, INDR_OFFSET(a5);
 	c.andi a0, USB_DMASK;
 	c.beqz a0, done_usb_message // Not se0 complete, that can't happen here and be valid.
@@ -185,8 +228,11 @@ packet_type_loop:
 	//c.srli a0, USB_PIN_DP
 	//c.addi a0, 1 // 00 -> 1, 11 -> 100
 	//c.andi a0, 1 // If 1, 1 if 0, 0
-        c.nop
-        seqz a0, a0
+#if defined(CH32V00x) && CH32V00x
+	// c.nop // I don't understand why deliberately pushing loop off the sync makes USB work better...
+#endif
+	c.nop
+	seqz a0, a0
 
 	// Write header into byte in reverse order, because we can.
 	c.slli a2, 1
@@ -205,7 +251,7 @@ packet_type_loop:
 
 	// XXX Here, figure out CRC polynomial.
 
-	li s1, (USB_BUFFER_SIZE*8) // # of bits we culd read.
+	li s1, (USB_BUFFER_SIZE*8) // # of bits we could read.
 
 	// WARNING: a0 is bit-wise backwards here.
 	// 0xb4 for instance is a setup packet.
@@ -219,39 +265,56 @@ packet_type_loop:
 	// if a0 is 1 then it's DATA (full CRC) otherwise,
 	// (0) for setup or PARTIAL CRC.
 	// Careful:  This has to take a constant amount of time either way the branch goes.
+	EXTRADELAY
 	c.beqz a0, data_crc
 	c.li a4, 0x14	
 	c.li a3, 0x1e
+#if !defined(CH32V00x) || !CH32V00x
 	.word 0x00000013 // nop, for alignment of data_crc.
-data_crc:
+#endif
 
+data_crc:
+	// For now on v006 add/remove one of these if you have HID fails in testtop
+	EXTRADELAY
+	EXTRADELAY
+	EXTRADELAY
+	EXTRADELAY
+	EXTRADELAY
+	EXTRADELAY
+	EXTRADELAY
 
 #define HANDLE_EOB_YES \
 	sb a2, 0(t2); /* Save the byte off. TODO: Is unaligned byte access to RAM slow? */ \
-	.word 0x00138393; /*addi t2, t2, 1;*/
+	.word 0x00138393; /*addi T2, T2, 1;*/
 
 ///////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////	
 .balign 4
 is_end_of_byte:
 	HANDLE_EOB_YES
+	EXTRADELAY
 
 	// end-of-byte.
 .balign 4
 bit_process:
 	// Debug blip
-//	c.lw a4, INDR_OFFSET(a5);
-	DEBUG_TICK_MARK
+	// c.lw a4, INDR_OFFSET(a5);
+	DEBUG_TICK_MARK	// Changing order of these two breaks things
 	c.lw a0, INDR_OFFSET(a5);
 	c.andi a0, USB_DMASK;
 	c.xor a0, a1;
 
 //XXX GOOD
 #define HANDLE_NEXT_BYTE(is_end_of_byte, jumptype)  \
+	EXTRADELAY; \
 	c.addi s1, -1; \
 	andi a0, s1, 7; /* s1 could be really really big */ \
 	c.jumptype a0, is_end_of_byte /* 4 cycles for this section. (Checked) (Sometimes 5)? */ 
 
+	// EXTRADELAY
+#if defined(CH32V00x) && CH32V00x
+	c.nop
+#endif
 	c.beqz a0, handle_one_bit
 handle_zero_bit:
 	c.xor a1, a0; // Recover a1, for next cycle
@@ -261,22 +324,35 @@ handle_zero_bit:
 	// If they are different, we need to sloowwww dowwwnnn
 	// There is some free time.  Could do something interesting here!!!
 	// I was thinking we could put the resync code here.
+#if defined(CH32V00x) && CH32V00x
+	EXTRADELAY
+	c.nop
+#else
 	c.j 1f; 1:  //Delay 4 cycles.
+#endif
 
 	c.li s0, 6      // reset runs-of-one.
+	EXTRADELAY
 	c.beqz a1, se0_complete
 
 	// Handle CRC (0 bit)  (From @Domkeykong)
 	slli a0,a3,31 // Put a3s LSB into a0s MSB
-	c.srai a0,31    // Copy MSB into all other bits
+	c.srai a0,31  // Copy MSB into all other bits
 	c.srli a3,1
 	c.and  a0, a4
 	c.xor  a3, a0
 
 	c.srli a2, 1;  // shift a2 down by 1
 	HANDLE_NEXT_BYTE(is_end_of_byte, beqz)
+	EXTRADELAY
+	EXTRADELAY
+	EXTRADELAY
+	EXTRADELAY
+
+#if !defined(CH32V00x) || !CH32V00x
 	c.nop
 	c.nop
+#endif
 	c.nop
 	c.bnez s1, bit_process // + 4 cycles
 	c.j done_usb_message
@@ -284,6 +360,9 @@ handle_zero_bit:
 
 .balign 4
 handle_one_bit:
+#if defined(CH32V00x) && CH32V00x
+	c.nop;
+#endif
 	c.addi s0, -1; // Count # of runs of 1 (subtract 1)
 	//HANDLE_CRC (1 bit)
 	andi a0, a3, 1
@@ -294,11 +373,17 @@ handle_one_bit:
 
 	c.srli a2, 1;  // shift a2 down by 1
 	ori a2, a2, 0x80
+	EXTRADELAY
 	c.beqz s0, handle_bit_stuff;
 
 	HANDLE_NEXT_BYTE(is_end_of_byte, beqz)
-	c.nop // Need extra delay here because we need more time if it's end-of-byte.
+	EXTRADELAY
+	EXTRADELAY
+	EXTRADELAY
+#if !defined(CH32V00x) || !CH32V00x
 	c.nop
+	c.nop
+#endif
 	c.nop
 	c.bnez s1, bit_process // + 4 cycles
 	c.j done_usb_message
@@ -311,29 +396,33 @@ handle_bit_stuff:
 	HANDLE_EOB_YES
 
 not_is_end_of_byte_and_bit_stuffed:
-        DEBUG_TICK_MARK
+	DEBUG_TICK_MARK
 	c.lw a0, INDR_OFFSET(a5);
 	c.andi a0, USB_DMASK;
+	EXTRADELAY
 	c.beqz a0, se0_complete
 	c.xor a0, a1;
 	c.xor a1, a0; // Recover a1, for next cycle.
 
 	// If A0 is a 0 then that's bad, we just did a bit stuff
         //   and A0 == 0 means there was no signal transition
+	EXTRADELAY
 	c.beqz a0, done_usb_message
 
-        // Reset bit stuff, delay, then continue onto the next actual bit
+	// Reset bit stuff, delay, then continue onto the next actual bit
 	c.li s0, 6;
 
-        c.nop;
+	c.nop;
 	nx6p3delay( 2, a0 )
 
+	EXTRADELAY
 	c.bnez s1, bit_process // + 4 cycles
 
 .balign 4
 se0_complete:
 	// This is triggered when we finished getting a packet.
 	andi a0, s1, 7; // Make sure we received an even number of bytes.
+	EXTRADELAY
 	c.bnez a0, done_usb_message
 
 
@@ -363,10 +452,19 @@ se0_complete:
 	la a4, rv003usb_internal_data
 
 	// ACK doesn't need good CRC.
+#if !defined(CH32V00x) || !CH32V00x
 	c.beqz a5, usb_pid_handle_ack
 
 	// Next, check for tokens.
+#else
+	lui t1, %hi(usb_pid_handle_ack)
+	addi t1, t1, %lo(usb_pid_handle_ack)
+	c.bnez a5, 1f
+	jalr x0, t1, 0
+	1:
+#endif
 	c.bnez a3, crc_for_tokens_would_be_bad_maybe_data
+
 may_be_a_token:
 	// Our CRC is 0, so we might be a token.
 
@@ -382,6 +480,7 @@ may_be_a_token:
 	XW_C_LBU(s0, a4, MY_ADDRESS_OFFSET_BYTES);	//	lbu s0, MY_ADDRESS_OFFSET_BYTES(a4)
 	bne s0, a0, done_usb_message // addr != 0 && addr != ours.
 yes_check_tokens:
+#if !defined(CH32V00x) || !CH32V00x
 	addi a5, a5, (0b01001011-0b10000111)
 	c.beqz a5, usb_pid_handle_out
 	c.addi a5, (0b10000111-0b10010110)
@@ -390,6 +489,25 @@ yes_check_tokens:
 	c.beqz a5, usb_pid_handle_setup
 
 	c.j done_usb_message_in
+#else
+	addi a5, a5, (0b01001011-0b10000111)
+	c.bnez a5, 1f
+	lui t1, %hi(usb_pid_handle_out)
+	addi t1, t1, %lo(usb_pid_handle_out)
+	jalr x0, t1, 0
+	1:
+	c.addi a5, (0b10000111-0b10010110)
+	c.bnez a5, 1f
+	lui t1, %hi(usb_pid_handle_in)
+	addi t1, t1, %lo(usb_pid_handle_in)
+	jalr x0, t1, 0
+	1:
+	c.addi a5, (0b10010110-0b10110100)
+	c.bnez a5, done_usb_message_in
+	lui t1, %hi(usb_pid_handle_setup)
+	addi t1, t1, %lo(usb_pid_handle_setup)
+	jalr x0, t1, 0
+#endif
 
 	// CRC is nonzero. (Good for Data packets)
 crc_for_tokens_would_be_bad_maybe_data:
@@ -401,19 +519,32 @@ crc_for_tokens_would_be_bad_maybe_data:
 	c.addi a3, 1
 	addi a5, a5, (0b01001011-0b11000011)
 	c.li a2, 0
+#if !defined(CH32V00x) || !CH32V00x
 	c.beqz a5, usb_pid_handle_data
 	c.addi a5, (0b11000011-0b11010010)
 	c.li a2, 1
 	c.beqz a5, usb_pid_handle_data
+#else
+	lui t1, %hi(usb_pid_handle_data)
+	addi t1, t1, %lo(usb_pid_handle_data)
+	c.bnez a5, 1f
+	jalr x0, t1, 0
+	1:
+	c.addi a5, (0b11000011-0b11010010)
+	c.li a2, 1
+	c.bnez a5, done_usb_message_in
+	jalr x0, t1, 0
+#endif
 
 done_usb_message:
 done_usb_message_in:
-	lw	s0, 24(sp)
-	lw	s1, 28(sp)
-	lw	t0, 32(sp)
-	lw	t1, 36(sp)
-	lw	t2, 40(sp)
-	lw  ra, 52(sp)
+
+	lw s0, 24(sp)
+	lw s1, 28(sp)
+	lw t0, 32(sp)
+	lw t1, 36(sp)
+	lw t2, 40(sp)
+	lw ra, 52(sp)
 
 #if defined (RV003_ADD_EXTI_MASK) && defined (RV003_ADD_EXTI_HANDLER)
 another_interrupt_check:
@@ -427,12 +558,12 @@ another_interrupt_handler:
 #endif
 
 ret_from_se0:
-	lw	s1, 28(sp)
+	lw s1, 28(sp)
 	RESTORE_DEBUG_MARKER(48)
-	lw	a2, 8(sp)
-	lw	a3, 12(sp)
-	lw	a4, 16(sp)
-	lw	a1, 4(sp)
+	lw a2, 8(sp)
+	lw a3, 12(sp)
+	lw a4, 16(sp)
+	lw a1, 4(sp)
 
 interrupt_complete:
 	// Acknowledge interrupt.
@@ -448,15 +579,17 @@ interrupt_complete:
 	sw a0, 0(a5)
 	
 	// Restore stack.
-	lw	a0, 0(sp)
-	lw	a5, 20(sp)
-	addi	sp,sp,80
+	lw a0, 0(sp)
+	lw a5, 20(sp)
+	addi sp,sp,80
 	mret
 
 ///////////////////////////////////////////////////////////////////////////////
 // High level functions.
-
-#ifdef RV003USB_OPTIMIZE_FLASH
+#if defined(CH32V00x) && CH32V00x
+.section .text
+#endif
+#if defined(RV003USB_OPTIMIZE_FLASH) && RV003USB_OPTIMIZE_FLASH // Saves 20 bytes
 /*
 void usb_pid_handle_ack( uint32_t dummy, uint8_t * data, uint32_t dummy1, uint32_t dummy2, struct rv003usb_internal * ist  )
 {
@@ -481,7 +614,11 @@ usb_pid_handle_ack:
 	c.addi a0, 1
 	c.sw a0, (ENDP_OFFSET+EP_COUNT_OFFSET)(a2)
 
+#if defined(CH32V00x) && CH32V00x
+	ret
+#else
 	c.j done_usb_message_in
+#endif
 
 /*
 //Received a setup for a specific endpoint.
@@ -506,7 +643,12 @@ usb_pid_handle_setup:
 	c.sw a1, (ENDP_OFFSET+EP_COUNT_OFFSET)(a2)  //e->count = 0;
 	c.sw a1, (ENDP_OFFSET+EP_OPAQUE_OFFSET)(a2)  //e->opaque = 0;
 	c.sw a1, (ENDP_OFFSET+EP_TOGGLE_OUT_OFFSET)(a2) //e->toggle_out = 0;
+
+#if defined(CH32V00x) && CH32V00x
+	ret
+#else
 	c.j done_usb_message_in	
+#endif
 
 #endif
 
@@ -516,7 +658,11 @@ usb_pid_handle_out:
 	//void usb_pid_handle_out( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )	
 	//sb a2, 0(a4) //ist->current_endpoint = endp;
 	XW_C_SB( a2, a4, 0 ); // current_endpoint = endp
+#if defined(CH32V00x) && CH32V00x
+	ret
+#else
 	c.j done_usb_message_in
+#endif
 
 
 handle_se0_keepalive:
@@ -537,9 +683,15 @@ handle_se0_keepalive:
 
 	// Make sure we aren't in left field.
 	li a5, 4000
+#if !defined(CH32V00x) || !CH32V00x
 	bge a2, a5, ret_from_se0
 	li a5, -4000
 	blt a2, a5, ret_from_se0
+#else
+	bge a2, a5, 1f
+	li a5, -4000
+	blt a2, a5, 1f
+#endif
 
 	c.lw a1, SE0_WINDUP_OFFSET(a4) // load windup se0_windup
 	c.add a1, a2
@@ -561,12 +713,22 @@ handle_se0_keepalive:
 	or a0, a0, a2
 	sw a0, 0(a4)
 
+#if !defined(CH32V00x) || !CH32V00x
 	j ret_from_se0
+#else
+	1:
+	auipc t0, %hi(ret_from_se0)
+	addi t0, t0, %lo(ret_from_se0)
+	jalr x0, t0, 0
+#endif
 
 //////////////////////////////////////////////////////////////////////////////
 // SEND DATA /////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
+#if defined(CH32V00x) && CH32V00x
+.section .srodata, "ax"
+#endif
 
 .balign 4
 //void usb_send_empty( uint32_t token );
@@ -577,9 +739,9 @@ usb_send_empty:
 	c.mv a2, a1
 //void usb_send_data( uint8_t * data, uint32_t length, uint32_t poly_function, uint32_t token );
 usb_send_data:
-	addi	sp,sp,-16
-	sw	s0, 0(sp)
-	sw	s1, 4(sp)
+	addi sp,sp,-16
+	sw s0, 0(sp)
+	sw s1, 4(sp)
 
 	la a5, USB_GPIO_BASE
 
@@ -590,7 +752,11 @@ usb_send_data:
 	and a4, s1, a4
 
 	// Convert D+/D- into 2MHz outputs
+#if !defined(CH32V00x) || !CH32V00x
 	li s1, ((0b0010<<(USB_PIN_DP*4)) | (0b0010<<(USB_PIN_DM*4)))
+#else
+	li s1, ((0b0001<<(USB_PIN_DP*4)) | (0b0001<<(USB_PIN_DM*4)))
+#endif
 	or a4, s1, a4
 
 	li s1, (1<<USB_PIN_DP) | (1<<(USB_PIN_DM+16))
@@ -608,6 +774,7 @@ usb_send_data:
 	ori s0, a3, 0x40  
 
 	li t0, 0x0000
+	EXTRADELAY
 	c.bnez a2, done_poly_check
 	li t0, 0xa001
 	li a2, 0xffff
@@ -616,7 +783,7 @@ done_poly_check:
 	c.slli a1, 3 // bump up one extra to be # of bits
 	mv t2, a1
 
-	// t0 is our polynomial
+	// T0 is our polynomial
 	// a2 is our running CRC.
 	// a3 is our token.
 	DEBUG_TICK_SETUP
@@ -648,6 +815,7 @@ pre_and_tok_send_inner_loop:
 	// if a3 is 1, we should NOT flip.
 
 	c.addi a4, -1
+	EXTRADELAY
 	c.bnez a3, pre_and_tok_send_one_bit
 //pre_and_tok_send_one_bit:
 //Send 0 bit. (Flip)
@@ -664,6 +832,7 @@ pre_and_tok_send_one_bit:
 	sw s1, BSHR_OFFSET(a5)
 	//Bit stuffing doesn't happen.
 	c.addi a1, -1
+	EXTRADELAY
 	c.beqz a1, pre_and_tok_done_sending_data
 	nx6p3delay( 2, a3 );	c.nop;             // Free time!
 	c.j pre_and_tok_send_inner_loop
@@ -672,21 +841,22 @@ pre_and_tok_done_sending_data:
 ////////////////////////////////////////////////////////////////////////////
 
 	// We have very little time here.  Just enough to do this.
-
 	//Restore size.
 	mv a1, t2//lw  a1, 12(sp)
+	EXTRADELAY
 	c.beqz a1, no_really_done_sending_data  //No actual payload?  Bail!
 	c.addi a1, -1
 //	beqz t2, no_really_done_sending_data 
 
+	EXTRADELAY
 	bnez t0, done_poly_check2
 	li a2, 0xffff
 done_poly_check2:
 
 
-	// t0 is used for CRC
-	// t1 is free
-	// t2 is a backup of size.
+	// T0 is used for CRC
+	// T1 is free
+	// T2 is a backup of size.
 
 	// s1 is our last "state"
 	//    bit 0 is last "physical" state,
@@ -700,7 +870,7 @@ done_poly_check2:
 	// a4 is used for bit stuffing.
 	// a5 is the output address.
 
-	//xor s1, s1, t1
+	//xor s1, s1, T1
 	//c.sw s1, BSHR_OFFSET(a5)
 
 	// This creates a preamble, which is alternating 1's and 0's
@@ -713,8 +883,8 @@ load_next_byte:
 	// CH32v003 has the XW extension.
 	// this replaces: lb s0, 0(a0)
 	XW_C_LBU(s0, a0, 0);
-	//lb s0, 0(a0)
-	//	.long 0x00150513 // addi a0, a0, 1  (For alignment's sake)
+	// lb s0, 0(a0)
+	// .long 0x00150513 // addi a0, a0, 1  (For alignment's sake)
 	c.addi a0, 1
 send_inner_loop:
 	/* High-level:
@@ -731,6 +901,11 @@ send_inner_loop:
 	c.andi a3, 1
 	// If a3 is 0, we should FLIP
 	// if a3 is 1, we should NOT flip.
+	EXTRADELAY
+	EXTRADELAY
+	EXTRADELAY
+	EXTRADELAY
+	EXTRADELAY
 	c.beqz a3, send_zero_bit
 	c.srli s0, 1 // Shift down into the next bit.
 //send_one_bit:
@@ -742,6 +917,7 @@ send_inner_loop:
 	c.xor a2, a3
 
 	c.addi a4, -1
+	EXTRADELAY
 	c.beqz a4, insert_stuffed_bit
 	c.j cont_after_jump
 //Send 0 bit. (Flip)
@@ -752,7 +928,7 @@ send_zero_bit:
 	// Handle CRC (0 bit)
 	// a2 is our running CRC
 	// a3 is temp
-	// t0 is polynomial.
+	// T0 is polynomial.
 
 	// XXX WARNING: this was by https://github.com/cnlohr/rv003usb/issues/7 
 	// TODO Check me!
@@ -776,9 +952,11 @@ send_zero_bit:
 .balign 4
 cont_after_jump:
 send_end_bit_complete:
+	EXTRADELAY
 	c.beqz a1, done_sending_data
 	andi a3, a1, 7
 	c.addi a1, -1
+	EXTRADELAY
 	c.beqz a3, load_next_byte
 	// Wait an extra few cycles.
 	c.j 1f; 1:
@@ -787,9 +965,11 @@ send_end_bit_complete:
 .balign 4
 done_sending_data:
 	// BUT WAIT!! MAYBE WE NEED TO CRC!
+	EXTRADELAY
 	beqz t0, no_really_done_sending_data
 	srli t0, t0, 8 // reset poly - we don't want it anymore.
 	li a1, 7 // Load 8 more bits out
+	EXTRADELAY
 	beqz t0, send_inner_loop  //Second CRC byte
 	// First CRC byte
 	not s0, a2 // get read to send out the CRC.
@@ -821,10 +1001,10 @@ no_really_done_sending_data:
 	or s1, a3, s1
 	sw s1, CFGLR_OFFSET(a5)
 
-	lw	s0, 0(sp)
-	lw	s1, 4(sp)
+	lw s0, 0(sp)
+	lw s1, 4(sp)
 	RESTORE_DEBUG_MARKER( 8 )
-	addi	sp,sp,16
+	addi sp,sp,16
 	ret
 
 .balign 4
@@ -866,7 +1046,7 @@ InterruptVector:
 	addi a0, sp, -2048 // A0 = 0x20000000
 	addi gp, a0, 0x3fc // GP = 0x200003fc
 	c.li a4, 0
-1:	c.sw a4, 0(a0)	// Clear RAM
+1: c.sw a4, 0(a0)	// Clear RAM
 	c.addi a0, 4
 	blt a0, gp, 1b  // Iterate over RAM until it's cleared.
 2:
