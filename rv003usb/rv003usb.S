@@ -14,13 +14,17 @@
 #define SYSTICK 0xE000F000
 #define SYSTICK_CNT_OFFSET 8
 
+// Flash in CH32V00x is 1.5-2x slower than in CH32V003, this means we have to run USB time sensitive code from RAM.
+// But RAM code executes faster than FLASH code in CH32V003, this means we need to add extra delays.
+// It seems that adding extra delay per each branching instruction solves the most of the timing issues, but not all.
 #if !defined(CH32V00x) || !CH32V00x
 // This is 6 * n + 3 cycles
 #define nx6p3delay( n, freereg ) li freereg, ((n)+1); 1: c.addi freereg, -1; c.bnez freereg, 1b
-#define EXTRADELAY
+// No delay needed fo CH32V003, so it's empty
+#define VOOXDELAY
 #else
 #define nx6p3delay( n, freereg ) li freereg, ((n)+1); 1: c.addi freereg, -1; .word 0x00000013; c.bnez freereg, 1b
-#define EXTRADELAY .word 0x00000013
+#define VOOXDELAY .word 0x00000013 // addi zero, zero, 0
 #endif
 
 //See RV003USB_DEBUG_TIMING note in .c file.
@@ -45,7 +49,7 @@
 .global always0
 
 /* Register map
-	zero, ra, sp, gp, tp, T0, T1, T2
+	zero, ra, sp, gp, tp, t0, t1, t2
 Compressed:
 	s0, s1,	a0, a1, a2, a3, a4, a5
 */
@@ -88,31 +92,31 @@ EXTI7_0_IRQHandler:
 
 	// Finish jump to se0
 #if defined(CH32V00x) && CH32V00x
-	EXTRADELAY
+	VOOXDELAY
 	c.bnez a0, 1f
 	auipc t0, %hi(handle_se0_keepalive)
 	addi t0, t0, %lo(handle_se0_keepalive)
-	jalr x0, t0, 0
+	c.jr t0
 	1:
 #else
 	c.beqz a0, handle_se0_keepalive
 #endif
 
-	EXTRADELAY
+	VOOXDELAY
 	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
-	EXTRADELAY
+	VOOXDELAY
 	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
-	EXTRADELAY
+	VOOXDELAY
 	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
-	EXTRADELAY
+	VOOXDELAY
 	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
-	EXTRADELAY
+	VOOXDELAY
 	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
-	EXTRADELAY
+	VOOXDELAY
 	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
-	EXTRADELAY
+	VOOXDELAY
 	c.lw a0, INDR_OFFSET(a5); c.andi a0, USB_DMASK; bne a0, a1, syncout
-	EXTRADELAY
+	VOOXDELAY
 	c.j syncout
 syncout:
 	sw	s0, 24(sp)
@@ -135,13 +139,13 @@ syncout:
 preamble_loop:
 	DEBUG_TICK_MARK
 	c.lw a0, INDR_OFFSET(a5);
-	c.andi a0, USB_DMASK;
-	EXTRADELAY
+	c.andi a0, USB_DMASK; // Can just change to andi without anything extra
+	VOOXDELAY
 	c.beqz a0, done_usb_message // SE0 here?
 	c.xor a0, a1;
 	c.xor a1, a0; // Recover a1.
 	j 1f; 1: // 4 cycles?
-	EXTRADELAY
+	VOOXDELAY
 	c.beqz a0, done_preamble
 	j 1f; 1: // 4 cycles?
 	c.lw s0, INDR_OFFSET(a5);
@@ -150,7 +154,7 @@ preamble_loop:
 
 	// TRICKY: This helps retime the USB sync.
 	// If s0 is nonzero, then it's changed (we're going too slow)
-	EXTRADELAY
+	VOOXDELAY
 	c.bnez s0, 2f;  // This code takes 6 cycles or 8 cycles, depending.
 	c.j 1f; 1:
 	2:
@@ -169,11 +173,18 @@ done_preamble:
 
 	c.nop;
 
-	EXTRADELAY
-	EXTRADELAY
-	EXTRADELAY
-	EXTRADELAY
-	EXTRADELAY
+	VOOXDELAY
+	VOOXDELAY
+	VOOXDELAY
+	VOOXDELAY
+	VOOXDELAY
+
+  VOOXDELAY
+  VOOXDELAY
+  VOOXDELAY
+  VOOXDELAY
+  VOOXDELAY
+  VOOXDELAY
 	// 8 extra cycles here cause errors.
 	// -5 cycles is too much.
 	// -4 to +6 cycles is OK
@@ -183,19 +194,19 @@ done_preamble:
 	/* register meanings:
 		* x4 = TP = used for triggering debug.
 
-		* T0 = Totally unused. - lies
-		* T1 = TEMPORARY
-		* T2 = Pointer to the memory address we are writing to.
+		* t0 = Totally unused. - lies
+		* t1 = TEMPORARY
+		* t2 = Pointer to the memory address we are writing to.
 
-		* A0 = temp / current bit value.
-		* A1 = last-frame's GPIO values.
-		* A2 = The running word 
-		* A3 = Running CRC
+		* a0 = temp / current bit value.
+		* a1 = last-frame's GPIO values.
+		* a2 = The running word 
+		* a3 = Running CRC
 		* a4 = Polynomial
-		* A5 = GPIO Offset
+		* a5 = GPIO Offset
 
-		* S0 = Bit Stuff Place
-		* S1 = # output bits remaining.
+		* s0 = Bit Stuff Place
+		* s1 = # output bits remaining.
 */
 
 .balign 4
@@ -215,10 +226,10 @@ packet_type_loop:
 	c.nop
 #endif
 
-	DEBUG_TICK_MARK // Timing of this is not equal to EXTRADELAY (for not obvious reason)
-	// EXTRADELAY
+	DEBUG_TICK_MARK // Timing of this is not equal to VOOXDELAY (for not obvious reason)
+	// VOOXDELAY
 	c.lw a0, INDR_OFFSET(a5);
-	c.andi a0, USB_DMASK;
+	c.andi a0, USB_DMASK; // Possible to convert to non-compressed version
 	c.beqz a0, done_usb_message // Not se0 complete, that can't happen here and be valid.
 	c.xor a0, a1;
 	c.xor a1, a0; // Recover a1, for next cycle
@@ -256,7 +267,7 @@ packet_type_loop:
 	// WARNING: a0 is bit-wise backwards here.
 	// 0xb4 for instance is a setup packet.
 	//
-	// When we get here, packet type is loaded in A2.
+	// When we get here, packet type is loaded in a2.
 	// If packet type is 0xXX01 or 0xXX11
 	// the LSBs are the inverted packet type.
 	// we can branch off of bit 2.
@@ -265,7 +276,7 @@ packet_type_loop:
 	// if a0 is 1 then it's DATA (full CRC) otherwise,
 	// (0) for setup or PARTIAL CRC.
 	// Careful:  This has to take a constant amount of time either way the branch goes.
-	EXTRADELAY
+	VOOXDELAY
 	c.beqz a0, data_crc
 	c.li a4, 0x14	
 	c.li a3, 0x1e
@@ -275,24 +286,20 @@ packet_type_loop:
 
 data_crc:
 	// For now on v006 add/remove one of these if you have HID fails in testtop
-	EXTRADELAY
-	EXTRADELAY
-	EXTRADELAY
-	EXTRADELAY
-	EXTRADELAY
-	EXTRADELAY
-	EXTRADELAY
+	VOOXDELAY
+	VOOXDELAY
+	VOOXDELAY
 
 #define HANDLE_EOB_YES \
 	sb a2, 0(t2); /* Save the byte off. TODO: Is unaligned byte access to RAM slow? */ \
-	.word 0x00138393; /*addi T2, T2, 1;*/
+	.word 0x00138393; /*addi t2, t2, 1;*/
 
 ///////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////	
 .balign 4
 is_end_of_byte:
 	HANDLE_EOB_YES
-	EXTRADELAY
+	VOOXDELAY
 
 	// end-of-byte.
 .balign 4
@@ -306,12 +313,12 @@ bit_process:
 
 //XXX GOOD
 #define HANDLE_NEXT_BYTE(is_end_of_byte, jumptype)  \
-	EXTRADELAY; \
+	VOOXDELAY; \
 	c.addi s1, -1; \
 	andi a0, s1, 7; /* s1 could be really really big */ \
 	c.jumptype a0, is_end_of_byte /* 4 cycles for this section. (Checked) (Sometimes 5)? */ 
 
-	// EXTRADELAY
+	// VOOXDELAY
 #if defined(CH32V00x) && CH32V00x
 	c.nop
 #endif
@@ -325,14 +332,14 @@ handle_zero_bit:
 	// There is some free time.  Could do something interesting here!!!
 	// I was thinking we could put the resync code here.
 #if defined(CH32V00x) && CH32V00x
-	EXTRADELAY
+	VOOXDELAY
 	c.nop
 #else
 	c.j 1f; 1:  //Delay 4 cycles.
 #endif
 
 	c.li s0, 6      // reset runs-of-one.
-	EXTRADELAY
+	VOOXDELAY
 	c.beqz a1, se0_complete
 
 	// Handle CRC (0 bit)  (From @Domkeykong)
@@ -344,10 +351,10 @@ handle_zero_bit:
 
 	c.srli a2, 1;  // shift a2 down by 1
 	HANDLE_NEXT_BYTE(is_end_of_byte, beqz)
-	EXTRADELAY
-	EXTRADELAY
-	EXTRADELAY
-	EXTRADELAY
+	VOOXDELAY
+	VOOXDELAY
+	VOOXDELAY
+	VOOXDELAY
 
 #if !defined(CH32V00x) || !CH32V00x
 	c.nop
@@ -373,13 +380,13 @@ handle_one_bit:
 
 	c.srli a2, 1;  // shift a2 down by 1
 	ori a2, a2, 0x80
-	EXTRADELAY
+	VOOXDELAY
 	c.beqz s0, handle_bit_stuff;
 
 	HANDLE_NEXT_BYTE(is_end_of_byte, beqz)
-	EXTRADELAY
-	EXTRADELAY
-	EXTRADELAY
+	VOOXDELAY
+	VOOXDELAY
+	VOOXDELAY
 #if !defined(CH32V00x) || !CH32V00x
 	c.nop
 	c.nop
@@ -398,15 +405,15 @@ handle_bit_stuff:
 not_is_end_of_byte_and_bit_stuffed:
 	DEBUG_TICK_MARK
 	c.lw a0, INDR_OFFSET(a5);
-	c.andi a0, USB_DMASK;
-	EXTRADELAY
+	c.andi a0, USB_DMASK; // Simply change to andi, nothing extra
+	VOOXDELAY
 	c.beqz a0, se0_complete
 	c.xor a0, a1;
 	c.xor a1, a0; // Recover a1, for next cycle.
 
-	// If A0 is a 0 then that's bad, we just did a bit stuff
-        //   and A0 == 0 means there was no signal transition
-	EXTRADELAY
+	// If a0 is a 0 then that's bad, we just did a bit stuff
+        //   and a0 == 0 means there was no signal transition
+	VOOXDELAY
 	c.beqz a0, done_usb_message
 
 	// Reset bit stuff, delay, then continue onto the next actual bit
@@ -415,14 +422,14 @@ not_is_end_of_byte_and_bit_stuffed:
 	c.nop;
 	nx6p3delay( 2, a0 )
 
-	EXTRADELAY
+	VOOXDELAY
 	c.bnez s1, bit_process // + 4 cycles
 
 .balign 4
 se0_complete:
 	// This is triggered when we finished getting a packet.
 	andi a0, s1, 7; // Make sure we received an even number of bytes.
-	EXTRADELAY
+	VOOXDELAY
 	c.bnez a0, done_usb_message
 
 
@@ -460,7 +467,7 @@ se0_complete:
 	lui t1, %hi(usb_pid_handle_ack)
 	addi t1, t1, %lo(usb_pid_handle_ack)
 	c.bnez a5, 1f
-	jalr x0, t1, 0
+	c.jr t1
 	1:
 #endif
 	c.bnez a3, crc_for_tokens_would_be_bad_maybe_data
@@ -494,19 +501,19 @@ yes_check_tokens:
 	c.bnez a5, 1f
 	lui t1, %hi(usb_pid_handle_out)
 	addi t1, t1, %lo(usb_pid_handle_out)
-	jalr x0, t1, 0
+	c.jr t1
 	1:
 	c.addi a5, (0b10000111-0b10010110)
 	c.bnez a5, 1f
 	lui t1, %hi(usb_pid_handle_in)
 	addi t1, t1, %lo(usb_pid_handle_in)
-	jalr x0, t1, 0
+	c.jr t1
 	1:
 	c.addi a5, (0b10010110-0b10110100)
 	c.bnez a5, done_usb_message_in
 	lui t1, %hi(usb_pid_handle_setup)
 	addi t1, t1, %lo(usb_pid_handle_setup)
-	jalr x0, t1, 0
+	c.jr t1
 #endif
 
 	// CRC is nonzero. (Good for Data packets)
@@ -528,12 +535,12 @@ crc_for_tokens_would_be_bad_maybe_data:
 	lui t1, %hi(usb_pid_handle_data)
 	addi t1, t1, %lo(usb_pid_handle_data)
 	c.bnez a5, 1f
-	jalr x0, t1, 0
+	c.jr t1
 	1:
 	c.addi a5, (0b11000011-0b11010010)
 	c.li a2, 1
 	c.bnez a5, done_usb_message_in
-	jalr x0, t1, 0
+	c.jr t1
 #endif
 
 done_usb_message:
@@ -719,7 +726,7 @@ handle_se0_keepalive:
 	1:
 	auipc t0, %hi(ret_from_se0)
 	addi t0, t0, %lo(ret_from_se0)
-	jalr x0, t0, 0
+	c.jr t0
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
@@ -774,7 +781,7 @@ usb_send_data:
 	ori s0, a3, 0x40  
 
 	li t0, 0x0000
-	EXTRADELAY
+	VOOXDELAY
 	c.bnez a2, done_poly_check
 	li t0, 0xa001
 	li a2, 0xffff
@@ -783,7 +790,7 @@ done_poly_check:
 	c.slli a1, 3 // bump up one extra to be # of bits
 	mv t2, a1
 
-	// T0 is our polynomial
+	// t0 is our polynomial
 	// a2 is our running CRC.
 	// a3 is our token.
 	DEBUG_TICK_SETUP
@@ -815,7 +822,7 @@ pre_and_tok_send_inner_loop:
 	// if a3 is 1, we should NOT flip.
 
 	c.addi a4, -1
-	EXTRADELAY
+	VOOXDELAY
 	c.bnez a3, pre_and_tok_send_one_bit
 //pre_and_tok_send_one_bit:
 //Send 0 bit. (Flip)
@@ -832,7 +839,7 @@ pre_and_tok_send_one_bit:
 	sw s1, BSHR_OFFSET(a5)
 	//Bit stuffing doesn't happen.
 	c.addi a1, -1
-	EXTRADELAY
+	VOOXDELAY
 	c.beqz a1, pre_and_tok_done_sending_data
 	nx6p3delay( 2, a3 );	c.nop;             // Free time!
 	c.j pre_and_tok_send_inner_loop
@@ -843,20 +850,20 @@ pre_and_tok_done_sending_data:
 	// We have very little time here.  Just enough to do this.
 	//Restore size.
 	mv a1, t2//lw  a1, 12(sp)
-	EXTRADELAY
+	VOOXDELAY
 	c.beqz a1, no_really_done_sending_data  //No actual payload?  Bail!
 	c.addi a1, -1
 //	beqz t2, no_really_done_sending_data 
 
-	EXTRADELAY
+	VOOXDELAY
 	bnez t0, done_poly_check2
 	li a2, 0xffff
 done_poly_check2:
 
 
-	// T0 is used for CRC
-	// T1 is free
-	// T2 is a backup of size.
+	// t0 is used for CRC
+	// t1 is free
+	// t2 is a backup of size.
 
 	// s1 is our last "state"
 	//    bit 0 is last "physical" state,
@@ -870,7 +877,7 @@ done_poly_check2:
 	// a4 is used for bit stuffing.
 	// a5 is the output address.
 
-	//xor s1, s1, T1
+	//xor s1, s1, t1
 	//c.sw s1, BSHR_OFFSET(a5)
 
 	// This creates a preamble, which is alternating 1's and 0's
@@ -901,11 +908,11 @@ send_inner_loop:
 	c.andi a3, 1
 	// If a3 is 0, we should FLIP
 	// if a3 is 1, we should NOT flip.
-	EXTRADELAY
-	EXTRADELAY
-	EXTRADELAY
-	EXTRADELAY
-	EXTRADELAY
+	VOOXDELAY
+	VOOXDELAY
+	VOOXDELAY
+	VOOXDELAY
+	VOOXDELAY
 	c.beqz a3, send_zero_bit
 	c.srli s0, 1 // Shift down into the next bit.
 //send_one_bit:
@@ -917,7 +924,7 @@ send_inner_loop:
 	c.xor a2, a3
 
 	c.addi a4, -1
-	EXTRADELAY
+	VOOXDELAY
 	c.beqz a4, insert_stuffed_bit
 	c.j cont_after_jump
 //Send 0 bit. (Flip)
@@ -928,7 +935,7 @@ send_zero_bit:
 	// Handle CRC (0 bit)
 	// a2 is our running CRC
 	// a3 is temp
-	// T0 is polynomial.
+	// t0 is polynomial.
 
 	// XXX WARNING: this was by https://github.com/cnlohr/rv003usb/issues/7 
 	// TODO Check me!
@@ -952,11 +959,11 @@ send_zero_bit:
 .balign 4
 cont_after_jump:
 send_end_bit_complete:
-	EXTRADELAY
+	VOOXDELAY
 	c.beqz a1, done_sending_data
 	andi a3, a1, 7
 	c.addi a1, -1
-	EXTRADELAY
+	VOOXDELAY
 	c.beqz a3, load_next_byte
 	// Wait an extra few cycles.
 	c.j 1f; 1:
@@ -965,11 +972,11 @@ send_end_bit_complete:
 .balign 4
 done_sending_data:
 	// BUT WAIT!! MAYBE WE NEED TO CRC!
-	EXTRADELAY
+	VOOXDELAY
 	beqz t0, no_really_done_sending_data
 	srli t0, t0, 8 // reset poly - we don't want it anymore.
 	li a1, 7 // Load 8 more bits out
-	EXTRADELAY
+	VOOXDELAY
 	beqz t0, send_inner_loop  //Second CRC byte
 	// First CRC byte
 	not s0, a2 // get read to send out the CRC.
@@ -1039,17 +1046,29 @@ InterruptVector:
 #if __GNUC__ > 10
 .option arch, +zicsr
 #endif
-	la sp, _eusrstack  // SP = 0x20000800
+	la sp, _eusrstack  // sp = 0x20000800
 	li a0, 0x80
 	csrw mstatus, a0
 	csrw mtvec, 3
-	addi a0, sp, -2048 // A0 = 0x20000000
-	addi gp, a0, 0x3fc // GP = 0x200003fc
+	addi a0, sp, -2048 // a0 = 0x20000000
+	addi gp, a0, 0x3fc // gp = 0x200003fc
 	c.li a4, 0
 1: c.sw a4, 0(a0)	// Clear RAM
 	c.addi a0, 4
 	blt a0, gp, 1b  // Iterate over RAM until it's cleared.
 2:
+// #if defined(CH32V00x) && CH32V00x
+//   la a0, _data_lma
+// 	la a1, _data_vma
+// 	la a2, _edata
+// 1:	beq a1, a2, 2f
+// 	lw a3, 0(a0)
+// 	sw a3, 0(a1)
+// 	addi a0, a0, 4
+// 	addi a1, a1, 4
+// 	bne a1, a2, 1b
+// 2:
+// #endif
 	//XXX WARNING: NO .DATA SECTION IS AVAILABLE HERE!
 	/* SystemInit48HSI */
 
@@ -1060,7 +1079,11 @@ InterruptVector:
 	la a3, FLASH_R_BASE
 	li a1, 0x00000001 | 0x01000000 | 0x80 /* RCC->CTLR RCC_HSION | RCC_PLLON | ((HSITRIM) << 3) */
 	c.sw a1, 0(a2)
+#if !defined(CH32V00x) || !CH32V00x
 	c.li a1, 0x01       /* FLASH_ACTLR_LATENCY_1 */
+#else
+  c.li a1, 0x02       /* FLASH_ACTLR_LATENCY_2 */
+#endif
 	c.sw a1, 0(a3)      /* FLASH->ACTLR = FLASH_ACTLR_LATENCY_1 */
 	c.li a1, 0x00000002 /* RCC->CFGR0 = RCC_SW_PLL */
 	c.sw a1, 4(a2)

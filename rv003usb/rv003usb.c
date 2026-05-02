@@ -78,12 +78,16 @@ void usb_setup()
 		RCC->CFGR0 = (RCC->CFGR0 & ~RCC_CFGR0_MCO) | RCC_CFGR0_MCO_SYSCLK;
 
 		// PWM is used for debug timing. 
-		// Increase this to 1-2 to make debug pulse linger. 
-		// Important for debugging the timing with LA's that can't do 100MHz
-		TIM1->PSC = 0x0002;
+    // Set prescaler to 0 - running at maximum clock
+		TIM1->PSC = 0x0000;
 
 		// Auto Reload - sets period
 		TIM1->ATRLR = 0xffff;
+
+    // Set the Capture Compare Register value (where we turn off the timer)
+    // Increase this to 6 to make debug pulse linger. 
+		// Important for debugging the timing with LA's that can't do 100MHz
+		TIM1->CH3CVR = 2;
 
 #if !defined(CH32V00x) || !CH32V00x
 // #warning "CH32V003 in C file"
@@ -95,9 +99,6 @@ void usb_setup()
 
 		// CH3 Mode is output, PWM1 (CC1S = 00, OC1M = 110)
 		TIM1->CHCTLR2 |= TIM_OC3M_2 | TIM_OC3M_1;
-
-		// Set the Capture Compare Register value to 50% initially
-		TIM1->CH3CVR = 2;
 
 		// Enable TIM1 outputs
 		TIM1->BDTR |= TIM_MOE;
@@ -113,9 +114,6 @@ void usb_setup()
 
 		// CH3 Mode is output, PWM1 (CC1S = 00, OC1M = 110)
 		TIM1->CHCTLR2 |= TIM1_CHCTLR2_OC3M_2 | TIM1_CHCTLR2_OC3M_1;
-
-		// Set the Capture Compare Register value to 50% initially
-		TIM1->CH3CVR = 2;
 
 		// Enable TIM1 outputs
 		TIM1->BDTR |= TIM1_BDTR_MOE;
@@ -155,6 +153,8 @@ void usb_setup()
 	NVIC_EnableIRQ( EXTI7_0_IRQn );
 }
 
+extern volatile int32_t runwordpad;
+extern uint32_t runwordpadready;
 
 void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
 {
@@ -214,6 +214,14 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	tosend = (int)e->max_len - offset;
 	if( tosend > ENDPOINT0_SIZE ) tosend = ENDPOINT0_SIZE;
 	sendnow = tsend + offset;
+
+  // DON'T start the execution timer until after we receive the IN from the usb host req.
+	if (runwordpadready)
+	{
+		runwordpad = sendtok; // Anything non-zero is fine.
+		runwordpadready = 0;
+	}
+
 	if( tosend <= 0 )
 	{
 		usb_send_empty( sendtok );
