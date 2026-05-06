@@ -65,7 +65,7 @@
 #warning "BOOTLOADER_BTN_PORT is defined, but BOOTLOADER_TIMEOUT_PWR is not set to 0. Code might not fit"
 #endif
 
-#define SCRATCHPAD_SIZE 128
+#define SCRATCHPAD_SIZE 1024+128
 extern volatile int32_t runwordpad;
 static uint32_t runwordpadready = 0;
 extern uint8_t scratchpad[SCRATCHPAD_SIZE];
@@ -83,7 +83,7 @@ void SystemInit48HSIUNSAFE( void );
 
 static inline void asmDelay(int delay) {
 	asm volatile(
-"1:	c.addi %[delay], -1\n"
+"1: c.addi %[delay], -1\n"
 "bne %[delay], x0, 1b\n" :[delay]"+r"(delay)  );
 }
 
@@ -226,7 +226,7 @@ int main()
 
 #if defined(USB_DPU_PORT) && !PORTID_EQUALS(USB_DPU_PORT,USB_PORT)
 	LOCAL_EXP(GPIO, USB_DPU_PORT)->CFGLR &= ~(0xf<<(4*USB_PIN_DPU));
-   LOCAL_EXP(GPIO, USB_DPU_PORT)->CFGLR |= (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_PIN_DPU);
+	LOCAL_EXP(GPIO, USB_DPU_PORT)->CFGLR |= (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*USB_PIN_DPU);
 #endif
 
 	// Configure USB_PIN_DM (D-) as an interrupt on falling edge.
@@ -236,17 +236,17 @@ int main()
 
 #if defined(BOOTLOADER_BTN_PORT) && defined(BOOTLOADER_BTN_TRIG_LEVEL) && defined(BOOTLOADER_BTN_PIN)
 	#if BOOTLOADER_BTN_TRIG_LEVEL == 0
-    #if defined(SOFT_REBOOT_TO_BOOTLOADER)
-      if(LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->INDR & (1<<BOOTLOADER_BTN_PIN) && !(RCC->RSTSCKR == 0x10000000)) boot_usercode();
-    #else
-		  if(LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->INDR & (1<<BOOTLOADER_BTN_PIN)) boot_usercode();
-    #endif
+		#if defined(SOFT_REBOOT_TO_BOOTLOADER)
+			if(LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->INDR & (1<<BOOTLOADER_BTN_PIN) && !(RCC->RSTSCKR == 0x10000000)) boot_usercode();
+		#else
+			if(LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->INDR & (1<<BOOTLOADER_BTN_PIN)) boot_usercode();
+		#endif
 	#else
-    #if defined(SOFT_REBOOT_TO_BOOTLOADER)
-		  if((LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->INDR & (1<<BOOTLOADER_BTN_PIN)) == 0 && !(RCC->RSTSCKR == 0x10000000)) boot_usercode();
-    #else
-      if((LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->INDR & (1<<BOOTLOADER_BTN_PIN)) == 0) boot_usercode();
-    #endif
+		#if defined(SOFT_REBOOT_TO_BOOTLOADER)
+			if((LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->INDR & (1<<BOOTLOADER_BTN_PIN)) == 0 && !(RCC->RSTSCKR == 0x10000000)) boot_usercode();
+		#else
+			if((LOCAL_EXP(GPIO,BOOTLOADER_BTN_PORT)->INDR & (1<<BOOTLOADER_BTN_PIN)) == 0) boot_usercode();
+		#endif
 	#endif
 #endif
 
@@ -460,17 +460,15 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 				start[i] = data[i];//((intptr_t)data)>>(i*8);
 			e->count ++;
 
-			if( start + length - 3 >= scratchpad + SCRATCHPAD_SIZE )
+			uint32_t * last4 = (uint32_t*)(start + 4);
+			if( *last4 == 0x1234abcd )
 			{
-				// If the last 4 bytes are 0x1234abcd, then we can go!
-				uint32_t * last4 = (uint32_t*)(start + 4);					
-				if( *last4 == 0x1234abcd )
-				{
-					*last4 = 0;
-					runwordpadready = 1; // Request exectution, but wait for another IN pkt.
-				}
+				*last4 = 0;
+				runwordpadready = 1; // Request exectution, but wait for another IN pkt.
 				e->opaque = 0;
 			}
+			// if( start + length - 3 >= scratchpad + SCRATCHPAD_SIZE ) e->opaque = 0;
+			if( e->count >= SCRATCHPAD_SIZE/8 ) e->opaque = 0;
 			// Allow user code to receive data.
 		}
 	}
@@ -481,7 +479,3 @@ just_ack:
 	}
 	return;
 }
-
-
-
-

@@ -9,6 +9,7 @@
 #define USB_PIN_DM 4   // [0-4] GPIO Number for USB D- Pin
 // #define USB_PIN_DPU 2  // [0-7] GPIO for feeding the 1.5k Pull-Up on USB D- Pin; Comment out if not used / tied to 3V3!
 
+#define RV003USB_OPTIMIZE_FLASH    1 // Only disable it if you need to save 16 bytes of RAM or you want to customize usb_pid_handle_ack or usb_pid_handle_setup
 #define RV003USB_DEBUG_TIMING      0
 #define RV003USB_OPTIMIZE_FLASH    1
 #define RV003USB_EVENT_DEBUGGING   0

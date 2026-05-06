@@ -129,11 +129,12 @@ uint32_t * GetUEvent();
 #define ENDP_OFFSET             28
 #define SETUP_REQUEST_OFFSET    8
 
-#define EP_COUNT_OFFSET         0
-#define EP_TOGGLE_IN_OFFSET     4
-#define EP_TOGGLE_OUT_OFFSET    8
-#define EP_IS_CUSTOM_OFFSET     12
-#define EP_MAX_LEN_OFFSET       16
+
+#define EP_TOGGLE_IN_OFFSET     0
+#define EP_TOGGLE_OUT_OFFSET    4
+#define EP_IS_CUSTOM_OFFSET     8
+#define EP_COUNT_OFFSET         16
+#define EP_MAX_LEN_OFFSET       20
 #define EP_OPAQUE_OFFSET        28
 #else
 #define MY_ADDRESS_OFFSET_BYTES 1
@@ -158,14 +159,14 @@ uint32_t * GetUEvent();
 
 struct usb_endpoint
 {
-	TURBO8TYPE count;	    // ack count / in count
 	TURBO8TYPE toggle_in;   // DATA0 or DATA1?
 	TURBO8TYPE toggle_out;  // Out PC->US
 	TURBO8TYPE custom;      // Anything nonzero will incur the custom call.
+	TURBO8TYPE reserved1;
+	TURBO16TYPE count;      // ack count / in count
 	TURBO16TYPE max_len;
-	TURBO16TYPE reserved1;
-	uint32_t    reserved2; 
-	uint8_t *   opaque;      // For user.
+	uint32_t    reserved2;
+	uint8_t *   opaque;     // For user.
 };  // CAREFUL! sizeof pacekt 
 
 // Make the size of this a power of 2, otherwise it will be slow to access.
