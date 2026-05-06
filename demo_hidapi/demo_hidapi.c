@@ -13,7 +13,8 @@
 uint8_t scratch[255];
 volatile uint8_t start_leds = 0;
 uint8_t ledat;
-
+uint32_t runwordpadready = 0;
+volatile int32_t runwordpad;
 static uint8_t frame;
 
 uint32_t WS2812BLEDCallback( int wordno )
@@ -25,17 +26,17 @@ uint32_t WS2812BLEDCallback( int wordno )
 int main()
 {
 	SystemInit();
-	Delay_Ms(1); // Ensures USB re-enumeration after bootloader or reset; Spec demand >2.5µs ( TDDIS )
+	Delay_Ms(100); // Ensures USB re-enumeration after bootloader or reset; Spec demand >2.5µs ( TDDIS )
 	usb_setup();
 
-	GPIOD->CFGLR = ( ( GPIOD->CFGLR ) & (~( 0xf << (4*2) )) ) | 
-		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*2);
+	// GPIOD->CFGLR = ( ( GPIOD->CFGLR ) & (~( 0xf << (4*2) )) ) | 
+	// 	(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP)<<(4*2);
 
-	WS2812BDMAInit();// Use DMA and SPI to stream out WS2812B LED Data via the MOSI pin.
+	// WS2812BDMAInit();// Use DMA and SPI to stream out WS2812B LED Data via the MOSI pin.
 
+  printf("heyho\n");
 	while(1)
 	{
-		//printf( "%lu %lu %lu %08lx\n", rv003usb_internal_data.delta_se0_cyccount, rv003usb_internal_data.last_se0_cyccount, rv003usb_internal_data.se0_windup, RCC->CTLR );
 #if RV003USB_EVENT_DEBUGGING
 		uint32_t * ue = GetUEvent();
 		if( ue )

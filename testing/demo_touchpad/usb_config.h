@@ -9,6 +9,7 @@
 #define USB_PIN_DPU 0
 #define USB_PORT C
 
+#define RV003USB_OPTIMIZE_FLASH    1 // Only disable it if you need to save 16 bytes of RAM or you want to customize usb_pid_handle_ack or usb_pid_handle_setup
 #define RV003USB_DEBUG_TIMING      0
 #define RV003USB_OPTIMIZE_FLASH    0
 #define RV003USB_EVENT_DEBUGGING   0

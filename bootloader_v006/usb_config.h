@@ -5,15 +5,10 @@
 #define ENDPOINTS 2
 
 /*	
-	CH32V003FUN DevBoard:
+	CH32V006FUN DevBoard:
 	PD3 D+
 	PD4 D-
 	PD5 D-_PU
-
-	CH32V003J4M6:
-	PC1 D+
-	PC2 D-
-	PC4 D-_PU
 */
 
 #define USB_PORT D     // [A,C,D] GPIO Port to use with D+, D- and DPU
@@ -22,7 +17,17 @@
 //#define USB_PORT_DPU A  // [A,C,D] Override GPIO Port for DPU
 #define USB_PIN_DPU 5  // [0-7] GPIO for feeding the 1.5k Pull-Up on USB D- Pin; Comment out if not used / tied to 3V3!
 
-#define RV003USB_OPTIMIZE_FLASH 1
+#define RV003USB_BOOTLOADER        1
+#define RV003USB_OPTIMIZE_FLASH    1
+#define RV003USB_HANDLE_IN_REQUEST 1
+#define RV003USB_OTHER_CONTROL     1
+#define RV003USB_HANDLE_USER_DATA  1
+#define RV003USB_HID_FEATURES      1
+#define RV003USB_USB_TERMINAL      0
+#define RV003USB_USE_REBOOT_FEATURE_REPORT 1
+#define RV003USB_SUPPORT_CONTROL_OUT 1
+#define RV003USB_USER_DATA_HANDLES_TOKEN 1
+#define RV003USB_EVENT_DEBUGGING   0
 
 #ifndef __ASSEMBLER__
 
@@ -56,15 +61,39 @@ static const uint8_t special_hid_desc[] = {
     HID_REPORT_COUNT ( 8 ),
     HID_REPORT_ID    ( 0xa8 )
     HID_USAGE        ( 0xff ),
-    HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ),
+    HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ) ,
     HID_REPORT_COUNT ( 127 ),
     HID_REPORT_ID    ( 0xaa )
     HID_USAGE        ( 0xff ),
-    HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ),
+    HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ) ,
     HID_REPORT_COUNT_N ( 1024+127, 2 ),
     HID_REPORT_ID    ( 0xab )
     HID_USAGE        ( 0xff ),
-    HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ),
+    HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ) ,
+    HID_REPORT_COUNT_N ( 2048+127, 2 ),
+    HID_REPORT_ID    ( 0xac )
+    HID_USAGE        ( 0xff ),
+    HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ) ,
+#if CH32V004 || CH32V005 || CH32V006 || CH32V007
+    HID_REPORT_COUNT_N ( 3072+127, 2 ),
+    HID_REPORT_ID    ( 0xad )
+    HID_USAGE        ( 0xff ),
+    HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ) ,
+    HID_REPORT_COUNT_N ( 4096+127, 2 ),
+    HID_REPORT_ID    ( 0xae )
+    HID_USAGE        ( 0xff ),
+    HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ) ,
+#if CH32V006 || CH32V007
+    HID_REPORT_COUNT_N ( 5120+127, 2 ),
+    HID_REPORT_ID    ( 0xaf )
+    HID_USAGE        ( 0xff ),
+    HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ) ,
+    HID_REPORT_COUNT_N ( 6144+127, 2 ),
+    HID_REPORT_ID    ( 0xb0 )
+    HID_USAGE        ( 0xff ),
+    HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ) ,
+#endif
+#endif
   HID_COLLECTION_END
 };
 

@@ -153,8 +153,11 @@ void usb_setup()
 	NVIC_EnableIRQ( EXTI7_0_IRQn );
 }
 
+#if RV003USB_BOOTLOADER
 extern volatile int32_t runwordpad;
 extern uint32_t runwordpadready;
+extern uint8_t reset_timeout;
+#endif
 
 void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
 {
@@ -215,14 +218,16 @@ void usb_pid_handle_in( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t u
 	if( tosend > ENDPOINT0_SIZE ) tosend = ENDPOINT0_SIZE;
 	sendnow = tsend + offset;
 
-  // DON'T start the execution timer until after we receive the IN from the usb host req.
+#if RV003USB_BOOTLOADER
+	// DON'T start the execution timer until after we receive the IN from the usb host req.
 	if (runwordpadready)
 	{
 		runwordpad = sendtok; // Anything non-zero is fine.
 		runwordpadready = 0;
 	}
+#endif
 
-	if( tosend <= 0 )
+	if( tosend <= 0 || !tsend )
 	{
 		usb_send_empty( sendtok );
 	}
@@ -243,6 +248,10 @@ void usb_pid_handle_out( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t 
 
 void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_data, uint32_t length, struct rv003usb_internal * ist )
 {
+#if RV003USB_BOOTLOADER
+	// Detect first USB communication in order to reset the Bootloader Timeout
+	reset_timeout = 1;
+#endif
 	//Received data from host.
 	int epno = ist->current_endpoint;
 	struct usb_endpoint * e = &ist->eps[epno];
@@ -459,7 +468,6 @@ just_ack:
 	return;
 }
 
-
 #if defined( RV003USB_OPTIMIZE_FLASH ) && RV003USB_OPTIMIZE_FLASH
 
 // Do not compile ACK commands.
@@ -472,7 +480,6 @@ void usb_pid_handle_ack( uint32_t dummy, uint8_t * data, uint32_t dummy1, uint32
 	e->toggle_in = !e->toggle_in;
 	e->count++;
 }
-
 
 //Received a setup for a specific endpoint.
 void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, uint32_t unused, struct rv003usb_internal * ist )
@@ -487,7 +494,4 @@ void usb_pid_handle_setup( uint32_t addr, uint8_t * data, uint32_t endp, uint32_
 }
 #endif
 
-
 #endif
-
-

@@ -1,5 +1,3 @@
-// Test
-
 #include "ch32fun.h"
 #include "rv003usb.h"
 
@@ -179,12 +177,12 @@ done_preamble:
 	VOOXDELAY
 	VOOXDELAY
 
-  VOOXDELAY
-  VOOXDELAY
-  VOOXDELAY
-  VOOXDELAY
-  VOOXDELAY
-  VOOXDELAY
+	VOOXDELAY
+	VOOXDELAY
+	VOOXDELAY
+	VOOXDELAY
+	VOOXDELAY
+	VOOXDELAY
 	// 8 extra cycles here cause errors.
 	// -5 cycles is too much.
 	// -4 to +6 cycles is OK
@@ -1057,18 +1055,6 @@ InterruptVector:
 	c.addi a0, 4
 	blt a0, gp, 1b  // Iterate over RAM until it's cleared.
 2:
-// #if defined(CH32V00x) && CH32V00x
-//   la a0, _data_lma
-// 	la a1, _data_vma
-// 	la a2, _edata
-// 1:	beq a1, a2, 2f
-// 	lw a3, 0(a0)
-// 	sw a3, 0(a1)
-// 	addi a0, a0, 4
-// 	addi a1, a1, 4
-// 	bne a1, a2, 1b
-// 2:
-// #endif
 	//XXX WARNING: NO .DATA SECTION IS AVAILABLE HERE!
 	/* SystemInit48HSI */
 
@@ -1079,11 +1065,7 @@ InterruptVector:
 	la a3, FLASH_R_BASE
 	li a1, 0x00000001 | 0x01000000 | 0x80 /* RCC->CTLR RCC_HSION | RCC_PLLON | ((HSITRIM) << 3) */
 	c.sw a1, 0(a2)
-#if !defined(CH32V00x) || !CH32V00x
 	c.li a1, 0x01       /* FLASH_ACTLR_LATENCY_1 */
-#else
-  c.li a1, 0x02       /* FLASH_ACTLR_LATENCY_2 */
-#endif
 	c.sw a1, 0(a3)      /* FLASH->ACTLR = FLASH_ACTLR_LATENCY_1 */
 	c.li a1, 0x00000002 /* RCC->CFGR0 = RCC_SW_PLL */
 	c.sw a1, 4(a2)
