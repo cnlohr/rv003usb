@@ -269,7 +269,7 @@ void usb_pid_handle_data( uint32_t this_token, uint8_t * data, uint32_t which_da
 
 
 #if RV003USB_HANDLE_USER_DATA || RV003USB_USE_REBOOT_FEATURE_REPORT || RV003USB_USB_TERMINAL
-	if( epno || ( !ist->setup_request && length > 3 )  )
+	if( epno || ( !ist->setup_request && length > 0 )  )
 	{
 #if RV003USB_USE_REBOOT_FEATURE_REPORT
 		if( ist->reboot_armed )
