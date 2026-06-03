@@ -1053,7 +1053,7 @@ InterruptVector:
 	c.li a4, 0
 1: c.sw a4, 0(a0)	// Clear RAM
 	c.addi a0, 4
-	blt a0, gp, 1b  // Iterate over RAM until it's cleared.
+	blt a0, sp, 1b  // Iterate over RAM until it's cleared.
 2:
 	//XXX WARNING: NO .DATA SECTION IS AVAILABLE HERE!
 	/* SystemInit48HSI */

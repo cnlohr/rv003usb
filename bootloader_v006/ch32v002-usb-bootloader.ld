@@ -3,8 +3,9 @@ ENTRY( InterruptVector )
 MEMORY
 {
 	/* Actually at 0x1FFFF000 but the system maps it to 0x00000000 */
-	FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 3328
-	RAM (xrw)	: ORIGIN = 0x20000000, LENGTH = 8K
+	FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 3324
+	SECRET (rx) : ORIGIN = 0x00000CFC, LENGTH = 4
+	RAM (xrw)	: ORIGIN = 0x20000000, LENGTH = 4K
 }
 
 SECTIONS
@@ -44,7 +45,7 @@ SECTIONS
 	} >FLASH AT>FLASH
 
 	PROVIDE( _etext = . );
-	PROVIDE( _eitcm = . );	
+	PROVIDE( _eitcm = . );
 
 	.preinit_array :
 	{
@@ -112,6 +113,12 @@ SECTIONS
 		PROVIDE(_data_lma = .);
 	} >FLASH AT>FLASH
 
+	.secret_address :
+	{
+		. = ALIGN(4);
+		KEEP(*(.secret_address))
+	} >SECRET
+
 	.data :
 	{
 		. = ALIGN(4);
@@ -140,17 +147,23 @@ SECTIONS
 		*(.sbss*)
 		*(.gnu.linkonce.sb.*)
 		*(.bss*)
-		*(.gnu.linkonce.b.*)	
+		*(.gnu.linkonce.b.*)
 		*(COMMON*)
 		. = ALIGN(4);
 		PROVIDE( _ebss = .);
 	} >RAM AT>FLASH
 
+	.scratchpad (NOLOAD) :
+	{
+		. = ALIGN(4);
+		*(.scratchpad)
+		. = ALIGN(4);
+		*(.runwordpad*)
+		. = ALIGN(4);
+	} >RAM
+
 	PROVIDE( _end = _ebss);
 	PROVIDE( end = . );
 
-	PROVIDE( _eusrstack = ORIGIN(RAM) + LENGTH(RAM));	
+	PROVIDE( _eusrstack = ORIGIN(RAM) + LENGTH(RAM));
 }
-
-
-

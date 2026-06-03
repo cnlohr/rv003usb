@@ -7,7 +7,9 @@ TARGET_MCU:=CH32V006
 ADDITIONAL_C_FILES+=../rv003usb/rv003usb.S ../rv003usb/rv003usb.c
 EXTRA_CFLAGS:=-I. -I../lib -I../rv003usb
 
-LINKER_SCRIPT:=ch32v006fun-usb-bootloader.ld
+LINKER_SCRIPT:=ch32v006-usb-bootloader.ld
+# LINKER_SCRIPT:=ch32v005-usb-bootloader.ld
+# LINKER_SCRIPT:=ch32v002-usb-bootloader.ld
 WRITE_SECTION:=bootloader
 FLASH_COMMAND:=$(CH32FUN)/../minichlink/minichlink -a -w $(TARGET).bin $(WRITE_SECTION) -B
 

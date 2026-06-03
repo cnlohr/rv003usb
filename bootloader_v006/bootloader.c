@@ -58,9 +58,9 @@
 
 #define SCRATCHPAD_SIZE DATA_SIZE+128
 
-volatile int32_t runwordpad;
+__attribute__((section(".scratchpad"))) uint8_t scratchpad[SCRATCHPAD_SIZE];
+__attribute__((section(".runwordpad"))) volatile int32_t runwordpad;
 uint32_t runwordpadready = 0;
-uint8_t scratchpad[SCRATCHPAD_SIZE];
 uint32_t current_scratchpad_size = 128;
 
 volatile uint8_t reset_timeout = 0;
@@ -71,11 +71,14 @@ static inline void asmDelay(int delay) {
 "bne %[delay], x0, 1b\n" :[delay]"+r"(delay)  );
 }
 
-// #ifndef USB_PIN_DPU
-// // noreturn attribute saves 2-4 bytes. We can use it because we reboot the chip at the end of this function
-// void boot_usercode() __attribute__((section(".boot_firmware"))) __attribute__((noinline, noreturn));
-// #else
-// #endif
+#ifndef USB_PIN_DPU
+extern uint32_t _boot_firmware_xor;
+uint32_t secret_xor __attribute__((section(".secret_address"))) __attribute__((used)) = (uint32_t)(&_boot_firmware_xor);
+// noreturn attribute saves 2-4 bytes. We can use it because we reboot the chip at the end of this function
+void boot_usercode() __attribute__((section(".boot_firmware"))) __attribute__((noinline, noreturn));
+#else
+uint32_t secret_xor __attribute__((section(".secret_address"))) __attribute__((used)) = 0;
+#endif
 
 void boot_usercode()
 {
@@ -90,7 +93,6 @@ void boot_usercode()
 	FLASH->BOOT_MODEKEYR = FLASH_KEY1;
 	FLASH->BOOT_MODEKEYR = FLASH_KEY2;
 	FLASH->STATR = 0; // 1<<14 is zero, so, boot user code.
-	// FLASH->CTLR = CR_LOCK_Set;    // Not needed, flash is locked at reboot (soft reboot counts, I checked)
 	PFIC->SCTLR = 1<<31;
 }
 
@@ -98,6 +100,7 @@ int main()
 {
 	SystemInit();
 	usb_setup();
+	runwordpad = 0;
 	SysTick->CNT = BOOTLOADER_TIMEOUT_BASE;
 	// Enable GPIOs, TIMERs
 	RCC->APB2PCENR = RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOC | RCC_APB2Periph_TIM1 | RCC_APB2Periph_GPIOA  | RCC_APB2Periph_AFIO | RCC_APB2Periph_TIM1;
@@ -106,7 +109,7 @@ int main()
 	funPinMode(BOOTLOADER_LED_PIN, (GPIO_Speed_10MHz | GPIO_CNF_OUT_PP));
 #endif
 
-#if defined(BOOTLOADER_BTN_PIN) && defined(BOOTLOADER_BTN_TRIG_LEVEL)
+#if BOOTLOADER_BTN_PIN && defined(BOOTLOADER_BTN_TRIG_LEVEL)
 
 	// Configure the Bootloader Pin
 	#if defined(BOOTLOADER_BTN_PULL)
@@ -148,12 +151,12 @@ int main()
 	// localpad set to 0 disables timeout
 	// localpad counting down to 0 is used for executing code from scratchpad
 	int32_t localpad = (int32_t)SysTick->CNT;
+	BOOT_LED(1);
 	while(1)
 	{
 #if defined(BOOTLOADER_TIMEOUT_PWR_MS) && BOOTLOADER_TIMEOUT_PWR_MS
 		if( localpad < 0 )
 		{
-			BOOT_LED(1);
 			localpad = (int32_t)SysTick->CNT;
 			if( localpad >= 0 )
 			{
@@ -176,8 +179,7 @@ int main()
 					4-bytes:        LONG( 0x1234abcd )
 
 					After the scratchpad is the runpad, its structure is:
-					4-bytes:   int32_t  if negative, how long to go before bootloading.  If 0, do nothing.  If positive, execute.
-						... 1kB of totally free space.
+					4-bytes:   int32_t  if negative, how long to go before bootloading.  If 0, do nothing.  If positive, execute..
 				*/
 				typedef void (*setype)( uint32_t *, volatile int32_t * );
 				setype scratchexec = (setype)(scratchpad+4);
