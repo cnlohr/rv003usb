@@ -56,7 +56,8 @@ Compressed:
 #warning "CH32V003"
 .section .text.vector_handler
 #else
-.section .srodata, "ax"
+// To force 1024-byte-alignment.
+.section .beginning_of_ram, "ax"
 #endif
 .global EXTI7_0_IRQHandler
 
@@ -1036,8 +1037,8 @@ insert_stuffed_bit:
 // into main... as well as providing EXTI7_0_IRQHandler jump at interrupt
 
 .section .init
-.global InterruptVector
-InterruptVector:
+.global Init
+Init:
 	.align  2
 .option push
 .option norelax
@@ -1047,17 +1048,47 @@ InterruptVector:
 	la sp, _eusrstack  // sp = 0x20000800
 	li a0, 0x80
 	csrw mstatus, a0
+#if !defined(CH32V00x) || !CH32V00x
 	csrw mtvec, 3
 	addi a0, sp, -2048 // a0 = 0x20000000
-	addi gp, a0, 0x3fc // gp = 0x200003fc
+	addi gp, a0, 0x3fc // gp = 0x200003fc // The fast way.
+#else
+	la a0, EXTI7_0_IRQHandler
+	csrw mtvec, a0 // VEctor will be at beginning of RAM.
+	la gp, __global_pointer$  // The slow, clean way.
+#endif
+
+#if CH32V00x
+	la a0, _sbss
+	la a1, _ebss
+	li a2, 0
+	bge a0, a1, 2f
+1:	sw a2, 0(a0)
+	addi a0, a0, 4
+	blt a0, a1, 1b
+
+	// This loads DATA from FLASH to RAM.
+	la a0, _data_lma
+	la a1, _data_vma
+	la a2, _edata
+1:	beq a1, a2, 2f
+	lw a3, 0(a0)
+	sw a3, 0(a1)
+	addi a0, a0, 4
+	addi a1, a1, 4
+	bne a1, a2, 1b
+2:
+#else
 	c.li a4, 0
 1: c.sw a4, 0(a0)	// Clear RAM
 	c.addi a0, 4
 	blt a0, sp, 1b  // Iterate over RAM until it's cleared.
 2:
+
 	//XXX WARNING: NO .DATA SECTION IS AVAILABLE HERE!
 	/* SystemInit48HSI */
 
+	// Setup clocks here on 003.
 	// RCC_BASE     = 0x40021000
 	// FLASH_R_BASE = 0x40022000
 	// EXTEND       = 0x40023800
@@ -1069,14 +1100,20 @@ InterruptVector:
 	c.sw a1, 0(a3)      /* FLASH->ACTLR = FLASH_ACTLR_LATENCY_1 */
 	c.li a1, 0x00000002 /* RCC->CFGR0 = RCC_SW_PLL */
 	c.sw a1, 4(a2)
+#endif
+
 	la a1, main
 	csrw mepc, a1
 .option pop
 	mret
 
 // CAREFUL THIS MUST BE EXACTLY AT 0x50
+
+#if !CH32V00x
 . = 0x52 // Weird...  I don't know why this has to be 0x52, for it to be at 0x50.
 	.word EXTI7_0_IRQHandler            /* EXTI Line 7..0 */
+#endif
+
 always0:
 	.byte 0x00 // Automatically expands out to 4 bytes.
 
