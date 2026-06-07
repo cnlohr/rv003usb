@@ -1,4 +1,4 @@
-ENTRY( InterruptVector )
+ENTRY( Init )
 
 MEMORY
 {
@@ -123,6 +123,8 @@ SECTIONS
 	{
 		. = ALIGN(4);
 		__global_pointer$ = . + 0x3fc;
+		*(.beginning_of_ram)
+		KEEP(*(SORT_NONE(.beginning_of_ram)))
 		*(.gnu.linkonce.r.*)
 		*(.data .data.*)
 		*(.gnu.linkonce.d.*)
