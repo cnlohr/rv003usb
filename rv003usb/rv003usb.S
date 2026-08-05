@@ -78,7 +78,7 @@ EXTI7_0_IRQHandler:
 #if defined (RV003_ADD_EXTI_MASK) && defined (RV003_ADD_EXTI_HANDLER)
 	la a1, 0x40010414 //	R32_EXTI_INTFR
 	c.lw a2, 0(a1)
-	c.andi a2, USB_DMASK
+	c.andi a2, USB_EXTI_DMASK
 	c.beqz a2, another_interrupt_check
 #endif
 
