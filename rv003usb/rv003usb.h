@@ -120,6 +120,7 @@ uint32_t * GetUEvent();
 #define USB_BUFFER_SIZE 12
 
 #define USB_DMASK ((1<<(USB_PIN_DP)) | 1<<(USB_PIN_DM))
+#define USB_EXTI_DMASK (1<<(USB_PIN_DM))
 
 #ifdef  RV003USB_OPTIMIZE_FLASH
 #define MY_ADDRESS_OFFSET_BYTES 4
