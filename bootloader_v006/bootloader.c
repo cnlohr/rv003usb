@@ -98,6 +98,9 @@ void boot_usercode()
 
 int main()
 {
+	// This is not set in the assembly code before-hand.
+	SysTick->CTLR = 5;
+
 	SystemInit();
 	usb_setup();
 	runwordpad = 0;
