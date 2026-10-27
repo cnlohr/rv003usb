@@ -174,6 +174,19 @@ done_preamble:
 	EXTRADELAY
 	EXTRADELAY
 	EXTRADELAY
+
+//ADDED -- 
+// 0 = faulty
+// 13 = faulty (slightly moreso)
+// 6 is good.
+	EXTRADELAY
+	EXTRADELAY
+	EXTRADELAY
+	EXTRADELAY
+	EXTRADELAY
+	EXTRADELAY
+
+
 	// 8 extra cycles here cause errors.
 	// -5 cycles is too much.
 	// -4 to +6 cycles is OK
@@ -275,10 +288,10 @@ packet_type_loop:
 
 data_crc:
 	// For now on v006 add/remove one of these if you have HID fails in testtop
-	EXTRADELAY
-	EXTRADELAY
-	EXTRADELAY
-	EXTRADELAY
+//	EXTRADELAY
+//	EXTRADELAY
+//	EXTRADELAY
+//	EXTRADELAY
 	EXTRADELAY
 	EXTRADELAY
 	EXTRADELAY

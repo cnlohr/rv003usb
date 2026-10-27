@@ -80,7 +80,7 @@ void usb_setup()
 		// PWM is used for debug timing. 
 		// Increase this to 1-2 to make debug pulse linger. 
 		// Important for debugging the timing with LA's that can't do 100MHz
-		TIM1->PSC = 0x0002;
+		TIM1->PSC = 0x0000;
 
 		// Auto Reload - sets period
 		TIM1->ATRLR = 0xffff;
@@ -114,8 +114,9 @@ void usb_setup()
 		// CH3 Mode is output, PWM1 (CC1S = 00, OC1M = 110)
 		TIM1->CHCTLR2 |= TIM1_CHCTLR2_OC3M_2 | TIM1_CHCTLR2_OC3M_1;
 
-		// Set the Capture Compare Register value to 50% initially
-		TIM1->CH3CVR = 2;
+		// Set the Capture Compare Register (where we turn off the timer)
+		// this is a little bigger to facilitate testing on lower-end LAs.
+		TIM1->CH3CVR = 6;
 
 		// Enable TIM1 outputs
 		TIM1->BDTR |= TIM1_BDTR_MOE;
