@@ -204,7 +204,9 @@ static void HandleCommandBuffer( uint8_t * buffer )
 						uint32_t leavevalB = iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24);
 						iptr += 4;
 						uint8_t * origretbuf = (retbuffptr++);
-						int canrx = (sizeof(retbuff)-(retbuffptr - retbuff)) - 8;
+						int realmaxlen = reqlen-4;
+						if( realmaxlen > 250 ) realmaxlen = 250;
+						int canrx = (realmaxlen-(retbuffptr - retbuff));
 						while( canrx > 8 )
 						{
 							r = PollTerminal( &state, retbuffptr, canrx, leavevalA, leavevalB );
@@ -218,7 +220,7 @@ static void HandleCommandBuffer( uint8_t * buffer )
 							{
 								break;
 							}
-							canrx = (sizeof(retbuff)-(retbuffptr - retbuff)) -8;
+							canrx = (realmaxlen-(retbuffptr - retbuff));
 							// Otherwise all is well.  If we aren't signaling try to poll for more data.
 							if( leavevalA != 0 || leavevalB != 0 ) break;
 						}
