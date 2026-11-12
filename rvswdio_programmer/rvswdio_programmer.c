@@ -3,8 +3,6 @@
 #include <string.h>
 #include "rv003usb.h"
 
-#define CH5xx_SUPPORT 1
-
 // For RVBB_REMAP
 //        PC1+PC2 = SWIO (Plus 5.1k pull-up to PD2)
 // Otherwise (Ideal for 8-pin SOIC, because PC4+PA1 are bound)
@@ -19,510 +17,40 @@
 // If you are using the MCO feature
 //        PC4 = MCO (optional)
 //
-#define RVBB_REMAP 1 // To put SWD on PC1/PC2
+#define RVBB_REMAP                1 // To put SWD on PC1/PC2
 
-#define IRAM_ATTR
-#define MAX_IN_TIMEOUT 1000
-#define R_GLITCH_HIGH
-//#define RUNNING_ON_ESP32S2
-#define BB_PRINTF_DEBUG printf
-#include "bitbang_rvswdio.h"
+#define PIN_SWCLK                 PC5 // Remappable.
+#define PIN_TARGETPOWER           PD2 // Remappable
+#define POWER_ON_POLARITY         1
+#define POWER_OFF_POLARITY        0
+#define PIN_TARGETPOWER_MODE      GPIO_CFGLR_OUT_10Mhz_PP
 
-#define PROGRAMMER_PROTOCOL_NUMBER 5
+#define STATUS_LED                PC0
 
-#define PIN_SWCLK   PC5     // Remappable.
-#define PIN_TARGETPOWER PD2 // Remappable
-#define POWER_ON 1
-#define POWER_OFF 0
-#define PIN_TARGETPOWER_MODE GPIO_CFGLR_OUT_10Mhz_PP
-
-#define STATUS_LED PC0
 #ifdef STATUS_LED
-#define STATUS_LED_OFF 0
-#define STATUS_LED_ON 1
+#define STATUS_LED_OFF_POLARITY   0
+#define STATUS_LED_ON_POLARITY    1
 #endif
-
-#include "bitbang_rvswdio_ch32v003.h"
-
-#if CH5xx_SUPPORT
-#include "ch5xx.h"
-#endif
-
-struct SWIOState state;
 
 // Allow reading and writing to the scratchpad via HID control messages.
 __attribute__ ((aligned(4))) uint8_t scratch[264];
 __attribute__ ((aligned(4))) uint8_t retbuff[264];
 volatile uint32_t scratch_run = 0;
 volatile uint32_t scratch_return = 0;
-uint8_t programmer_mode = 0;
 
-static void SetupProgrammer(void)
-{
-	state.t1coeff = 0;
-	programmer_mode = 0;
-}
+#include "funprog_config.h"
 
-static void SwitchMode( uint8_t ** liptr, uint8_t ** lretbuffptr )
-{
-	programmer_mode = *((*liptr)++);
-	// Unknown Programmer
-	*((*lretbuffptr)++) = PROGRAMMER_PROTOCOL_NUMBER;
-	*((*lretbuffptr)++) = programmer_mode;
-	printf( "PM %d\n", programmer_mode );
-	if( programmer_mode == 0 )
-	{
-		SetupProgrammer();
-	}
-}
+#include "funprog_port.h"
 
+#include "../ch32fun/minichlink/funprog/funprog_rvswdio.h"
 
-static void HandleCommandBuffer( uint8_t * buffer )
-{
-	// Is send.
-	// buffer[0] is the request ID.
-	uint8_t * iptr = &buffer[1];
-	uint8_t * retbuffptr = retbuff+1;
-	#define reqlen (sizeof(scratch)-1)
-#ifdef STATUS_LED
-	funDigitalWrite( STATUS_LED, STATUS_LED_ON );
-#endif
-	while( iptr - buffer < reqlen )	
-	{
-		uint8_t cmd = *(iptr++);
-		int remain = reqlen - (iptr - buffer);
-		// Make sure there is plenty of space.
-		if( (sizeof(retbuff)-(retbuffptr - retbuff)) < 6 ) break;
+#include "bitbang_rvswdio_ch32v003.h"
 
-		if( programmer_mode == 0 )
-		{
-			if( cmd == 0xfe ) // We will never write to 0x7f.
-			{
-				cmd = *(iptr++);
-
-				switch( cmd )
-				{
-				case 0xfd:
-					SwitchMode( &iptr, &retbuffptr );
-					break;
-				case 0x0e:
-				case 0x01:
-				{
-					//DoSongAndDanceToEnterPgmMode( &state ); was 1.  But really we just want to init.
-					// if we expect this, we can use 0x0e to get status.
-					funPinMode( PIN_TARGETPOWER, PIN_TARGETPOWER_MODE );
-					funDigitalWrite( PIN_TARGETPOWER, POWER_ON );
-					int r = InitializeSWDSWIO( &state );
-					if( cmd == 0x0e )
-						*(retbuffptr++) = r;
-					break;
-				}
-				case 0x02: // Power-down 
-					printf( "Power down\n" );
-					funDigitalWrite( PIN_TARGETPOWER, POWER_OFF );
-					break;
-				case 0x03: // Power-up
-					funPinMode( PIN_TARGETPOWER, PIN_TARGETPOWER_MODE );
-					funDigitalWrite( PIN_TARGETPOWER, POWER_ON );
-					break;
-				case 0x04: // Delay( uint16_t us )
-					Delay_Us(iptr[0] | (iptr[1]<<8) );
-					iptr += 2;
-					break;
-				case 0x05: // Void High Level State
-					ResetInternalProgrammingState( &state );
-					break;
-				case 0x06: // Wait-for-flash-op.
-					*(retbuffptr++) = WaitForFlash( &state );
-					break;
-				case 0x07: // Wait-for-done-op.
-					*(retbuffptr++) = WaitForDoneOp( &state );
-					break;
-				case 0x08: // Write Data32.
-				{
-					if( remain >= 9 )
-					{
-						int r = WriteWord( &state, iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24),  iptr[4] | (iptr[5]<<8) | (iptr[6]<<16) | (iptr[7]<<24) );
-						iptr += 8;
-						*(retbuffptr++) = r;
-					}
-					break;
-				}
-				case 0x09: // Read Data32.
-				{
-					if( remain >= 4 )
-					{
-						int r = ReadWord( &state, iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24), (uint32_t*)&retbuffptr[1] );
-						iptr += 4;
-						retbuffptr[0] = r;
-						if( r < 0 )
-							memset( &retbuffptr[1], 0, 4 );
-						retbuffptr += 5;
-					}
-					break;
-				}
-				case 0x0a:
-					ResetInternalProgrammingState( &state );
-					break;
-				case 0x0b:
-					if( remain >= 68 )
-					{
-						int r = WriteBlock( &state, iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24), (uint8_t*)&iptr[4], 64, 1 );
-						iptr += 68;
-						*(retbuffptr++) = r;
-					}
-					break;
-				case 0x0c:
-					if( remain >= 8 )
-					{
-						// On the ESP32-S2, this will output clock on P2.
-						int use_apll = *(iptr++);  // try 1
-						int sdm0 = *(iptr++);      // try 0
-						iptr += 6; // reserved + SDM values.
-
-						// Output MCO clock on PC4.
-						if( use_apll )
-						{
-							RCC->CFGR0 = (RCC->CFGR0 & (~(7<<24))) | (sdm0<<24) | (1<<26);
-							// 0 = SYSCLK, 1 = RC, 2 = HSE, 3 = PLL
-							funPinMode( PC4, GPIO_CFGLR_OUT_50Mhz_AF_PP );
-						}
-						else
-						{
-							RCC->CFGR0 &= ~(7<<24);
-						}
-					}
-					break;
-				case 0x0d:  // Do a terminal log through.
-				{
-					int tries = 100;
-					if( remain >= 8 )
-					{
-						int r;
-						uint32_t leavevalA = iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24);
-						iptr += 4;
-						uint32_t leavevalB = iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24);
-						iptr += 4;
-						uint8_t * origretbuf = (retbuffptr++);
-						int realmaxlen = reqlen-4;
-						if( realmaxlen > 250 ) realmaxlen = 250;
-						int canrx = (realmaxlen-(retbuffptr - retbuff));
-						while( canrx > 8 )
-						{
-							r = PollTerminal( &state, retbuffptr, canrx, leavevalA, leavevalB );
-							origretbuf[0] = r;
-							if( r >= 0 )
-							{
-								retbuffptr += r;
-								if( tries-- <= 0 ) break; // ran out of time?
-							}
-							else
-							{
-								break;
-							}
-							canrx = (realmaxlen-(retbuffptr - retbuff));
-							// Otherwise all is well.  If we aren't signaling try to poll for more data.
-							if( leavevalA != 0 || leavevalB != 0 ) break;
-						}
-					}
-					break;
-				}
-				case 0x0f: // Override chip type, etc.
-					if( remain >= 8 )
-					{
-						state.target_chip_type = *(iptr++);
-						state.sectorsize = iptr[0] | (iptr[1]<<8);
-						iptr += 2;
-						// Rest is reserved.
-						iptr += 5;
-						*(retbuffptr++) = 0; // Reply is always 0.
-					}
-					break;
-
-				case 0x10: //DetermineChip
-					{
-						int r = DetermineChipTypeAndSectorInfo( &state, &retbuffptr[1] );
-						retbuffptr[0] = r;
-						if( r < 0 )
-							memset( &retbuffptr[1], 0, 6 );
-						retbuffptr += 7;
-					}
-					break;
-				// case 0x11:
-					//Set clock
-					// break;
-				case 0x12: //WriteBlock
-					if( remain >= 70 )
-					{
-						uint32_t length = iptr[4];
-						uint8_t erase = iptr[5];
-						int r = WriteBlock( &state, iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24), (uint8_t*)&iptr[6], length, erase );
-						iptr += length + 2;
-						*(retbuffptr++) = r;
-					}
-					break;
 #if CH5xx_SUPPORT
-				case 0x20: //ch5xx_write_flash
-				case 0x21:
-					if( remain >= 260 )
-					{
-						int8_t r = 0;
-						uint32_t length = iptr[4];
-						if( length == 0 ) length = 256;
-						if( cmd == 0x20 ) r = ch5xx_write_flash( &state, iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24), (uint8_t*)&iptr[5], length );
-						else r = ch5xx_write_flash_using_microblob( &state, iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24), (uint8_t*)&iptr[5], length ); 
-						iptr += 260;
-						*(retbuffptr++) = r;
-					}
-					break;
-				case 0x22: // End writing
-					{
-						if( state.microblob_running > -1 ) ch5xx_microblob_end( &state );
-						if( state.writing_flash > 0 )
-						{
-							ch5xx_flash_close( &state );
-							state.writing_flash = 0;
-						}
-					}
-					break;
-				case 0x23: // CH5xx read EEPROM
-					if( remain >= 6 ) {
-						uint32_t length = iptr[4] | (iptr[5]<<8);
-						if( length < sizeof(retbuff) - 1 )
-						{
-							int8_t r = ch5xx_read_eeprom( &state, iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24), &retbuffptr[1], length );
-							retbuffptr[0] = r;
-							if( r < 0 )
-								memset( &retbuffptr[1], 0, length );
-							retbuffptr += length + 1;
-						}
-						else
-						{
-							retbuffptr[0] = -100;
-						}
-						iptr += 8;
-					}
-					break;
-				case 0x24: // CH5xx read Option Bytes
-					if( remain >= 6 ) {
-						uint32_t length = iptr[4] | (iptr[5]<<8);
-						if( length < (retbuffptr - retbuff - 1) )
-						{
-							int8_t r = ch5xx_read_options_bulk( &state, iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24), &retbuffptr[1], length );
-							retbuffptr[0] = r;
-							if( r < 0 )
-								memset( &retbuffptr[1], 0, length );
-							retbuffptr += length + 1;
-						}
-						else
-						{
-							retbuffptr[0] = -100;
-						}
-						iptr += 8;
-					}
-					break;
-				case 0x25: //CH5xx Erase
-					if( remain >= 9 )
-					{
-						int8_t r = CH5xxErase( &state, iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24), iptr[4] | (iptr[5]<<8) | (iptr[6]<<16) | (iptr[7]<<24), (enum MemoryArea)(iptr[8]));
-						iptr += 9;
-						*(retbuffptr++) = r;
-					}
-					break;
-				case 0x26: // Can disable this for extra 500 bytes of free flash
-					if( ((uint32_t)&retbuffptr - (uint32_t)&retbuff - 1) > 8 )
-					{
-						int8_t r = ch5xx_read_uuid( &state, &retbuffptr[1] );
-						retbuffptr[0] = r;
-						if( r < 0 )
-							memset( &retbuffptr[1], 0, 8 );
-						retbuffptr += 9;
-					}
-					else
-					{
-						retbuffptr[0] = -100;
-					}
-					iptr++;
-					break;
-				case 0x27: // This also optional, disabling gives 400 bytes
-					ch570_disable_read_protection( &state );
-					break;
-				case 0x28:
-					if( remain >= 4 )
-					{
-						int8_t r = ch5xx_set_clock( &state, iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24) );
-						iptr += 4;
-						*(retbuffptr++) = r;
-					}
-					break;
+#include "../ch32fun/minichlink/funprog/funprog_ch5xx.h"
 #endif
-				// Done
-				}
-			} else if( cmd == 0xff )
-			{
-				break;
-			}
-			else
-			{
-				// Otherwise it's a regular command.
-				// 7-bit-cmd .. 1-bit read(0) or write(1) 
-				// if command lines up to a normal QingKeV2 debug command, treat it as that command.
-				// Now addresses are shifted by -1 to fit 0x7f register
 
-				if( cmd & 1 )
-				{
-					if( remain >= 4 )
-					{
-						cmd = (cmd >> 1) + 1; // Unshift from -1 to be able to read 0x7f
-						if( cmd >= DMPROGBUF0 && cmd <= DMPROGBUF7 ) state.statetag = STTAG( "XXXX" ); // Reset statetag in case we are writing to progbuf from outside
-						MCFWriteReg32( &state, cmd, iptr[0] | (iptr[1]<<8) | (iptr[2]<<16) | (iptr[3]<<24) );
-						iptr += 4;
-					}
-				}
-				else
-				{
-					if( remain >= 1 && (sizeof(retbuff)-(retbuffptr - retbuff)) >= 4 )
-					{
-						cmd = (cmd >> 1) + 1;
-						int r = MCFReadReg32( &state, cmd, (uint32_t*)&retbuffptr[1] );
-						retbuffptr[0] = r;
-						if( r < 0 )
-							memset( &retbuffptr[1], 0, 4 );
-						retbuffptr += 5;
-					}
-				}
-			}
-		}
-		else if( programmer_mode == 1 )
-		{
-			if( cmd == 0xff ) break;
-#if 0
-			switch( cmd )
-			{
-			case 0xfe:
-			{
-				cmd = *(iptr++);
-				if( cmd == 0xfd )
-				{
-					SwitchMode( &iptr, &retbuffptr );
-				}
-				break;
-			}
-			case 0x90:
-			{
-				REG_WRITE( IO_MUX_GPIO6_REG, 1<<FUN_IE_S | 1<<FUN_DRV_S );  //Additional pull-up, 10mA drive.  Optional: 10k pull-up resistor.
-				REG_WRITE( IO_MUX_GPIO7_REG, 1<<FUN_IE_S | 3<<FUN_DRV_S );  //VCC for part 40mA drive.
-				rtc_cpu_freq_config_t m;
-				rtc_clk_cpu_freq_get_config( &m );
-
-				if( (sizeof(retbuff)-(retbuffptr - retbuff)) >= 18 && remain >= 2 )
-				{
-					int baudrate = *(iptr++);
-					baudrate |= (*(iptr++))<<8;
-
-					updi_clocks_per_bit = UPDIComputeClocksPerBit( m.freq_mhz, baudrate*32 );
-
-
-					UPDIPowerOn( pinmask, pinmaskpower );
-					uint8_t sib[17] = { 0 };
-					int r = UPDISetup( pinmask, m.freq_mhz, updi_clocks_per_bit, sib );
-					printf( "UPDISetup() = %d -> %s\n", r, sib );
-
-					retbuffptr[0] = r;
-					memcpy( retbuffptr + 1, sib, 17 );
-					retbuffptr += 18;
-				}
-				break;
-			}
-			case 0x91:
-			{
-				REG_WRITE( IO_MUX_GPIO6_REG, 1<<FUN_IE_S | 1<<FUN_DRV_S );  //Additional pull-up, 10mA drive.  Optional: 10k pull-up resistor.
-				REG_WRITE( IO_MUX_GPIO7_REG, 1<<FUN_IE_S | 3<<FUN_DRV_S );  //VCC for part 40mA drive.
-				UPDIPowerOn( pinmask, pinmaskpower );
-				break;
-			}
-			case 0x92:
-			{
-				REG_WRITE( IO_MUX_GPIO6_REG, 1<<FUN_IE_S | 1<<FUN_DRV_S );  //Additional pull-up, 10mA drive.  Optional: 10k pull-up resistor.
-				REG_WRITE( IO_MUX_GPIO7_REG, 1<<FUN_IE_S | 3<<FUN_DRV_S );  //VCC for part 40mA drive.
-
-				UPDIPowerOff( pinmask, pinmaskpower );
-				break;
-			}
-			case 0x93: // Flash 64-byte block.
-			{
-				REG_WRITE( IO_MUX_GPIO6_REG, 1<<FUN_IE_S | 1<<FUN_DRV_S );  //Additional pull-up, 10mA drive.  Optional: 10k pull-up resistor.
-				REG_WRITE( IO_MUX_GPIO7_REG, 1<<FUN_IE_S | 3<<FUN_DRV_S );  //VCC for part 40mA drive.
-
-				if( remain >= 2+64 )
-				{
-					int addytowrite = *(iptr++);
-					addytowrite |= (*(iptr++))<<8;
-					int r;
-					r = UPDIFlash( pinmask, updi_clocks_per_bit, addytowrite, iptr, 64, 0);
-					printf( "Flash Response: %d\n", r );
-					iptr += 64;
-
-					*(retbuffptr++) = r;
-				}
-				break;
-			}
-			case 0x94:
-			{
-				REG_WRITE( IO_MUX_GPIO6_REG, 1<<FUN_IE_S | 1<<FUN_DRV_S );  //Additional pull-up, 10mA drive.  Optional: 10k pull-up resistor.
-				REG_WRITE( IO_MUX_GPIO7_REG, 1<<FUN_IE_S | 3<<FUN_DRV_S );  //VCC for part 40mA drive.
-
-				if( remain >= 3 )
-				{
-					int addytorx = *(iptr++);
-					addytorx |= (*(iptr++))<<8;
-					int bytestorx = *(iptr++);
-
-					if( (sizeof(retbuff)-(retbuffptr - retbuff)) >= bytestorx + 1 )
-					{
-						retbuffptr[0] = UPDIReadMemoryArea( pinmask, updi_clocks_per_bit, addytorx, (uint8_t*)&retbuffptr[1], bytestorx );
-						retbuffptr += bytestorx + 1;
-					}
-				}
-				break;
-			}
-			case 0x95:
-			{
-				REG_WRITE( IO_MUX_GPIO6_REG, 1<<FUN_IE_S | 1<<FUN_DRV_S );  //Additional pull-up, 10mA drive.  Optional: 10k pull-up resistor.
-				REG_WRITE( IO_MUX_GPIO7_REG, 1<<FUN_IE_S | 3<<FUN_DRV_S );  //VCC for part 40mA drive.
-
-				*(retbuffptr++) = UPDIErase( pinmask, updi_clocks_per_bit );
-				break;
-			}
-			case 0x96:
-			{
-				*(retbuffptr++) = UPDIReset( pinmask, updi_clocks_per_bit );
-
-				break;
-			}
-			default:
-#endif
-				//UPDI Not implemented right now.
-			{
-				*(retbuffptr++) = 0xfe;
-				*(retbuffptr++) = cmd;
-				break;
-			}
-		}
-		else
-		{
-			// Unknown Programmer
-			*(retbuffptr++) = 0;
-			*(retbuffptr++) = programmer_mode;
-
-			break;
-		}
-	}
-	retbuff[0] = (retbuffptr - retbuff) - 1;
-#ifdef STATUS_LED
-	funDigitalWrite( STATUS_LED, STATUS_LED_OFF );
-#endif
-}
+#include "../ch32fun/minichlink/funprog/funprog_logic.h"
 
 int main()
 {
@@ -532,10 +60,10 @@ int main()
 
 	funGpioInitAll();
 
-	ConfigureIOForRVSWIO();
+	ConfigureIOForRVSWIO( &state );
 #ifdef STATUS_LED
 	funPinMode( STATUS_LED, GPIO_Speed_10MHz | GPIO_CNF_OUT_PP );
-	funDigitalWrite( STATUS_LED, STATUS_LED_OFF );
+	funDigitalWrite( STATUS_LED, STATUS_LED_OFF_POLARITY );
 #endif
 
 	Delay_Ms(10);
@@ -576,7 +104,7 @@ int main()
 		if( scratch_run )
 		{
 			scratch_return = 0;
-			HandleCommandBuffer( scratch );
+			HandleCommandBuffer( scratch, (sizeof(scratch)-1), retbuff, (sizeof(retbuff)-1) );
 			scratch_run = 0;
 			scratch_return = 1;
 		}
