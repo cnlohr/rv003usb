@@ -24,9 +24,6 @@
 #define DELAY_US(n) Delay_Us(n)
 #define DELAY_MS(n) Delay_Ms(n)
 
-// Some chips need to slow down the protocol speed to work stable. Check available implementations
-#define SLOW_DOWN_PROTOCOL
-
 #define IRAM
 
 // Implement the function to enable clock output on a dedicated pin

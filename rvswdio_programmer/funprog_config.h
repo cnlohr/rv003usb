@@ -2,6 +2,7 @@
 #define PROGRAMMER_CONFIG_H
 
 #define DEBUG_PRINT              0
+#define OLD_SWD_SUPPORT          1 // Support for old chips: CH32V103, CH571/3, CH582/3
 
 #define CH5xx_SUPPORT            1
 #define CH5xx_EEPROM             1 

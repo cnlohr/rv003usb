@@ -10,9 +10,9 @@ Simply use a CH32V003, connected as follows:
 
 ![Schematic](schematic.png)
 
-And you can program, semihost and run basic GDB on a variety of WCH chips including the CH32V003, 00x, 20x, 30x, x03x, CH570/2, CH585, CH59x.
+And you can program, semihost and run basic GDB on most of WCH's RiscV chip. Supports both 1 and 2 wire SWD protocols, including old 2-wire SWD found on the first RiscV chips.
 
-Tested and not supported: CH32V103, CH571/3, CH582/3.
+Tested as working: CH32V003, CH32V00x, CH32L103, CH32V103, CH32V20x, CH32V30x, CH570/2, CH571/3, CH582/3, CH584/5, CH591/2. CH32X035 is an outlier, it identifies and short commands work, but flashing fails (probably sw USB messes SWD clock).
 
 It's actually only a little slower than the normal programmer somehow, in spite of bit banging USB?
 
