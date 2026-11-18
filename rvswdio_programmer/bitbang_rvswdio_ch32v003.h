@@ -29,6 +29,11 @@
 #ifndef _BITBANG_RVSWDIO_CH32V003_H
 #define _BITBANG_RVSWDIO_CH32V003_H
 
+#define SWD_T1 1
+#define SWD_T2 3
+#define SWD_T3 5
+#define SWD_T4 1
+
 uint8_t command_buffer[64];  // to timer 1 ch 2
 uint8_t reply_buffer[64];    // from timer 1 ch 4
 static uint32_t buffptr = 0;
@@ -41,7 +46,12 @@ static void IssueBuffer(void);
 // Let's bump it up to 56 => Period = 1.16us, but we're a little higher
 #define TPERIOD 64
 
-#define SWD_DELAY DelaySysTick(15)
+static inline void Delay_Tiny_Inline( int n ) {
+	asm volatile( "\
+		1: \
+		c.addi %[n], -1\n\
+		c.bnez %[n], 1b" : [n]"+r"(n) );
+}
 
 static void FinishBuffer(void)
 {
@@ -119,21 +129,35 @@ static void SendBitRVSWD( struct SWIOState * state, int val )
 		funDigitalWrite( PIN_SWD_OUT, 0 );
 	}
 	funPinMode( PIN_SWD_OUT, GPIO_CFGLR_OUT_10Mhz_OD );
-	SWD_DELAY;
+	Delay_Tiny_Inline(state->t1coeff);
 	funDigitalWrite( PIN_SWCLK, 1 );
-	SWD_DELAY;
+	Delay_Tiny_Inline(state->t1coeff);
 }
 
 static int ReadBitRVSWD( struct SWIOState * state )
 {
-	funPinMode( PIN_SWD_OUT, GPIO_CFGLR_IN_PUPD );
-	funDigitalWrite( PIN_SWD_OUT, 1 );
+	funPinMode( PIN_SWD_OUT, GPIO_CFGLR_IN_FLOAT );
+	// funDigitalWrite( PIN_SWD_OUT, 1 );
 	funDigitalWrite( PIN_SWCLK, 0 );
-	SWD_DELAY;
+	Delay_Tiny_Inline(state->t1coeff);
 	int r = !!(funDigitalRead( PIN_SWD_IN ));
 	funDigitalWrite( PIN_SWCLK, 1 );
-	SWD_DELAY;
+	Delay_Tiny_Inline(state->t1coeff);
 	return r;
+}
+
+static void SWDStop( struct SWIOState * state )
+{
+	funDigitalWrite( PIN_SWCLK, 0 );
+	Delay_Tiny_Inline(state->t1coeff);
+	funDigitalWrite( PIN_SWD_OUT, 0 );
+	funPinMode( PIN_SWD_OUT, GPIO_CFGLR_OUT_50Mhz_PP );
+	Delay_Tiny_Inline(state->t1coeff);
+	funDigitalWrite( PIN_SWCLK, 1 );
+	Delay_Tiny_Inline(state->t1coeff);
+	funDigitalWrite( PIN_SWD_OUT, 1 );
+
+	Delay_Us(2); // Sometimes 2 is too short.
 }
 
 static void RVFinishRegop( struct SWIOState * state )
@@ -144,18 +168,70 @@ static void RVFinishRegop( struct SWIOState * state )
 	SendBitRVSWD( state, 1 ); // 0 for register, 1 for value
 	SendBitRVSWD( state, 0 ); // ??? Seems to have something to do with halting?
 
-
-	funDigitalWrite( PIN_SWCLK, 0 );
-	SWD_DELAY;
-	funDigitalWrite( PIN_SWD_OUT, 0 );
-	funPinMode( PIN_SWD_OUT, GPIO_CFGLR_OUT_50Mhz_PP );
-	SWD_DELAY;
-	funDigitalWrite( PIN_SWCLK, 1 );
-	SWD_DELAY;
-	funDigitalWrite( PIN_SWD_OUT, 1 );
-
-	Delay_Us(2); // Sometimes 2 is too short.
+	SWDStop( state );
 }
+
+#if defined(OLD_SWD_SUPPORT) && OLD_SWD_SUPPORT
+static void SWDWakeUP( struct SWIOState * state )
+{
+	Delay_Tiny_Inline(SWD_T4);
+	for (int i = 0; i < 100; i++) {
+		funDigitalWrite( PIN_SWCLK, 0 );
+		Delay_Tiny_Inline(state->t1coeff);
+		funDigitalWrite( PIN_SWCLK, 1 );
+		Delay_Tiny_Inline(state->t1coeff);
+	}
+
+	SWDStop( state );
+}
+
+static void SWDLongOP( struct SWIOState * state, uint8_t reg, uint32_t * value, uint8_t op )
+{
+	uint32_t mask;
+	// Start
+	funDigitalWrite( PIN_SWD_OUT, 0 );
+	Delay_Tiny_Inline(SWD_T4);
+
+	for( mask = 1<<6; mask; mask >>= 1 )
+	{
+		int v = !!(reg & mask);
+		SendBitRVSWD( state, v );
+	}
+	for( mask = 1<<31; mask; mask >>= 1 )
+	{
+		int v = !!(*value & mask);
+		SendBitRVSWD( state, v );
+	}
+
+	SendBitRVSWD( state, op&2 );
+	SendBitRVSWD( state, op&1 );
+	// SendBitRVSWD( state, 0 ); // Parity is always 0
+	ReadBitRVSWD( state );
+
+	for( int i = 0; i < 7; i++ )
+	{
+		ReadBitRVSWD( state );
+	}
+
+	uint32_t rval = 0;
+	for( int i = 0; i < 32; i++ )
+	{
+		rval <<= 1;
+		int r = ReadBitRVSWD( state );
+		if( r == 1 ) rval |= 1;
+	}
+
+	ReadBitRVSWD( state );
+	ReadBitRVSWD( state );
+
+	if ( op == 2 ) ReadBitRVSWD( state );
+	else SendBitRVSWD( state, 1 );
+
+	SWDStop( state );
+
+	if ( op == 1 ) memcpy( value, &rval, 4 );
+}
+#endif
 
 static void MCFWriteReg32( struct SWIOState * state, uint8_t command, uint32_t value )
 {
@@ -188,7 +264,7 @@ static void MCFWriteReg32( struct SWIOState * state, uint8_t command, uint32_t v
 	{
 		uint32_t mask;
 		funDigitalWrite( PIN_SWD_OUT, 0 );
-		SWD_DELAY;
+		Delay_Tiny_Inline(state->t1coeff);
 		int parity = 1;
 		for( mask = 1<<6; mask; mask >>= 1 )
 		{
@@ -214,6 +290,13 @@ static void MCFWriteReg32( struct SWIOState * state, uint8_t command, uint32_t v
 		SendBitRVSWD( state, parity );
 		RVFinishRegop( state );
 	}
+#if defined(OLD_SWD_SUPPORT) && OLD_SWD_SUPPORT
+	else if( state->opmode == 3 )
+	{
+		uint32_t data = value;
+		SWDLongOP( state, command, &data, 2 );
+	}
+#endif
 }
 
 // returns 0 if no error, otherwise error.
@@ -273,7 +356,7 @@ static int MCFReadReg32( struct SWIOState * state, uint8_t command, uint32_t * v
 	{
 		int mask;
 		funDigitalWrite( PIN_SWD_OUT, 0 );
-		SWD_DELAY;
+		Delay_Tiny_Inline(state->t1coeff);
 		int parity = 0;
 		for( mask = 1<<6; mask; mask >>= 1 )
 		{
@@ -316,9 +399,16 @@ static int MCFReadReg32( struct SWIOState * state, uint8_t command, uint32_t * v
 			RVFinishRegop( state );
 			return -1;
 		}
-
 		RVFinishRegop( state );
 	}
+	#if defined(OLD_SWD_SUPPORT) && OLD_SWD_SUPPORT
+	else if( state->opmode == 3 )
+	{
+		uint32_t reply = 0;
+		SWDLongOP( state, command, &reply, 1 );
+		*value = reply;
+	}
+#endif
 	return 0;
 }
 
@@ -328,8 +418,8 @@ void ConfigureIOForRVSWD( struct SWIOState * state )
 	funPinMode( PIN_SWCLK, GPIO_CFGLR_OUT_10Mhz_PP );
 	funDigitalWrite( PIN_SWD_OUT, 1 );
 	funPinMode( PIN_SWD_OUT, GPIO_CFGLR_OUT_10Mhz_PP );
-	funDigitalWrite( PIN_SWD_IN, 1 );
-	funPinMode( PIN_SWD_IN, GPIO_CFGLR_IN_PUPD );
+	// funDigitalWrite( PIN_SWD_IN, 1 );
+	funPinMode( PIN_SWD_IN, GPIO_CFGLR_IN_FLOAT );
 }
 
 void ConfigureIOForRVSWIO( struct SWIOState * state )
@@ -440,6 +530,25 @@ void ConfigureIOForRVSWIO( struct SWIOState * state )
 		0                 |                  // NO Whole-trigger
 		DMA_CFGR1_EN;                        // Enable
 
+}
+
+static void SetProtocolSpeed( struct SWIOState * state, enum ProtocolSpeed speed )
+{
+	switch( speed )
+	{
+		case PROTOCOL_SPEED_DEFAULT:
+			state->t1coeff = SWD_T1;
+			break;
+
+		case PROTOCOL_SPEED_MEDIUM:
+			state->t1coeff = SWD_T2;
+			break;
+
+		case PROTOCOL_SPEED_LOW:
+			state->t1coeff = SWD_T3;
+			break;
+	}
+	state->protocol_speed = speed;
 }
 
 #endif
